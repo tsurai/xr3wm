@@ -1,0 +1,8 @@
+[package]
+
+name = "r3wm"
+version = "0.0.1"
+authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
+
+[dependencies.xlib]
+git = "https://github.com/servo/rust-xlib.git"
