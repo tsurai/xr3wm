@@ -9,5 +9,5 @@ mod xlib_window_system;
 fn main() {
   let mut ws = XlibWindowSystem::new().unwrap();
 
-  info!("starting r3wm");
+  info!("starting xr3wm");
 }

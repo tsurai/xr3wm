@@ -1,6 +1,6 @@
 [project]
 
-name = "r3wm"
+name = "xr3wm"
 version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 
@@ -8,4 +8,4 @@ authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 git = "https://github.com/servo/rust-xlib.git"
 
 [[bin]]
-name = "r3wm"
+name = "xr3wm"

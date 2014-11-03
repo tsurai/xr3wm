@@ -1,4 +1,4 @@
-r3wm
+xr3wm
 ====
 
-i3wm inspiered tiling window manager written in Rust
+i3 and xmonad inspiered tiling window manager written in Rust
