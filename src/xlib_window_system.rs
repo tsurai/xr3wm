@@ -1,6 +1,6 @@
-
 extern crate libc;
 
+use std::io::Command;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
@@ -16,14 +16,18 @@ use xlib::{ Display,
             XSync,
             XNextEvent,
             XMapWindow,
+            XReparentWindow,
             XMoveWindow,
             XResizeWindow,
             XSetWindowBorderWidth,
             XSetWindowBorder,
             XFetchName,
+            XCreateSimpleWindow,
             XMapRequestEvent,
             XEnterWindowEvent,
-            XLeaveWindowEvent
+            XKeyPressedEvent,
+            XLeaveWindowEvent,
+            XRaiseWindow
           };
 
 const KeyPress               : uint = 2;
@@ -70,15 +74,18 @@ const NotifyPointerRoot      : uint = 6;
 const NotifyDetailNone       : uint = 7;
 
 pub struct XlibWindowSystem {
-  display: *mut Display,
-  root: Window,
-  event: *mut c_void
+  display:        *mut Display,
+  root:           Window,
+  event:          *mut c_void,
+  workspaces:     Vec<Window>,
+  cur_workspace:  Window
 }
 
 pub enum XlibEvent {
   XMapRequest(Window),
   XEnterNotify(Window, uint),
   XLeaveNotify(Window, uint),
+  XKeyPress(Window, uint, uint),
   Unknown
 }
 
@@ -92,13 +99,43 @@ impl XlibWindowSystem {
 
       let root = XDefaultRootWindow(display);
 
-      XSelectInput(display, root, 0x180030);
+      XSelectInput(display, root, 0x180031);
 
       Some(XlibWindowSystem{
         display: display,
         root: root,
-        event: malloc(256)
+        event: malloc(256),
+        workspaces: Vec::new(),
+        cur_workspace: 0
       })
+    }
+  }
+
+  pub fn init(&mut self) {
+    // setup workspace
+    self.init_workspaces();
+    self.change_to_workspace(0);
+  }
+
+  fn init_workspaces(&mut self) {
+    for i in range(0u, 9) {
+      unsafe {
+        let window = XCreateSimpleWindow(self.display, self.root, 0, 0, self.get_display_width(0), self.get_display_height(0), 0, 0, 20*i as u64);
+        self.workspaces.push(window);
+        XMapWindow(self.display, window);
+      }
+    }
+  }
+
+  fn change_to_workspace(&mut self, index: uint) {
+    let new_workspace = self.workspaces[index];
+
+    if new_workspace != self.cur_workspace {
+      println!("Workspace {}", index + 1);
+      self.cur_workspace = new_workspace;
+      unsafe {
+        XRaiseWindow(self.display, new_workspace);
+      }
     }
   }
 
@@ -116,6 +153,7 @@ impl XlibWindowSystem {
 
   fn map_window(&self, window: Window) {
     unsafe {
+      XReparentWindow(self.display, window, self.cur_workspace, 0, 0);
       XMapWindow(self.display, window);
     }
   }
@@ -179,7 +217,7 @@ impl XlibWindowSystem {
 
   fn get_event(&self) -> XlibEvent {
     unsafe {
-      XSync(self.display, 0);
+      //XSync(self.display, 0);
       XNextEvent(self.display, self.event);
     }
 
@@ -196,15 +234,18 @@ impl XlibWindowSystem {
       LeaveNotify => {
         let evt: &XLeaveWindowEvent = self.cast_event_to();
         XLeaveNotify(evt.window, evt.detail as uint)
+      },
+      KeyPress => {
+        let evt: &XKeyPressedEvent = self.cast_event_to();
+        XKeyPress(evt.window, evt.state as uint, evt.keycode as uint)
       }
       _ => {
-        println!("other event {}", evt_type);
         Unknown
       }
     }
   }
 
-  pub fn event_loop(&self) {
+  pub fn event_loop(&mut self) {
     loop {
       match self.get_event() {
         XMapRequest(window) => {
@@ -216,17 +257,24 @@ impl XlibWindowSystem {
           self.create_window(0, 0, self.get_display_width(0)/2, self.get_display_height(0), window);
         },
         XEnterNotify(window, detail) => {
-          if detail != 2 {
-            println!("Enter {}", self.get_window_name(window));
+          if detail != NotifyInferior {
             self.set_window_border_color(window, 0x0000FF00);
           }
         },
         XLeaveNotify(window, detail) => {
-          if detail != 2 {
-            println!("Leave {}", self.get_window_name(window));
+          if detail != NotifyInferior {
             self.set_window_border_color(window, 0x00FF0000);
           }
-        }
+        },
+        XKeyPress(window, state, keycode) => {
+          if state == 80 {
+            if keycode > 9 && keycode < 19 {
+              self.change_to_workspace(keycode - 10);
+            } else if keycode == 36 {
+              spawn(proc() { Command::new("xterm").spawn(); });
+            }
+          }
+        },
         Unknown => {
 
         }

@@ -3,13 +3,13 @@
 extern crate log;
 extern crate xlib;
 
-use xlib_window_system::{XlibWindowSystem, XMapRequest};
+use xlib_window_system::{XlibWindowSystem};
 
 mod xlib_window_system;
 
 fn main() {
-  let ws = XlibWindowSystem::new().unwrap();
-  info!("starting xr3wm");
+  let mut ws = XlibWindowSystem::new().unwrap();
+  ws.init();
 
   ws.event_loop();
 }
