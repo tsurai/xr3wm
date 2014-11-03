@@ -1,6 +1,5 @@
 extern crate libc;
 
-use std::io::Command;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
@@ -76,9 +75,7 @@ const NotifyDetailNone       : uint = 7;
 pub struct XlibWindowSystem {
   display:        *mut Display,
   root:           Window,
-  event:          *mut c_void,
-  workspaces:     Vec<Window>,
-  cur_workspace:  Window
+  event:          *mut c_void
 }
 
 pub enum XlibEvent {
@@ -98,62 +95,39 @@ impl XlibWindowSystem {
       }
 
       let root = XDefaultRootWindow(display);
-
       XSelectInput(display, root, 0x180031);
 
       Some(XlibWindowSystem{
         display: display,
         root: root,
-        event: malloc(256),
-        workspaces: Vec::new(),
-        cur_workspace: 0
+        event: malloc(256)
       })
     }
   }
 
-  pub fn init(&mut self) {
-    // setup workspace
-    self.init_workspaces();
-    self.change_to_workspace(0);
-  }
-
-  fn init_workspaces(&mut self) {
-    for i in range(0u, 9) {
-      unsafe {
-        let window = XCreateSimpleWindow(self.display, self.root, 0, 0, self.get_display_width(0), self.get_display_height(0), 0, 0, 20*i as u64);
-        self.workspaces.push(window);
-        XMapWindow(self.display, window);
-      }
+  pub fn new_vroot(&self) -> Window {
+    unsafe {
+      let window = XCreateSimpleWindow(self.display, self.root, 0, 0, self.get_display_width(0), self.get_display_height(0), 0, 0, 0);
+      XMapWindow(self.display, window);
+      window
     }
   }
 
-  fn change_to_workspace(&mut self, index: uint) {
-    let new_workspace = self.workspaces[index];
-
-    if new_workspace != self.cur_workspace {
-      println!("Workspace {}", index + 1);
-      self.cur_workspace = new_workspace;
-      unsafe {
-        XRaiseWindow(self.display, new_workspace);
-      }
-    }
-  }
-
-  fn get_display_width(&self, screen: u32) -> u32 {
+  pub fn get_display_width(&self, screen: u32) -> u32 {
     unsafe {
       XDisplayWidth(self.display, screen as i32) as u32
     }
   }
 
-  fn get_display_height(&self, screen: u32) -> u32 {
+  pub fn get_display_height(&self, screen: u32) -> u32 {
     unsafe {
       XDisplayHeight(self.display, screen as i32) as u32
     }
   }
 
-  fn map_window(&self, window: Window) {
+  pub fn map_to_parent(&self, parent: Window, window: Window) {
     unsafe {
-      XReparentWindow(self.display, window, self.cur_workspace, 0, 0);
+      XReparentWindow(self.display, window, parent, 0, 0);
       XMapWindow(self.display, window);
     }
   }
@@ -170,7 +144,13 @@ impl XlibWindowSystem {
     }
   }
 
-  fn set_window_border_width(&self, window: Window, width: u32) {
+  pub fn raise_window(&self, window: Window) {
+    unsafe {
+      XRaiseWindow(self.display, window);
+    }
+  }
+
+  pub fn set_window_border_width(&self, window: Window, width: u32) {
     if window != self.root {
       unsafe {
         XSetWindowBorderWidth(self.display, window, width);
@@ -178,7 +158,7 @@ impl XlibWindowSystem {
     }
   }
 
-  fn set_window_border_color(&self, window: Window, color: u64) {
+  pub fn set_window_border_color(&self, window: Window, color: u64) {
     if window != self.root {
       unsafe {
         XSetWindowBorder(self.display, window, color);
@@ -186,13 +166,16 @@ impl XlibWindowSystem {
     }
   }
 
-  fn create_window(&self, x: u32, y: u32, width: u32, height: u32, window: Window) {
+  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, window: Window) {
+    unsafe {
+      XSelectInput(self.display, window, 0x000031);
+    }
+
     let bw = 2;
     self.move_window(window, x, y);
     self.resize_window(window, width - bw * 2, height - bw * 2);
     self.set_window_border_width(window, bw);
     self.set_window_border_color(window, 0x00FF0000);
-    self.map_window(window);
   }
 
   fn get_window_name(&self, window: Window) -> String {
@@ -215,9 +198,9 @@ impl XlibWindowSystem {
     }
   }
 
-  fn get_event(&self) -> XlibEvent {
+  pub fn get_event(&self) -> XlibEvent {
     unsafe {
-      //XSync(self.display, 0);
+      XSync(self.display, 0);
       XNextEvent(self.display, self.event);
     }
 
@@ -241,43 +224,6 @@ impl XlibWindowSystem {
       }
       _ => {
         Unknown
-      }
-    }
-  }
-
-  pub fn event_loop(&mut self) {
-    loop {
-      match self.get_event() {
-        XMapRequest(window) => {
-          println!("Map Request for {}", self.get_window_name(window));
-          unsafe {
-            XSelectInput(self.display, window, 0x000030);
-          }
-
-          self.create_window(0, 0, self.get_display_width(0)/2, self.get_display_height(0), window);
-        },
-        XEnterNotify(window, detail) => {
-          if detail != NotifyInferior {
-            self.set_window_border_color(window, 0x0000FF00);
-          }
-        },
-        XLeaveNotify(window, detail) => {
-          if detail != NotifyInferior {
-            self.set_window_border_color(window, 0x00FF0000);
-          }
-        },
-        XKeyPress(window, state, keycode) => {
-          if state == 80 {
-            if keycode > 9 && keycode < 19 {
-              self.change_to_workspace(keycode - 10);
-            } else if keycode == 36 {
-              spawn(proc() { Command::new("xterm").spawn(); });
-            }
-          }
-        },
-        Unknown => {
-
-        }
       }
     }
   }
