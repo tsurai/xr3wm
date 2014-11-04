@@ -18,11 +18,13 @@ use xlib::{ Display,
             XReparentWindow,
             XMoveWindow,
             XResizeWindow,
+            XMoveResizeWindow,
             XSetWindowBorderWidth,
             XSetWindowBorder,
             XFetchName,
             XCreateSimpleWindow,
             XMapRequestEvent,
+            XDestroyWindowEvent,
             XEnterWindowEvent,
             XKeyPressedEvent,
             XLeaveWindowEvent,
@@ -80,6 +82,8 @@ pub struct XlibWindowSystem {
 
 pub enum XlibEvent {
   XMapRequest(Window),
+  XUnmapNotify(Window),
+  XDestroyNotify(Window),
   XEnterNotify(Window, uint),
   XLeaveNotify(Window, uint),
   XKeyPress(Window, uint, uint),
@@ -95,7 +99,7 @@ impl XlibWindowSystem {
       }
 
       let root = XDefaultRootWindow(display);
-      XSelectInput(display, root, 0x180031);
+      XSelectInput(display, root, 0x100031);
 
       Some(XlibWindowSystem{
         display: display,
@@ -132,15 +136,22 @@ impl XlibWindowSystem {
     }
   }
 
-  fn move_window(&self, window: Window, x: u32, y: u32) {
+  pub fn move_window(&self, window: Window, x: uint, y: uint) {
     unsafe {
       XMoveWindow(self.display, window, x as i32, y as i32);
     }
   }
 
-  fn resize_window(&self, window: Window, width: u32, height: u32) {
+  pub fn resize_window(&self, window: Window, width: uint, height: uint) {
     unsafe {
-      XResizeWindow(self.display, window, width, height);
+      // TODO: the borderwidth should not be hardcoded
+      XResizeWindow(self.display, window, width as u32 - 2, height as u32 - 2);
+    }
+  }
+
+  pub fn move_resize_window(&self, window: Window, x: uint, y: uint, width: uint, height: uint) {
+    unsafe {
+      XMoveResizeWindow(self.display, window, x as i32, y as i32, width as u32, height as u32);
     }
   }
 
@@ -150,10 +161,10 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn set_window_border_width(&self, window: Window, width: u32) {
+  pub fn set_window_border_width(&self, window: Window, width: uint) {
     if window != self.root {
       unsafe {
-        XSetWindowBorderWidth(self.display, window, width);
+        XSetWindowBorderWidth(self.display, window, width as u32);
       }
     }
   }
@@ -166,16 +177,16 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, window: Window) {
+  pub fn setup_window(&self, x: uint, y: uint, width: uint, height: uint, vroot: Window, window: Window) {
     unsafe {
-      XSelectInput(self.display, window, 0x000031);
+      XSelectInput(self.display, window, 0x020031);
     }
 
-    let bw = 2;
-    self.move_window(window, x, y);
-    self.resize_window(window, width - bw * 2, height - bw * 2);
-    self.set_window_border_width(window, bw);
+    self.set_window_border_width(window, 1);
     self.set_window_border_color(window, 0x00FF0000);
+
+    self.map_to_parent(vroot, window);
+    self.move_resize_window(window, x, y, width, height);
   }
 
   fn get_window_name(&self, window: Window) -> String {
@@ -200,7 +211,6 @@ impl XlibWindowSystem {
 
   pub fn get_event(&self) -> XlibEvent {
     unsafe {
-      XSync(self.display, 0);
       XNextEvent(self.display, self.event);
     }
 
@@ -209,6 +219,10 @@ impl XlibWindowSystem {
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         XMapRequest(evt.window)
+      },
+      DestroyNotify => {
+        let evt : &XDestroyWindowEvent = self.cast_event_to();
+        XDestroyNotify(evt.window)
       },
       EnterNotify => {
         let evt: &XEnterWindowEvent = self.cast_event_to();

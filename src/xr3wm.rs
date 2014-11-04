@@ -1,19 +1,33 @@
-#![feature(phase)]
-#[phase(plugin, link)]
-extern crate log;
 extern crate xlib;
 
 use std::io::Command;
+use layout::{Layout, TallLayout};
 use xlib::Window;
-use xlib_window_system::{XlibWindowSystem, XMapRequest, XEnterNotify, XLeaveNotify, XKeyPress};
+use xlib_window_system::{ XlibWindowSystem,
+                          XMapRequest,
+                          XDestroyNotify,
+                          XEnterNotify,
+                          XLeaveNotify,
+                          XKeyPress};
 
 mod xlib_window_system;
+mod layout;
 
 struct Workspace {
   vroot: Window,
   tag: String,
   screen: uint,
-  windows: Vec<Window>
+  layout: Box<Layout + 'static>
+}
+
+impl Workspace {
+  pub fn add_window(&mut self, ws: &XlibWindowSystem, window: Window) {
+    self.layout.add_window(ws, self.vroot, window)
+  }
+
+  pub fn remove_window(&mut self, ws: &XlibWindowSystem, window: Window) {
+    self.layout.remove_window(ws, self.vroot, window)
+  }
 }
 
 struct Workspaces {
@@ -22,17 +36,17 @@ struct Workspaces {
 }
 
 impl Workspaces {
-  pub fn new(ws: &XlibWindowSystem, count: uint, tags: Vec<String>) -> Workspaces {
+  pub fn new(ws: &XlibWindowSystem, count: uint, tags: Vec<String>) -> Workspaces{
     Workspaces{
       vec: Vec::from_fn(9, |idx| {
         Workspace {
           vroot: ws.new_vroot(),
           tag: tags[idx].clone(),
           screen: 0,
-          windows: Vec::new()
+          layout: TallLayout::new(),
         }
       }),
-      cur: 99
+      cur: 99,
     }
   }
 
@@ -58,18 +72,20 @@ fn main() {
   loop {
     match ws.get_event() {
       XMapRequest(window) => {
-        println!("MapRequest");
-        ws.setup_window(0, 0, ws.get_display_width(0)/2, ws.get_display_height(0), window);
-        ws.map_to_parent(workspaces.get_current().vroot, window);
-        workspaces.get_current().windows.push(window);
+        workspaces.get_current().add_window(ws, window);
+      },
+      XDestroyNotify(window) => {
+        println!("destroy {}", window);
       },
       XEnterNotify(window, detail) => {
         if detail != 2 {
+          println!("enter notify {}", window);
           ws.set_window_border_color(window, 0x0000FF00);
         }
       },
       XLeaveNotify(window, detail) => {
         if detail != 2 {
+          println!("leave notify {}", window);
           ws.set_window_border_color(window, 0x00FF0000);
         }
       },
@@ -78,7 +94,7 @@ fn main() {
           if keycode > 9 && keycode < 19 {
             workspaces.change_to(ws, keycode - 10);
           } else if keycode == 36 {
-            spawn(proc() { Command::new("xterm").spawn(); });
+            spawn(proc() { Command::new("xterm").arg("-class").arg("UXTerm").arg("-u8").spawn(); });
           }
         }
       },
