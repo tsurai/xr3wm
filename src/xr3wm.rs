@@ -5,6 +5,7 @@ use layout::{Layout, TallLayout};
 use xlib::Window;
 use xlib_window_system::{ XlibWindowSystem,
                           XMapRequest,
+                          XConfigurationRequest,
                           XDestroyNotify,
                           XEnterNotify,
                           XLeaveNotify,
@@ -17,16 +18,29 @@ struct Workspace {
   vroot: Window,
   tag: String,
   screen: uint,
+  windows: Vec<Window>,
   layout: Box<Layout + 'static>
 }
 
 impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, window: Window) {
-    self.layout.add_window(ws, self.vroot, window)
+    self.windows.push(window);
+    self.apply_layout(ws);
   }
 
-  pub fn remove_window(&mut self, ws: &XlibWindowSystem, window: Window) {
-    self.layout.remove_window(ws, self.vroot, window)
+  pub fn remove_window(&mut self, ws: &XlibWindowSystem, index: uint) {
+    self.windows.remove(index);
+    self.apply_layout(ws);
+  }
+
+  fn apply_layout(&self, ws: &XlibWindowSystem) {
+    for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
+      ws.setup_window(rect.x as uint, rect.y as uint, rect.width as uint, rect.height as uint, self.vroot, self.windows[i]);
+    }
+  }
+
+  pub fn index_of(&self, window: Window) -> Option<uint> {
+    self.windows.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last()
   }
 }
 
@@ -42,8 +56,9 @@ impl Workspaces {
         Workspace {
           vroot: ws.new_vroot(),
           tag: tags[idx].clone(),
-          screen: 0,
-          layout: TallLayout::new(),
+          screen: count,
+          windows: Vec::new(),
+          layout: TallLayout::new(1),
         }
       }),
       cur: 99,
@@ -54,17 +69,33 @@ impl Workspaces {
     self.vec.get_mut(self.cur)
   }
 
+  pub fn get_by_vroot(&mut self, vroot: Window) -> &mut Workspace {
+    let index = self.vec.iter().enumerate().find(|&(_,ref w)| w.vroot == vroot).unwrap().val0();
+    self.vec.get_mut(index)
+  }
+
   pub fn change_to(&mut self, ws: &XlibWindowSystem, index: uint) {
      if self.cur != index {
-      println!("Workspace {}", index + 1);
       self.cur = index;
       ws.raise_window(self.vec[index].vroot);
+    }
+  }
+
+  pub fn remove_window(&mut self, ws: &XlibWindowSystem, window: Window) {
+    for workspace in self.vec.iter_mut() {
+      match workspace.index_of(window) {
+        Some(index) => {
+          workspace.remove_window(ws, index);
+          return;
+        },
+        None => {}
+      }
     }
   }
 }
 
 fn main() {
-  let ws = &XlibWindowSystem::new().unwrap();
+  let mut ws = &mut XlibWindowSystem::new().unwrap();
 
   let mut workspaces = Workspaces::new(ws, 9, Vec::from_fn(9, |idx| idx.to_string()));
   workspaces.change_to(ws, 0);
@@ -75,17 +106,18 @@ fn main() {
         workspaces.get_current().add_window(ws, window);
       },
       XDestroyNotify(window) => {
-        println!("destroy {}", window);
+        workspaces.remove_window(ws, window);
+      },
+      XConfigurationRequest(window, changes, mask) => {
+        ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window, detail) => {
         if detail != 2 {
-          println!("enter notify {}", window);
           ws.set_window_border_color(window, 0x0000FF00);
         }
       },
       XLeaveNotify(window, detail) => {
         if detail != 2 {
-          println!("leave notify {}", window);
           ws.set_window_border_color(window, 0x00FF0000);
         }
       },

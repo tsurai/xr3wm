@@ -1,5 +1,9 @@
+#![allow(non_upper_case_globals)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 extern crate libc;
 
+use layout::Rect;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
@@ -7,14 +11,17 @@ use self::libc::{c_void, c_int, c_char};
 use self::libc::funcs::c95::stdlib::malloc;
 use xlib::{ Display,
             Window,
+            XWindowChanges,
             XOpenDisplay,
             XDefaultRootWindow,
             XSelectInput,
             XDisplayWidth,
             XDisplayHeight,
-            XSync,
             XNextEvent,
+            XErrorEvent,
+            XSetErrorHandler,
             XMapWindow,
+            XConfigureWindow,
             XReparentWindow,
             XMoveWindow,
             XResizeWindow,
@@ -24,12 +31,19 @@ use xlib::{ Display,
             XFetchName,
             XCreateSimpleWindow,
             XMapRequestEvent,
+            XConfigureRequestEvent,
             XDestroyWindowEvent,
             XEnterWindowEvent,
             XKeyPressedEvent,
             XLeaveWindowEvent,
             XRaiseWindow
           };
+
+extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
+  // TODO: proper error handling
+  // HACK: fixes LeaveNotify on invalid windows
+  return 0;
+}
 
 const KeyPress               : uint = 2;
 const KeyRelease             : uint = 3;
@@ -65,15 +79,6 @@ const ColormapNotify         : uint = 32;
 const ClientMessage          : uint = 33;
 const MappingNotify          : uint = 34;
 
-const NotifyAncestor         : uint = 0;
-const NotifyVirtual          : uint = 1;
-const NotifyInferior         : uint = 2;
-const NotifyNonlinear        : uint = 3;
-const NotifyNonlinearVirtual : uint = 4;
-const NotifyPointer          : uint = 5;
-const NotifyPointerRoot      : uint = 6;
-const NotifyDetailNone       : uint = 7;
-
 pub struct XlibWindowSystem {
   display:        *mut Display,
   root:           Window,
@@ -83,11 +88,23 @@ pub struct XlibWindowSystem {
 pub enum XlibEvent {
   XMapRequest(Window),
   XUnmapNotify(Window),
+  XConfigurationRequest(Window, WindowChanges, u64),
   XDestroyNotify(Window),
   XEnterNotify(Window, uint),
   XLeaveNotify(Window, uint),
   XKeyPress(Window, uint, uint),
   Unknown
+}
+
+
+pub struct WindowChanges {
+  pub x: uint,
+  pub y: uint,
+  pub width: uint,
+  pub height: uint,
+  pub border_width: uint,
+  pub sibling: Window,
+  pub stack_mode: uint,
 }
 
 impl XlibWindowSystem {
@@ -100,6 +117,8 @@ impl XlibWindowSystem {
 
       let root = XDefaultRootWindow(display);
       XSelectInput(display, root, 0x100031);
+
+      XSetErrorHandler(error_handler as *mut u8);
 
       Some(XlibWindowSystem{
         display: display,
@@ -129,12 +148,31 @@ impl XlibWindowSystem {
     }
   }
 
+  pub fn get_display_rect(&self, screen: u32) -> Rect {
+    Rect{x: 0, y: 0, width: self.get_display_width(screen), height: self.get_display_height(screen)}
+  }
+
   pub fn map_to_parent(&self, parent: Window, window: Window) {
     unsafe {
       XReparentWindow(self.display, window, parent, 0, 0);
       XMapWindow(self.display, window);
     }
   }
+
+  pub fn configure_window(&mut self, window: Window, window_changes: WindowChanges, mask: u64) {
+    unsafe {
+      let mut ret_window_changes = XWindowChanges{
+        x: window_changes.x as i32,
+        y: window_changes.y as i32,
+        width: window_changes.width as i32,
+        height: window_changes.height as i32,
+        border_width: window_changes.border_width as i32,
+        sibling: window_changes.sibling,
+        stack_mode: window_changes.stack_mode as i32
+      };
+      XConfigureWindow(self.display, window, mask as u32, &mut ret_window_changes);
+    }
+}
 
   pub fn move_window(&self, window: Window, x: uint, y: uint) {
     unsafe {
@@ -219,6 +257,19 @@ impl XlibWindowSystem {
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         XMapRequest(evt.window)
+      },
+      ConfigureRequest => {
+        let event : &XConfigureRequestEvent = self.cast_event_to();
+        let changes = WindowChanges{
+          x: event.x as uint,
+          y: event.y as uint,
+          width: event.width as uint,
+          height: event.height as uint,
+          border_width: event.border_width as uint,
+          sibling: event.above as Window,
+          stack_mode: event.detail as uint
+        };
+        XConfigurationRequest(event.window, changes, event.value_mask)
       },
       DestroyNotify => {
         let evt : &XDestroyWindowEvent = self.cast_event_to();
