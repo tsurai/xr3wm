@@ -45,39 +45,39 @@ extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int
   return 0;
 }
 
-const KeyPress               : uint = 2;
-const KeyRelease             : uint = 3;
-const ButtonPress            : uint = 4;
-const ButtonRelease          : uint = 5;
-const MotionNotify           : uint = 6;
-const EnterNotify            : uint = 7;
-const LeaveNotify            : uint = 8;
-const FocusIn                : uint = 9;
-const FocusOut               : uint = 10;
-const KeymapNotify           : uint = 11;
-const Expose                 : uint = 12;
-const GraphicsExpose         : uint = 13;
-const NoExpose               : uint = 14;
-const VisibilityNotify       : uint = 15;
-const CreateNotify           : uint = 16;
-const DestroyNotify          : uint = 17;
-const UnmapNotify            : uint = 18;
-const MapNotify              : uint = 19;
-const MapRequest             : uint = 20;
-const ReparentNotify         : uint = 21;
-const ConfigureNotify        : uint = 22;
-const ConfigureRequest       : uint = 23;
-const GravityNotify          : uint = 24;
-const ResizeRequest          : uint = 25;
-const CirculateNotify        : uint = 26;
-const CirculateRequest       : uint = 27;
-const PropertyNotify         : uint = 28;
-const SelectionClear         : uint = 29;
-const SelectionRequest       : uint = 30;
-const SelectionNotify        : uint = 31;
-const ColormapNotify         : uint = 32;
-const ClientMessage          : uint = 33;
-const MappingNotify          : uint = 34;
+const KeyPress               : i32 = 2;
+const KeyRelease             : i32 = 3;
+const ButtonPress            : i32 = 4;
+const ButtonRelease          : i32 = 5;
+const MotionNotify           : i32 = 6;
+const EnterNotify            : i32 = 7;
+const LeaveNotify            : i32 = 8;
+const FocusIn                : i32 = 9;
+const FocusOut               : i32 = 10;
+const KeymapNotify           : i32 = 11;
+const Expose                 : i32 = 12;
+const GraphicsExpose         : i32 = 13;
+const NoExpose               : i32 = 14;
+const VisibilityNotify       : i32 = 15;
+const CreateNotify           : i32 = 16;
+const DestroyNotify          : i32 = 17;
+const UnmapNotify            : i32 = 18;
+const MapNotify              : i32 = 19;
+const MapRequest             : i32 = 20;
+const ReparentNotify         : i32 = 21;
+const ConfigureNotify        : i32 = 22;
+const ConfigureRequest       : i32 = 23;
+const GravityNotify          : i32 = 24;
+const ResizeRequest          : i32 = 25;
+const CirculateNotify        : i32 = 26;
+const CirculateRequest       : i32 = 27;
+const PropertyNotify         : i32 = 28;
+const SelectionClear         : i32 = 29;
+const SelectionRequest       : i32 = 30;
+const SelectionNotify        : i32 = 31;
+const ColormapNotify         : i32 = 32;
+const ClientMessage          : i32 = 33;
+const MappingNotify          : i32 = 34;
 
 pub struct XlibWindowSystem {
   display:        *mut Display,
@@ -90,21 +90,21 @@ pub enum XlibEvent {
   XUnmapNotify(Window),
   XConfigurationRequest(Window, WindowChanges, u64),
   XDestroyNotify(Window),
-  XEnterNotify(Window, uint),
-  XLeaveNotify(Window, uint),
-  XKeyPress(Window, uint, uint),
+  XEnterNotify(Window, i32),
+  XLeaveNotify(Window, i32),
+  XKeyPress(Window, u32, u32),
   Unknown
 }
 
 
 pub struct WindowChanges {
-  pub x: uint,
-  pub y: uint,
-  pub width: uint,
-  pub height: uint,
-  pub border_width: uint,
+  pub x: u32,
+  pub y: u32,
+  pub width: u32,
+  pub height: u32,
+  pub border_width: u32,
   pub sibling: Window,
-  pub stack_mode: uint,
+  pub stack_mode: u32,
 }
 
 impl XlibWindowSystem {
@@ -174,22 +174,22 @@ impl XlibWindowSystem {
     }
 }
 
-  pub fn move_window(&self, window: Window, x: uint, y: uint) {
+  pub fn move_window(&self, window: Window, x: u32, y: u32) {
     unsafe {
       XMoveWindow(self.display, window, x as i32, y as i32);
     }
   }
 
-  pub fn resize_window(&self, window: Window, width: uint, height: uint) {
+  pub fn resize_window(&self, window: Window, width: u32, height: u32) {
     unsafe {
       // TODO: the borderwidth should not be hardcoded
       XResizeWindow(self.display, window, width as u32 - 2, height as u32 - 2);
     }
   }
 
-  pub fn move_resize_window(&self, window: Window, x: uint, y: uint, width: uint, height: uint) {
+  pub fn move_resize_window(&self, window: Window, x: u32, y: u32, width: u32, height: u32) {
     unsafe {
-      XMoveResizeWindow(self.display, window, x as i32, y as i32, width as u32, height as u32);
+      XMoveResizeWindow(self.display, window, x as i32, y as i32, width, height);
     }
   }
 
@@ -199,10 +199,10 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn set_window_border_width(&self, window: Window, width: uint) {
+  pub fn set_window_border_width(&self, window: Window, width: u32) {
     if window != self.root {
       unsafe {
-        XSetWindowBorderWidth(self.display, window, width as u32);
+        XSetWindowBorderWidth(self.display, window, width);
       }
     }
   }
@@ -215,7 +215,7 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn setup_window(&self, x: uint, y: uint, width: uint, height: uint, vroot: Window, window: Window) {
+  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, vroot: Window, window: Window) {
     unsafe {
       XSelectInput(self.display, window, 0x020031);
     }
@@ -241,9 +241,7 @@ impl XlibWindowSystem {
 
   fn cast_event_to<T>(&self) -> &T {
     unsafe {
-      let evt_ptr : *const T = transmute(self.event);
-      let ref evt = *evt_ptr;
-      evt
+      &*(self.event as *const T)
     }
   }
 
@@ -253,7 +251,7 @@ impl XlibWindowSystem {
     }
 
     let evt_type : c_int = *self.cast_event_to();
-    match evt_type as uint {
+    match evt_type{
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         XMapRequest(evt.window)
@@ -261,13 +259,13 @@ impl XlibWindowSystem {
       ConfigureRequest => {
         let event : &XConfigureRequestEvent = self.cast_event_to();
         let changes = WindowChanges{
-          x: event.x as uint,
-          y: event.y as uint,
-          width: event.width as uint,
-          height: event.height as uint,
-          border_width: event.border_width as uint,
+          x: event.x as u32,
+          y: event.y as u32,
+          width: event.width as u32,
+          height: event.height as u32,
+          border_width: event.border_width as u32,
           sibling: event.above as Window,
-          stack_mode: event.detail as uint
+          stack_mode: event.detail as u32
         };
         XConfigurationRequest(event.window, changes, event.value_mask)
       },
@@ -277,15 +275,15 @@ impl XlibWindowSystem {
       },
       EnterNotify => {
         let evt: &XEnterWindowEvent = self.cast_event_to();
-        XEnterNotify(evt.window, evt.detail as uint)
+        XEnterNotify(evt.window, evt.detail)
       },
       LeaveNotify => {
         let evt: &XLeaveWindowEvent = self.cast_event_to();
-        XLeaveNotify(evt.window, evt.detail as uint)
+        XLeaveNotify(evt.window, evt.detail)
       },
       KeyPress => {
         let evt: &XKeyPressedEvent = self.cast_event_to();
-        XKeyPress(evt.window, evt.state as uint, evt.keycode as uint)
+        XKeyPress(evt.window, evt.state, evt.keycode)
       }
       _ => {
         Unknown

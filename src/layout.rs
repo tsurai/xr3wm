@@ -14,11 +14,11 @@ pub trait Layout {
 }
 
 pub struct TallLayout {
-  num_masters: uint
+  num_masters: u32
 }
 
 impl TallLayout {
-  pub fn new(num_masters: uint) -> Box<TallLayout> {
+  pub fn new(num_masters: u32) -> Box<TallLayout> {
     box TallLayout{
       num_masters: num_masters
     }

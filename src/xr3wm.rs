@@ -35,7 +35,7 @@ impl Workspace {
 
   fn apply_layout(&self, ws: &XlibWindowSystem) {
     for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
-      ws.setup_window(rect.x as uint, rect.y as uint, rect.width as uint, rect.height as uint, self.vroot, self.windows[i]);
+      ws.setup_window(rect.x, rect.y, rect.width, rect.height, self.vroot, self.windows[i]);
     }
   }
 
@@ -124,7 +124,7 @@ fn main() {
       XKeyPress(window, state, keycode) => {
         if state == 80 {
           if keycode > 9 && keycode < 19 {
-            workspaces.change_to(ws, keycode - 10);
+            workspaces.change_to(ws, keycode as uint - 10);
           } else if keycode == 36 {
             spawn(proc() { Command::new("xterm").arg("-class").arg("UXTerm").arg("-u8").spawn(); });
           }
