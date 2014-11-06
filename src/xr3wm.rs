@@ -1,6 +1,9 @@
 extern crate xlib;
+extern crate serialize;
 
+use std::os::homedir;
 use std::io::Command;
+use config::Config;
 use layout::{Layout, TallLayout};
 use xlib::Window;
 use xlib_window_system::{ XlibWindowSystem,
@@ -13,6 +16,7 @@ use xlib_window_system::{ XlibWindowSystem,
 
 mod xlib_window_system;
 mod layout;
+mod config;
 
 struct Workspace {
   vroot: Window,
@@ -69,11 +73,6 @@ impl Workspaces {
     self.vec.get_mut(self.cur)
   }
 
-  pub fn get_by_vroot(&mut self, vroot: Window) -> &mut Workspace {
-    let index = self.vec.iter().enumerate().find(|&(_,ref w)| w.vroot == vroot).unwrap().val0();
-    self.vec.get_mut(index)
-  }
-
   pub fn change_to(&mut self, ws: &XlibWindowSystem, index: uint) {
      if self.cur != index {
       self.cur = index;
@@ -95,10 +94,12 @@ impl Workspaces {
 }
 
 fn main() {
-  let mut ws = &mut XlibWindowSystem::new().unwrap();
+  let ws = &mut XlibWindowSystem::new().unwrap();
 
   let mut workspaces = Workspaces::new(ws, 9, Vec::from_fn(9, |idx| idx.to_string()));
   workspaces.change_to(ws, 0);
+
+  let config = Config::load(format!("{}/.xr3wm/config", homedir().unwrap().to_c_str()));
 
   loop {
     match ws.get_event() {
@@ -111,28 +112,23 @@ fn main() {
       XConfigurationRequest(window, changes, mask) => {
         ws.configure_window(window, changes, mask);
       },
-      XEnterNotify(window, detail) => {
-        if detail != 2 {
-          ws.set_window_border_color(window, 0x0000FF00);
-        }
+      XEnterNotify(window) => {
+        ws.set_window_border_color(window, config.get_border_color_as_u64());
       },
-      XLeaveNotify(window, detail) => {
-        if detail != 2 {
-          ws.set_window_border_color(window, 0x00FF0000);
-        }
+      XLeaveNotify(window) => {
+        ws.set_window_border_color(window, config.get_border_focus_color_as_u64());
       },
       XKeyPress(window, state, keycode) => {
         if state == 80 {
           if keycode > 9 && keycode < 19 {
             workspaces.change_to(ws, keycode as uint - 10);
           } else if keycode == 36 {
-            spawn(proc() { Command::new("xterm").arg("-class").arg("UXTerm").arg("-u8").spawn(); });
+            let term = config.terminal.clone();
+            spawn(proc() { Command::new(term).spawn(); });
           }
         }
       },
-      Unknown => {
-
-      }
+      _ => {}
     }
   }
 }

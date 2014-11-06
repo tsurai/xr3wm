@@ -25,6 +25,7 @@ impl TallLayout {
   }
 }
 
+// TODO: adjust dimensions to consider the border width
 impl Layout for TallLayout {
   fn apply(&self, screen: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     Vec::from_fn(windows.len(), |len| {

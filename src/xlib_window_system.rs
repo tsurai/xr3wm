@@ -15,6 +15,7 @@ use xlib::{ Display,
             XOpenDisplay,
             XDefaultRootWindow,
             XSelectInput,
+            XGrabKey,
             XDisplayWidth,
             XDisplayHeight,
             XNextEvent,
@@ -29,6 +30,7 @@ use xlib::{ Display,
             XSetWindowBorderWidth,
             XSetWindowBorder,
             XFetchName,
+            XKillClient,
             XCreateSimpleWindow,
             XMapRequestEvent,
             XConfigureRequestEvent,
@@ -90,10 +92,10 @@ pub enum XlibEvent {
   XUnmapNotify(Window),
   XConfigurationRequest(Window, WindowChanges, u64),
   XDestroyNotify(Window),
-  XEnterNotify(Window, i32),
-  XLeaveNotify(Window, i32),
+  XEnterNotify(Window),
+  XLeaveNotify(Window),
   XKeyPress(Window, u32, u32),
-  Unknown
+  Ignored
 }
 
 
@@ -117,6 +119,8 @@ impl XlibWindowSystem {
 
       let root = XDefaultRootWindow(display);
       XSelectInput(display, root, 0x100031);
+      XGrabKey(display, 0, 81/*64*/, root, 1, 0 /* GrabModeSync*/, 1 /*GrabModeAsync*/);
+      XGrabKey(display, 0, 80/*64*/, root, 1, 0 /* GrabModeSync*/, 1 /*GrabModeAsync*/);
 
       XSetErrorHandler(error_handler as *mut u8);
 
@@ -227,7 +231,7 @@ impl XlibWindowSystem {
     self.move_resize_window(window, x, y, width, height);
   }
 
-  fn get_window_name(&self, window: Window) -> String {
+  pub fn get_window_name(&self, window: Window) -> String {
     if window == self.root {
       return String::from_str("root");
     }
@@ -236,6 +240,12 @@ impl XlibWindowSystem {
       let mut name : *mut c_char = uninitialized();
       XFetchName(self.display, window, &mut name);
       String::from_str(c_str_to_static_slice(transmute(name)))
+    }
+  }
+
+  pub fn kill_window(&self, window: Window) {
+    unsafe {
+      XKillClient(self.display, window);
     }
   }
 
@@ -274,19 +284,27 @@ impl XlibWindowSystem {
         XDestroyNotify(evt.window)
       },
       EnterNotify => {
-        let evt: &XEnterWindowEvent = self.cast_event_to();
-        XEnterNotify(evt.window, evt.detail)
+        let evt : &XEnterWindowEvent = self.cast_event_to();
+        if evt.detail != 2 {
+          XEnterNotify(evt.window)
+        } else {
+          Ignored
+        }
       },
       LeaveNotify => {
-        let evt: &XLeaveWindowEvent = self.cast_event_to();
-        XLeaveNotify(evt.window, evt.detail)
+        let evt : &XLeaveWindowEvent = self.cast_event_to();
+        if evt.detail != 2 {
+          XLeaveNotify(evt.window)
+        } else {
+          Ignored
+        }
       },
       KeyPress => {
-        let evt: &XKeyPressedEvent = self.cast_event_to();
+        let evt : &XKeyPressedEvent = self.cast_event_to();
         XKeyPress(evt.window, evt.state, evt.keycode)
       }
       _ => {
-        Unknown
+        Ignored
       }
     }
   }
