@@ -1,8 +1,8 @@
 use xlib::Window;
-use xlib_window_system::XlibWindowSystem;
+use std::rc::Rc;
 
 #[deriving(Clone)]
-pub struct Rect{
+pub struct Rect {
   pub x: u32,
   pub y: u32,
   pub width: u32,
@@ -13,19 +13,14 @@ pub trait Layout {
   fn apply(&self, Rect, &Vec<Window>) -> Vec<Rect>;
 }
 
+pub fn to_box<T: Layout + 'static>(layout: T) -> Rc<Box<Layout + 'static>> {
+  Rc::new(box layout as Box<Layout>)
+}
+
 pub struct TallLayout {
-  num_masters: u32
+  num_masters: u8
 }
 
-impl TallLayout {
-  pub fn new(num_masters: u32) -> Box<TallLayout> {
-    box TallLayout{
-      num_masters: num_masters
-    }
-  }
-}
-
-// TODO: adjust dimensions to consider the border width
 impl Layout for TallLayout {
   fn apply(&self, screen: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     Vec::from_fn(windows.len(), |len| {
@@ -45,5 +40,13 @@ impl Layout for TallLayout {
         }
       }
     })
+  }
+}
+
+impl TallLayout {
+  pub fn new(num_masters: u8) -> TallLayout {
+    TallLayout {
+      num_masters: 1,
+    }
   }
 }
