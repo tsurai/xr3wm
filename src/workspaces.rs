@@ -31,7 +31,7 @@ impl Workspace {
 
   fn apply_layout(&self, ws: &XlibWindowSystem, config: &Config) {
     for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
-      ws.setup_window(rect.x, rect.y, rect.width - (2 * config.border_width), rect.height - (2 * config.border_width), self.vroot, self.windows[i]);
+      ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.vroot, self.windows[i]);
     }
   }
 

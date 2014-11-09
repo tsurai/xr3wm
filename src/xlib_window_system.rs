@@ -3,6 +3,8 @@
 #![allow(unused_variables)]
 extern crate libc;
 
+use config::Config;
+use keycode::{MOD_2, Keystroke};
 use layout::Rect;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
@@ -38,7 +40,11 @@ use xlib::{ Display,
             XEnterWindowEvent,
             XKeyPressedEvent,
             XLeaveWindowEvent,
-            XRaiseWindow
+            XRaiseWindow,
+            XStringToKeysym,
+            XKeysymToString,
+            XKeycodeToKeysym,
+            XKeysymToKeycode
           };
 
 extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
@@ -82,9 +88,9 @@ const ClientMessage          : i32 = 33;
 const MappingNotify          : i32 = 34;
 
 pub struct XlibWindowSystem {
-  display:        *mut Display,
-  root:           Window,
-  event:          *mut c_void
+  display:   *mut Display,
+  root:      Window,
+  event:     *mut c_void
 }
 
 pub enum XlibEvent {
@@ -94,10 +100,9 @@ pub enum XlibEvent {
   XDestroyNotify(Window),
   XEnterNotify(Window),
   XLeaveNotify(Window),
-  XKeyPress(Window, u32, u32),
+  XKeyPress(Window, Keystroke),
   Ignored
 }
-
 
 pub struct WindowChanges {
   pub x: u32,
@@ -119,8 +124,6 @@ impl XlibWindowSystem {
 
       let root = XDefaultRootWindow(display);
       XSelectInput(display, root, 0x100031);
-      XGrabKey(display, 0, 81/*64*/, root, 1, 0 /* GrabModeSync*/, 1 /*GrabModeAsync*/);
-      XGrabKey(display, 0, 80/*64*/, root, 1, 0 /* GrabModeSync*/, 1 /*GrabModeAsync*/);
 
       XSetErrorHandler(error_handler as *mut u8);
 
@@ -130,6 +133,13 @@ impl XlibWindowSystem {
         event: malloc(256)
       })
     }
+  }
+
+  pub fn grab_modifier(&self, mod_key: u8) {
+    unsafe {
+      XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 0, 1);
+      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 0, 1 );  
+    }  
   }
 
   pub fn new_vroot(&self) -> Window {
@@ -219,16 +229,16 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, vroot: Window, window: Window) {
+  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, border_width: u32, border_color: u64, vroot: Window, window: Window) {
     unsafe {
       XSelectInput(self.display, window, 0x020031);
     }
 
-    self.set_window_border_width(window, 1);
-    self.set_window_border_color(window, 0x00FF0000);
+    self.set_window_border_width(window, border_width);
+    self.set_window_border_color(window, border_color);
 
     self.map_to_parent(vroot, window);
-    self.move_resize_window(window, x, y, width, height);
+    self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
   pub fn get_window_name(&self, window: Window) -> String {
@@ -246,6 +256,20 @@ impl XlibWindowSystem {
   pub fn kill_window(&self, window: Window) {
     unsafe {
       XKillClient(self.display, window);
+    }
+  }
+
+  pub fn string_to_keycode(&self, key: &String) -> u8 {
+    unsafe {
+      let keysym = XStringToKeysym(key.to_c_str().as_mut_ptr());
+      XKeysymToKeycode(self.display, keysym)
+    }
+  }
+
+  pub fn keycode_to_string(&self, keycode: u32) -> String {
+    unsafe {
+      let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
+      String::from_str(c_str_to_static_slice(transmute(XKeysymToString(keysym))))
     }
   }
 
@@ -301,7 +325,7 @@ impl XlibWindowSystem {
       },
       KeyPress => {
         let evt : &XKeyPressedEvent = self.cast_event_to();
-        XKeyPress(evt.window, evt.state, evt.keycode)
+        XKeyPress(evt.window, Keystroke{mods: evt.state as u8, key: self.keycode_to_string(evt.keycode)})
       }
       _ => {
         Ignored

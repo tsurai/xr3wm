@@ -12,16 +12,17 @@ use xlib_window_system::{ XlibWindowSystem,
                           XLeaveNotify,
                           XKeyPress};
 
+mod keycode;
 mod xlib_window_system;
 mod workspaces;
 mod layout;
-mod keysym;
 mod config;
 
 fn main() {
-  let ws = &mut XlibWindowSystem::new().unwrap();
-
   let config = get_config();
+
+  let ws = &mut XlibWindowSystem::new().unwrap();
+  ws.grab_modifier(config.mod_key);
 
   let mut workspaces = Workspaces::new(ws, &config);
   workspaces.change_to(ws, 0);
@@ -43,14 +44,17 @@ fn main() {
       XLeaveNotify(window) => {
         ws.set_window_border_color(window, config.border_focus_color);
       },
-      XKeyPress(window, state, keycode) => {
-        if state == 80 {
-          if keycode > 9 && keycode < 19 {
-            workspaces.change_to(ws, keycode as uint - 10);
-          } else if keycode == 36 {
-            let term = config.terminal.clone();
-            spawn(proc() { Command::new(term).spawn(); });
-          }
+      XKeyPress(window, keystroke) => {
+        let num_key : uint = from_str(keystroke.key.as_slice()).unwrap_or(99);
+
+        if num_key >= 1 && num_key <= config.workspaces.len() {
+          workspaces.change_to(ws, num_key - 1);
+        } else if keystroke.key == config.terminal_shortcut.key {
+          let term = config.terminal.clone();
+          spawn(proc() { Command::new(term).detached().spawn(); });
+        } else if keystroke.key == config.launcher_shortcut.key {
+          let launcher = config.launcher.clone();
+          spawn(proc() { Command::new(launcher).detached().spawn(); });
         }
       },
       _ => {}
