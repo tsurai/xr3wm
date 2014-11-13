@@ -21,11 +21,11 @@ pub struct Config {
 impl Default for Config {
   fn default() -> Config {
     Config {
-      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: layout::to_box(layout::TallLayout::new(1))}),
+      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: layout::to_box(layout::TallLayout::new(1, 0.5, 0.01))}),
       mod_key: MOD_4,
       border_width: 1,
-      border_color: 0x00ff0000,
-      border_focus_color: 0x0000ff00,
+      border_color: 0x000000ff,
+      border_focus_color: 0x00ff0000,
       terminal: String::from_str("xterm"),
       terminal_shortcut: Keystroke{mods: 0, key: String::from_str("Return")},
       launcher: String::from_str("dmenu_run"),

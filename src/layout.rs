@@ -18,7 +18,19 @@ pub fn to_box<T: Layout + 'static>(layout: T) -> Rc<Box<Layout + 'static>> {
 }
 
 pub struct TallLayout {
-  num_masters: u8
+  num_masters: u8,
+  ratio: f32,
+  ratio_increment: f32
+}
+
+impl TallLayout {
+  pub fn new(num_masters: u8, ratio: f32, ratio_increment: f32) -> TallLayout {
+    TallLayout {
+      num_masters: num_masters,
+      ratio: ratio,
+      ratio_increment: ratio_increment,
+    }
+  }
 }
 
 impl Layout for TallLayout {
@@ -40,13 +52,5 @@ impl Layout for TallLayout {
         }
       }
     })
-  }
-}
-
-impl TallLayout {
-  pub fn new(num_masters: u8) -> TallLayout {
-    TallLayout {
-      num_masters: 1,
-    }
   }
 }

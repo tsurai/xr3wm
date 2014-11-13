@@ -21,6 +21,7 @@ pub struct Workspace {
 impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     self.windows.push(window);
+    ws.map_to_parent(self.vroot, window);
     self.apply_layout(ws, config);
   }
 
@@ -33,6 +34,8 @@ impl Workspace {
     for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.vroot, self.windows[i]);
     }
+
+    ws.sync();
   }
 
   pub fn index_of(&self, window: Window) -> Option<uint> {

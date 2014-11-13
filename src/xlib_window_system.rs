@@ -11,41 +11,7 @@ use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
 use self::libc::{c_void, c_int, c_char};
 use self::libc::funcs::c95::stdlib::malloc;
-use xlib::{ Display,
-            Window,
-            XWindowChanges,
-            XOpenDisplay,
-            XDefaultRootWindow,
-            XSelectInput,
-            XGrabKey,
-            XDisplayWidth,
-            XDisplayHeight,
-            XNextEvent,
-            XErrorEvent,
-            XSetErrorHandler,
-            XMapWindow,
-            XConfigureWindow,
-            XReparentWindow,
-            XMoveWindow,
-            XResizeWindow,
-            XMoveResizeWindow,
-            XSetWindowBorderWidth,
-            XSetWindowBorder,
-            XFetchName,
-            XKillClient,
-            XCreateSimpleWindow,
-            XMapRequestEvent,
-            XConfigureRequestEvent,
-            XDestroyWindowEvent,
-            XEnterWindowEvent,
-            XKeyPressedEvent,
-            XLeaveWindowEvent,
-            XRaiseWindow,
-            XStringToKeysym,
-            XKeysymToString,
-            XKeycodeToKeysym,
-            XKeysymToKeycode
-          };
+use xlib::*;
 
 extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
   // TODO: proper error handling
@@ -100,6 +66,7 @@ pub enum XlibEvent {
   XDestroyNotify(Window),
   XEnterNotify(Window),
   XLeaveNotify(Window),
+  XFocusOut(Window),
   XKeyPress(Window, Keystroke),
   Ignored
 }
@@ -123,7 +90,7 @@ impl XlibWindowSystem {
       }
 
       let root = XDefaultRootWindow(display);
-      XSelectInput(display, root, 0x100031);
+      XSelectInput(display, root, 0x1A0035);
 
       XSetErrorHandler(error_handler as *mut u8);
 
@@ -230,14 +197,8 @@ impl XlibWindowSystem {
   }
 
   pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, border_width: u32, border_color: u64, vroot: Window, window: Window) {
-    unsafe {
-      XSelectInput(self.display, window, 0x020031);
-    }
-
     self.set_window_border_width(window, border_width);
     self.set_window_border_color(window, border_color);
-
-    self.map_to_parent(vroot, window);
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
@@ -250,6 +211,13 @@ impl XlibWindowSystem {
       let mut name : *mut c_char = uninitialized();
       XFetchName(self.display, window, &mut name);
       String::from_str(c_str_to_static_slice(transmute(name)))
+    }
+  }
+
+  pub fn focus_window(&self, window: Window, color: u64) {
+    unsafe {
+      XSetInputFocus(self.display, window, 1, 0);
+      XSetWindowBorder(self.display, window, color);
     }
   }
 
@@ -273,6 +241,12 @@ impl XlibWindowSystem {
     }
   }
 
+  pub fn sync(&self) {
+    unsafe {
+      XSync(self.display, 1);
+    }
+  }
+
   fn cast_event_to<T>(&self) -> &T {
     unsafe {
       &*(self.event as *const T)
@@ -288,6 +262,10 @@ impl XlibWindowSystem {
     match evt_type{
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
+        unsafe {
+          XSelectInput(self.display, evt.window, 0x620030);
+        }
+        
         XMapRequest(evt.window)
       },
       ConfigureRequest => {
@@ -323,11 +301,19 @@ impl XlibWindowSystem {
           Ignored
         }
       },
+      FocusOut => {
+        let evt : &XFocusOutEvent = self.cast_event_to();
+        if evt.detail != 5 {
+          XFocusOut(evt.window)
+        } else {
+          Ignored
+        }
+      },
       KeyPress => {
         let evt : &XKeyPressedEvent = self.cast_event_to();
         XKeyPress(evt.window, Keystroke{mods: evt.state as u8, key: self.keycode_to_string(evt.keycode)})
       }
-      _ => {
+      evt => {
         Ignored
       }
     }

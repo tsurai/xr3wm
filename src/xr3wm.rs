@@ -1,3 +1,5 @@
+#![feature(globs)]
+
 extern crate xlib;
 extern crate serialize;
 
@@ -10,6 +12,7 @@ use xlib_window_system::{ XlibWindowSystem,
                           XDestroyNotify,
                           XEnterNotify,
                           XLeaveNotify,
+                          XFocusOut,
                           XKeyPress};
 
 mod keycode;
@@ -31,6 +34,7 @@ fn main() {
     match ws.get_event() {
       XMapRequest(window) => {
         workspaces.get_current().add_window(ws, &config, window);
+        ws.focus_window(window, config.border_focus_color);
       },
       XDestroyNotify(window) => {
         workspaces.remove_window(ws, &config, window);
@@ -39,12 +43,15 @@ fn main() {
         ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window) => {
-        ws.set_window_border_color(window, config.border_color);
+        ws.focus_window(window, config.border_focus_color);
       },
       XLeaveNotify(window) => {
-        ws.set_window_border_color(window, config.border_focus_color);
+        ws.set_window_border_color(window, config.border_color);
       },
-      XKeyPress(window, keystroke) => {
+      XFocusOut(window) => {
+        ws.set_window_border_color(window, config.border_color);
+      },
+      XKeyPress(_, keystroke) => {
         let num_key : uint = from_str(keystroke.key.as_slice()).unwrap_or(99);
 
         if num_key >= 1 && num_key <= config.workspaces.len() {
