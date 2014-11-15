@@ -104,6 +104,16 @@ impl Workspaces {
     }
   }
 
+  pub fn move_window_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
+    let window = self.get_current().get_focused_window();
+    if window == 0 {
+      return;
+    }
+
+    self.remove_window(ws, config, window);
+    self.vec[index].add_window(ws, config, window);
+  }
+
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     for workspace in self.vec.iter_mut() {
       match workspace.index_of(window) {

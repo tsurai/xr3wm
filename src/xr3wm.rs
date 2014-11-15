@@ -2,6 +2,7 @@
 
 extern crate xlib;
 
+use keycode::MOD_SHIFT;
 use std::io::Command;
 use config::get_config;
 use workspaces::Workspaces;
@@ -53,7 +54,11 @@ fn main() {
         let num_key : uint = from_str(key.as_slice()).unwrap_or(99);
 
         if num_key >= 1 && num_key <= config.workspaces.len() {
-          workspaces.change_to(ws, num_key - 1);
+          if mods == MOD_SHIFT {
+            workspaces.move_window_to(ws, &config, num_key - 1);
+          } else {
+            workspaces.change_to(ws, num_key - 1);
+          }
         } else if key == config.terminal_shortcut.key && mods == config.terminal_shortcut.mods {
           let term = config.terminal.clone();
           spawn(proc() { Command::new(term).detached().spawn(); });
