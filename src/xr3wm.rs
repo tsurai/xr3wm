@@ -27,7 +27,7 @@ fn main() {
   ws.grab_modifier(config.mod_key);
 
   let mut workspaces = Workspaces::new(ws, &config);
-  workspaces.change_to(ws, 0);
+  workspaces.change_to(ws, &config, 0);
 
   loop {
     match ws.get_event() {
@@ -57,7 +57,7 @@ fn main() {
           if mods == MOD_SHIFT {
             workspaces.move_window_to(ws, &config, num_key - 1);
           } else {
-            workspaces.change_to(ws, num_key - 1);
+            workspaces.change_to(ws, &config, num_key - 1);
           }
         } else if key == config.terminal_shortcut.key && mods == config.terminal_shortcut.mods {
           let term = config.terminal.clone();

@@ -42,6 +42,10 @@ impl Workspace {
   }
 
   pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    if window == 0 {
+      return;
+    }
+
     if self.focused_window != 0 {
       ws.set_window_border_color(self.focused_window, config.border_color);
     }
@@ -97,10 +101,13 @@ impl Workspaces {
     self.vec.get_mut(self.cur).unwrap()
   }
 
-  pub fn change_to(&mut self, ws: &XlibWindowSystem, index: uint) {
+  pub fn change_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
      if self.cur != index && index < self.vec.len() {
+      let focused_window = self.vec[index].get_focused_window();
       self.cur = index;
+
       ws.raise_window(self.vec[index].vroot);
+      self.get_current().focus_window(ws, config, focused_window);
     }
   }
 

@@ -144,13 +144,6 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn string_to_keycode(&self, key: &String) -> u8 {
-    unsafe {
-      let keysym = XStringToKeysym(key.to_c_str().as_mut_ptr());
-      XKeysymToKeycode(self.display, keysym)
-    }
-  }
-
   pub fn keycode_to_string(&self, keycode: u32) -> String {
     unsafe {
       let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
