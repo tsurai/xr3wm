@@ -1,7 +1,6 @@
 #![feature(globs)]
 
 extern crate xlib;
-extern crate serialize;
 
 use std::io::Command;
 use config::get_config;
@@ -9,9 +8,8 @@ use workspaces::Workspaces;
 use xlib_window_system::{ XlibWindowSystem,
                           XMapRequest,
                           XConfigurationRequest,
-                          XDestroyNotify,
+                          XDestroy,
                           XEnterNotify,
-                          XLeaveNotify,
                           XFocusOut,
                           XKeyPress};
 
@@ -33,35 +31,37 @@ fn main() {
   loop {
     match ws.get_event() {
       XMapRequest(window) => {
-        workspaces.get_current().add_window(ws, &config, window);
-        ws.focus_window(window, config.border_focus_color);
+        let workspace = workspaces.get_current();
+        workspace.add_window(ws, &config, window);
+        workspace.focus_window(ws, &config, window);
       },
-      XDestroyNotify(window) => {
+      XDestroy(window) => {
         workspaces.remove_window(ws, &config, window);
       },
       XConfigurationRequest(window, changes, mask) => {
         ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window) => {
-        ws.focus_window(window, config.border_focus_color);
+        workspaces.get_current().focus_window(ws, &config, window);
       },
-      XLeaveNotify(window) => {
-        ws.set_window_border_color(window, config.border_color);
-      },
-      XFocusOut(window) => {
-        ws.set_window_border_color(window, config.border_color);
+      XFocusOut(_) => {
+        workspaces.get_current().unfocus_window(ws, &config);
       },
       XKeyPress(_, keystroke) => {
-        let num_key : uint = from_str(keystroke.key.as_slice()).unwrap_or(99);
+        let key = keystroke.key;
+        let mods = keystroke.mods ^ (config.mod_key | 0x10);
+        let num_key : uint = from_str(key.as_slice()).unwrap_or(99);
 
         if num_key >= 1 && num_key <= config.workspaces.len() {
           workspaces.change_to(ws, num_key - 1);
-        } else if keystroke.key == config.terminal_shortcut.key {
+        } else if key == config.terminal_shortcut.key && mods == config.terminal_shortcut.mods {
           let term = config.terminal.clone();
           spawn(proc() { Command::new(term).detached().spawn(); });
-        } else if keystroke.key == config.launcher_shortcut.key {
+        } else if key == config.launcher_shortcut.key && mods == config.launcher_shortcut.mods {
           let launcher = config.launcher.clone();
           spawn(proc() { Command::new(launcher).detached().spawn(); });
+        } else if key == config.kill_shortcut.key && mods == config.kill_shortcut.mods {
+          ws.kill_window(workspaces.get_current().get_focused_window());
         }
       },
       _ => {}

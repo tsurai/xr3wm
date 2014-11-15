@@ -13,6 +13,7 @@ pub struct WorkspaceConfig {
 pub struct Workspace {
   vroot: Window,
   windows: Vec<Window>,
+  focused_window: Window,
   tag: String,
   screen: u32,
   layout: Rc<Box<Layout + 'static>>
@@ -28,18 +29,45 @@ impl Workspace {
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
     self.windows.remove(index);
     self.apply_layout(ws, config);
+
+    if !self.windows.is_empty() {
+      let new_focused_window : Window = if index < self.windows.len() {
+        self.windows[index]
+      } else {
+        self.windows[index - 1]
+      };
+
+      self.focus_window(ws, config, new_focused_window);
+    }
   }
 
-  fn apply_layout(&self, ws: &XlibWindowSystem, config: &Config) {
-    for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
-      ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.vroot, self.windows[i]);
+  pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    if self.focused_window != 0 {
+      ws.set_window_border_color(self.focused_window, config.border_color);
     }
 
+    self.focused_window = window;
+    ws.focus_window(window, config.border_focus_color);
     ws.sync();
+  }
+
+  pub fn unfocus_window(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    ws.set_window_border_color(self.focused_window, config.border_color);
+    self.focused_window = 0;
   }
 
   pub fn index_of(&self, window: Window) -> Option<uint> {
     self.windows.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last()
+  }
+
+  pub fn get_focused_window(&self) -> Window {
+    self.focused_window
+  }
+
+  fn apply_layout(&self, ws: &XlibWindowSystem, config: &Config) {
+    for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
+      ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.windows[i]);
+    }
   }
 }
 
@@ -55,6 +83,7 @@ impl Workspaces {
         Workspace {
           vroot: ws.new_vroot(),
           windows: Vec::new(),
+          focused_window: 0,
           tag: c.tag.clone(),
           screen: c.screen,
           layout: c.layout.clone()
