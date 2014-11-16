@@ -60,6 +60,31 @@ impl Workspace {
     self.focused_window = 0;
   }
 
+  pub fn move_focus_up(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    if self.focused_window == 0 || self.windows.len() == 1 {
+      return;
+    }
+
+    let index = self.index_of(self.focused_window).unwrap();
+    let new_focused_window = if index == 0 {
+      self.windows[self.windows.len() - 1]
+    } else {
+      self.windows[index - 1]
+    };
+
+    self.focus_window(ws, config, new_focused_window);
+  }
+
+  pub fn move_focus_down(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    if self.focused_window == 0 || self.windows.len() == 1 {
+      return;
+    }
+
+    let index = self.index_of(self.focused_window).unwrap();
+    let new_focused_window = self.windows[(index + 1) % self.windows.len()];
+    self.focus_window(ws, config, new_focused_window);
+  }
+
   pub fn index_of(&self, window: Window) -> Option<uint> {
     self.windows.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last()
   }

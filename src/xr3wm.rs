@@ -3,7 +3,7 @@
 extern crate xlib;
 
 use keycode::MOD_SHIFT;
-use std::io::Command;
+use std::io::process::Command;
 use config::get_config;
 use workspaces::Workspaces;
 use xlib_window_system::{ XlibWindowSystem,
@@ -59,12 +59,26 @@ fn main() {
           } else {
             workspaces.change_to(ws, &config, num_key - 1);
           }
+        } else if key == String::from_str("j") && mods == 0 {
+          workspaces.get_current().move_focus_up(ws, &config);
+        } else if key == String::from_str("k") && mods == 0 {
+          workspaces.get_current().move_focus_down(ws, &config);
         } else if key == config.terminal_shortcut.key && mods == config.terminal_shortcut.mods {
           let term = config.terminal.clone();
-          spawn(proc() { Command::new(term).detached().spawn(); });
+          spawn(proc() {
+            match Command::new(term).detached().spawn() {
+              Ok(_) => (),
+              _ => panic!("failed to start terminal")
+            }
+          });
         } else if key == config.launcher_shortcut.key && mods == config.launcher_shortcut.mods {
           let launcher = config.launcher.clone();
-          spawn(proc() { Command::new(launcher).detached().spawn(); });
+          spawn(proc() {
+            match Command::new(launcher).detached().spawn() {
+              Ok(_) => (),
+              _ => panic!("failed to start launcher")
+            }
+          });
         } else if key == config.kill_shortcut.key && mods == config.kill_shortcut.mods {
           ws.kill_window(workspaces.get_current().get_focused_window());
         }
