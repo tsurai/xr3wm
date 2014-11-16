@@ -19,6 +19,12 @@ pub struct Workspace {
   layout: Rc<Box<Layout + 'static>>
 }
 
+pub enum MoveOp {
+  Up,
+  Down,
+  Swap
+}
+
 impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     self.windows.push(window);
@@ -61,7 +67,7 @@ impl Workspace {
   }
 
   pub fn move_focus_up(&mut self, ws: &XlibWindowSystem, config: &Config) {
-    if self.focused_window == 0 || self.windows.len() == 1 {
+    if self.focused_window == 0 || self.windows.len() < 2 {
       return;
     }
 
@@ -76,13 +82,45 @@ impl Workspace {
   }
 
   pub fn move_focus_down(&mut self, ws: &XlibWindowSystem, config: &Config) {
-    if self.focused_window == 0 || self.windows.len() == 1 {
+    if self.focused_window == 0 || self.windows.len() < 2 {
       return;
     }
 
     let index = self.index_of(self.focused_window).unwrap();
     let new_focused_window = self.windows[(index + 1) % self.windows.len()];
+
     self.focus_window(ws, config, new_focused_window);
+  }
+
+  pub fn move_window(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+    if self.focused_window == 0 || self.windows.len() < 2 {
+      return;
+    }
+
+    let pos = self.index_of(self.focused_window).unwrap();
+    let new_pos = match op {
+      Up => {
+        if pos == 0 {
+          self.windows.len() - 1
+        } else {
+          pos - 1
+        }
+      },
+      Down => {
+        (pos + 1) % self.windows.len()
+      },
+      Swap => {
+        let master = self.windows[0];
+        self.windows.insert(pos, master);
+        self.windows.remove(0);
+        0
+      }
+    };
+
+    self.windows.remove(pos);
+    self.windows.insert(new_pos, self.focused_window);
+
+    self.apply_layout(ws, config);
   }
 
   pub fn index_of(&self, window: Window) -> Option<uint> {
@@ -97,6 +135,9 @@ impl Workspace {
     for (i,rect) in self.layout.apply(ws.get_display_rect(0), &self.windows).iter().enumerate() {
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.windows[i]);
     }
+
+    ws.sync();
+    ws.set_window_border_color(self.focused_window, config.border_focus_color);
   }
 }
 

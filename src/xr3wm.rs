@@ -5,7 +5,7 @@ extern crate xlib;
 use keycode::MOD_SHIFT;
 use std::io::process::Command;
 use config::get_config;
-use workspaces::Workspaces;
+use workspaces::{Workspaces, MoveOp};
 use xlib_window_system::{ XlibWindowSystem,
                           XMapRequest,
                           XConfigurationRequest,
@@ -59,10 +59,16 @@ fn main() {
           } else {
             workspaces.change_to(ws, &config, num_key - 1);
           }
-        } else if key == String::from_str("j") && mods == 0 {
-          workspaces.get_current().move_focus_up(ws, &config);
         } else if key == String::from_str("k") && mods == 0 {
+          workspaces.get_current().move_focus_up(ws, &config);
+        } else if key == String::from_str("j") && mods == 0 {
           workspaces.get_current().move_focus_down(ws, &config);
+        } else if key == String::from_str("k") && mods == MOD_SHIFT {
+          workspaces.get_current().move_window(ws, &config, MoveOp::Up);
+        } else if key == String::from_str("j") && mods == MOD_SHIFT {
+          workspaces.get_current().move_window(ws, &config, MoveOp::Down);
+        } else if key == String::from_str("Return") && mods == MOD_SHIFT {
+          workspaces.get_current().move_window(ws, &config, MoveOp::Swap);
         } else if key == config.terminal_shortcut.key && mods == config.terminal_shortcut.mods {
           let term = config.terminal.clone();
           spawn(proc() {
