@@ -32,7 +32,7 @@ pub struct XlibWindowSystem {
 
 pub enum XlibEvent {
   XMapRequest(Window),
-  XConfigurationRequest(Window, WindowChanges, u64),
+  XConfigurationRequest(Window, WindowChanges, u32),
   XDestroy(Window),
   XEnterNotify(Window),
   XFocusOut(Window),
@@ -71,13 +71,13 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, border_width: u32, border_color: u64, window: Window) {
+  pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, border_width: u32, border_color: u32, window: Window) {
     self.set_window_border_width(window, border_width);
     self.set_window_border_color(window, border_color);
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
-  pub fn configure_window(&mut self, window: Window, window_changes: WindowChanges, mask: u64) {
+  pub fn configure_window(&mut self, window: Window, window_changes: WindowChanges, mask: u32) {
     unsafe {
       let mut ret_window_changes = XWindowChanges{
         x: window_changes.x as i32,
@@ -88,7 +88,7 @@ impl XlibWindowSystem {
         sibling: window_changes.sibling,
         stack_mode: window_changes.stack_mode as i32
       };
-      XConfigureWindow(self.display, window, mask as u32, &mut ret_window_changes);
+      XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
     }
   }
 
@@ -119,7 +119,7 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn focus_window(&self, window: Window, color: u64) {
+  pub fn focus_window(&self, window: Window, color: u32) {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
       XSetWindowBorder(self.display, window, color);
@@ -160,7 +160,7 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn set_window_border_color(&self, window: Window, color: u64) {
+  pub fn set_window_border_color(&self, window: Window, color: u32) {
     if window != self.root {
       unsafe {
         XSetWindowBorder(self.display, window, color);
