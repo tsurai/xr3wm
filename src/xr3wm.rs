@@ -6,8 +6,8 @@ use keycode::MOD_SHIFT;
 use std::io::process::Command;
 use config::get_config;
 use workspaces::{Workspaces, MoveOp};
-use xlib_window_system::{ XlibWindowSystem,
-                          XMapRequest,
+use xlib_window_system::XlibWindowSystem;
+use xlib_window_system::XlibEvent::{ XMapRequest,
                           XConfigurationRequest,
                           XDestroy,
                           XEnterNotify,

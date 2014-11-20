@@ -8,6 +8,7 @@ use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
 use self::libc::{c_void, c_int, c_char};
 use self::libc::funcs::c95::stdlib::malloc;
+use self::XlibEvent::*;
 use xlib::*;
 
 extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {

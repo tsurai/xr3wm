@@ -3,6 +3,7 @@ use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use std::rc::Rc;
+use self::MoveOp::*;
 
 pub struct WorkspaceConfig {
   pub tag: String,
