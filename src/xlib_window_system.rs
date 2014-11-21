@@ -3,6 +3,7 @@ extern crate libc;
 
 use keycode::{MOD_2, Keystroke};
 use layout::Rect;
+use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
@@ -122,13 +123,38 @@ impl XlibWindowSystem {
   pub fn focus_window(&self, window: Window, color: u32) {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
-      XSetWindowBorder(self.display, window, color);
+      XSetWindowBorder(self.display, window, color as u64);
+    }
+  }
+
+  fn has_protocol(&self, window: Window, protocol: &str) -> bool {
+    unsafe {
+      let mut count : c_int = uninitialized();
+      let mut atom : Atom = uninitialized();
+      let mut atoms : *mut Atom = uninitialized();
+
+      atom = XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1);
+      XGetWMProtocols(self.display, window, &mut atoms, &mut count);
+      CVec::new(atoms, count as uint).as_slice().contains(&atom)
     }
   }
 
   pub fn kill_window(&self, window: Window) {
     unsafe {
-      XKillClient(self.display, window);
+      if self.has_protocol(window, "WM_DELETE_WINDOW") {
+        let mut msg : XClientMessageEvent = uninitialized();
+        msg.format = 23;
+        msg.display = self.display;
+        msg.window = window;
+        msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
+        
+        let data : union_unnamed2 = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0];
+        msg.data = data;
+
+        XSendEvent(self.display, window, 0, 0, transmute(&msg));
+      } else {
+        XKillClient(self.display, window);
+      }
     }
   }
 
@@ -163,7 +189,7 @@ impl XlibWindowSystem {
   pub fn set_window_border_color(&self, window: Window, color: u32) {
     if window != self.root {
       unsafe {
-        XSetWindowBorder(self.display, window, color);
+        XSetWindowBorder(self.display, window, color as u64);
       }
     }
   }
@@ -228,7 +254,7 @@ impl XlibWindowSystem {
           sibling: event.above as Window,
           stack_mode: event.detail as u32
         };
-        XConfigurationRequest(event.window, changes, event.value_mask)
+        XConfigurationRequest(event.window, changes, event.value_mask as u32)
       },
       Destroy => {
         let evt : &XDestroyWindowEvent = self.cast_event_to();
