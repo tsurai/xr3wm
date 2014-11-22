@@ -10,6 +10,7 @@ use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::{ XMapRequest,
                           XConfigurationRequest,
                           XDestroy,
+                          XUnmapNotify,
                           XEnterNotify,
                           XFocusOut,
                           XKeyPress};
@@ -35,6 +36,9 @@ fn main() {
         let workspace = workspaces.get_current();
         workspace.add_window(ws, &config, window);
         workspace.focus_window(ws, &config, window);
+      },
+      XUnmapNotify(window) => {
+        workspaces.remove_window(ws, &config, window);
       },
       XDestroy(window) => {
         workspaces.remove_window(ws, &config, window);

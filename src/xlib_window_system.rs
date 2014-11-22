@@ -22,6 +22,7 @@ const KeyPress         : i32 = 2;
 const EnterNotify      : i32 = 7;
 const FocusOut         : i32 = 10;
 const Destroy          : i32 = 17;
+const UnmapNotify      : i32 = 18;
 const MapRequest       : i32 = 20;
 const ConfigureRequest : i32 = 23;
 
@@ -35,6 +36,7 @@ pub enum XlibEvent {
   XMapRequest(Window),
   XConfigurationRequest(Window, WindowChanges, u32),
   XDestroy(Window),
+  XUnmapNotify(Window),
   XEnterNotify(Window),
   XFocusOut(Window),
   XKeyPress(Window, Keystroke),
@@ -260,6 +262,10 @@ impl XlibWindowSystem {
       Destroy => {
         let evt : &XDestroyWindowEvent = self.cast_event_to();
         XDestroy(evt.window)
+      },
+      UnmapNotify => {
+        let evt : &XUnmapEvent = self.cast_event_to();
+        XUnmapNotify(evt.window)
       },
       EnterNotify => {
         let evt : &XEnterWindowEvent = self.cast_event_to();
