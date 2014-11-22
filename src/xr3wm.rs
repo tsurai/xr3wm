@@ -54,7 +54,7 @@ fn main() {
       },
       XKeyPress(_, keystroke) => {
         let key = keystroke.key;
-        let mods = keystroke.mods ^ (config.mod_key | 0x10);
+        let mods = keystroke.mods & !(config.mod_key | 0b10010);
         let num_key : uint = from_str(key.as_slice()).unwrap_or(99);
 
         if num_key >= 1 && num_key <= config.workspaces.len() {

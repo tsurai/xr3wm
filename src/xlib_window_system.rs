@@ -1,7 +1,7 @@
 #![allow(non_upper_case_globals)]
 extern crate libc;
 
-use keycode::{MOD_2, Keystroke};
+use keycode::{MOD_2, MOD_LOCK, Keystroke};
 use layout::Rect;
 use std::c_vec::CVec;
 use std::ptr::null_mut;
@@ -169,8 +169,10 @@ impl XlibWindowSystem {
 
   pub fn grab_modifier(&self, mod_key: u8) {
     unsafe {
-      XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 0, 1);
-      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 0, 1 );
+      XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 1, 1);
+      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 1, 1 );
+      XGrabKey(self.display, 0, (mod_key | MOD_LOCK) as u32, self.root, 1, 1, 1 );
+      XGrabKey(self.display, 0, (mod_key | MOD_2 | MOD_LOCK) as u32, self.root, 1, 1, 1 );
     }
   }
 
