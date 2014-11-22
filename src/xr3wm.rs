@@ -87,6 +87,8 @@ fn main() {
           });
         } else if key == config.kill_shortcut.key && mods == config.kill_shortcut.mods {
           ws.kill_window(workspaces.get_current().get_focused_window());
+        } else if key == String::from_str("e") && mods == MOD_SHIFT {
+          break;
         }
       },
       _ => {}
