@@ -36,6 +36,7 @@ impl Workspace {
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
     self.windows.remove(index);
     self.apply_layout(ws, config);
+    self.focused_window = 0;
 
     if !self.windows.is_empty() {
       let new_focused_window : Window = if index < self.windows.len() {

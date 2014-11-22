@@ -138,6 +138,10 @@ impl XlibWindowSystem {
   }
 
   pub fn kill_window(&self, window: Window) {
+    if window == 0 {
+      return;
+    }
+
     unsafe {
       if self.has_protocol(window, "WM_DELETE_WINDOW") {
         let mut msg : XClientMessageEvent = uninitialized();
@@ -146,7 +150,7 @@ impl XlibWindowSystem {
         msg.display = self.display;
         msg.window = window;
         msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        msg.data = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0];
+        msg.data = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1) as u32, 0, 0, 0, 0];
 
         XSendEvent(self.display, window, 0, 0, transmute(&msg));
       } else {
