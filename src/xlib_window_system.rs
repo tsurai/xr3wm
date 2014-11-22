@@ -63,6 +63,7 @@ impl XlibWindowSystem {
 
       let root = XDefaultRootWindow(display);
       XSelectInput(display, root, 0x1A0035);
+      XDefineCursor(display, root, XCreateFontCursor(display, 68));
 
       XSetErrorHandler(error_handler as *mut u8);
 
