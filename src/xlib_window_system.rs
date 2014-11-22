@@ -18,12 +18,12 @@ extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int
   return 0;
 }
 
-const KeyPress               : i32 = 2;
-const EnterNotify            : i32 = 7;
-const FocusOut               : i32 = 10;
-const Destroy                : i32 = 17;
-const MapRequest             : i32 = 20;
-const ConfigureRequest       : i32 = 23;
+const KeyPress         : i32 = 2;
+const EnterNotify      : i32 = 7;
+const FocusOut         : i32 = 10;
+const Destroy          : i32 = 17;
+const MapRequest       : i32 = 20;
+const ConfigureRequest : i32 = 23;
 
 pub struct XlibWindowSystem {
   display:   *mut Display,
@@ -130,12 +130,10 @@ impl XlibWindowSystem {
   fn has_protocol(&self, window: Window, protocol: &str) -> bool {
     unsafe {
       let mut count : c_int = uninitialized();
-      let mut atom : Atom = uninitialized();
       let mut atoms : *mut Atom = uninitialized();
 
-      atom = XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1);
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-      CVec::new(atoms, count as uint).as_slice().contains(&atom)
+      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1))
     }
   }
 
@@ -143,13 +141,12 @@ impl XlibWindowSystem {
     unsafe {
       if self.has_protocol(window, "WM_DELETE_WINDOW") {
         let mut msg : XClientMessageEvent = uninitialized();
-        msg.format = 23;
+        msg._type = 33;
+        msg.format = 32;
         msg.display = self.display;
         msg.window = window;
         msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        
-        let data : union_unnamed2 = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0];
-        msg.data = data;
+        msg.data = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0];
 
         XSendEvent(self.display, window, 0, 0, transmute(&msg));
       } else {

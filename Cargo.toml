@@ -6,7 +6,7 @@ authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 build = "build.rs"
 
 [dependencies.xlib]
-git = "https://github.com/servo/rust-xlib.git"
+git = "https://github.com/tsurai/rust-xlib.git"
 
 [[bin]]
 name = "xr3wm"
