@@ -7,7 +7,7 @@ use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::str::raw::c_str_to_static_slice;
-use self::libc::{c_void, c_int, c_char};
+use self::libc::{c_void, c_int, c_char, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
 use xlib::*;
@@ -126,7 +126,7 @@ impl XlibWindowSystem {
   pub fn focus_window(&self, window: Window, color: u32) {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
-      XSetWindowBorder(self.display, window, color as u64);
+      self.set_window_border_color(window, color);
     }
   }
 
@@ -195,7 +195,7 @@ impl XlibWindowSystem {
   pub fn set_window_border_color(&self, window: Window, color: u32) {
     if window != self.root {
       unsafe {
-        XSetWindowBorder(self.display, window, color as u64);
+        XSetWindowBorder(self.display, window, color as c_ulong);
       }
     }
   }
