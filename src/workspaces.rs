@@ -1,14 +1,13 @@
 use config::Config;
-use layout::Layout;
+use layout::{Layout, LayoutBox};
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
-use std::rc::Rc;
 use self::MoveOp::*;
 
 pub struct WorkspaceConfig {
   pub tag: String,
   pub screen: u32,
-  pub layout: Rc<Box<Layout + 'static>>
+  pub layout: LayoutBox
 }
 
 pub struct Workspace {
@@ -17,7 +16,7 @@ pub struct Workspace {
   focused_window: Window,
   tag: String,
   screen: u32,
-  layout: Rc<Box<Layout + 'static>>
+  layout: Box<Layout + 'static>
 }
 
 pub enum MoveOp {
@@ -68,28 +67,27 @@ impl Workspace {
     self.focused_window = 0;
   }
 
-  pub fn move_focus_up(&mut self, ws: &XlibWindowSystem, config: &Config) {
+  pub fn move_focus(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
     if self.focused_window == 0 || self.windows.len() < 2 {
       return;
     }
 
     let index = self.index_of(self.focused_window).unwrap();
-    let new_focused_window = if index == 0 {
-      self.windows[self.windows.len() - 1]
-    } else {
-      self.windows[index - 1]
+    let new_focused_window = match op {
+      Up => {
+        if index == 0 {
+          self.windows[self.windows.len() - 1]
+        } else {
+          self.windows[index - 1]
+        }
+      },
+      Down => {
+        self.windows[(index + 1) % self.windows.len()]
+      },
+      Swap => {
+        self.windows[0]
+      }
     };
-
-    self.focus_window(ws, config, new_focused_window);
-  }
-
-  pub fn move_focus_down(&mut self, ws: &XlibWindowSystem, config: &Config) {
-    if self.focused_window == 0 || self.windows.len() < 2 {
-      return;
-    }
-
-    let index = self.index_of(self.focused_window).unwrap();
-    let new_focused_window = self.windows[(index + 1) % self.windows.len()];
 
     self.focus_window(ws, config, new_focused_window);
   }
@@ -149,16 +147,16 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-  pub fn new(ws: &XlibWindowSystem, config: &Config) -> Workspaces{
+  pub fn new(ws: &XlibWindowSystem, config: &mut Config) -> Workspaces{
     Workspaces{
-      vec: config.workspaces.iter().map(|c| {
+      vec: config.workspaces.iter_mut().map(|c| {
         Workspace {
           vroot: ws.new_vroot(),
           windows: Vec::new(),
           focused_window: 0,
           tag: c.tag.clone(),
           screen: c.screen,
-          layout: c.layout.clone()
+          layout: (c.layout)()
         }
       }).collect(),
       cur: 99,

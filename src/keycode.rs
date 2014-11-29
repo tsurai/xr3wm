@@ -8,8 +8,3 @@ pub const MOD_2       : u8 = 1 << 4;
 pub const MOD_3       : u8 = 1 << 5;
 pub const MOD_4       : u8 = 1 << 6;
 pub const MOD_5       : u8 = 1 << 7;
-
-pub struct Keystroke {
-  pub mods: u8,
-  pub key: String
-}

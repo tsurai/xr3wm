@@ -1,12 +1,12 @@
 #![allow(non_upper_case_globals)]
 extern crate libc;
 
-use keycode::{MOD_2, MOD_LOCK, Keystroke};
+use keycode::{MOD_2, MOD_LOCK};
 use layout::Rect;
+use std::str;
 use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
-use std::str::raw::c_str_to_static_slice;
 use self::libc::{c_void, c_int, c_char, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
@@ -39,7 +39,7 @@ pub enum XlibEvent {
   XUnmapNotify(Window),
   XEnterNotify(Window),
   XFocusOut(Window),
-  XKeyPress(Window, Keystroke),
+  XKeyPress(Window, u8, String),
   Ignored
 }
 
@@ -136,7 +136,7 @@ impl XlibWindowSystem {
       let mut atoms : *mut Atom = uninitialized();
 
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1))
+      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 0))
     }
   }
 
@@ -153,7 +153,7 @@ impl XlibWindowSystem {
         msg.display = self.display;
         msg.window = window;
         msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        msg.data = [XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0];
+        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 0), 0, 0, 0, 0]);
 
         XSendEvent(self.display, window, 0, 0, transmute(&msg));
       } else {
@@ -170,17 +170,17 @@ impl XlibWindowSystem {
 
   pub fn grab_modifier(&self, mod_key: u8) {
     unsafe {
-      XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 1, 1);
-      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 1, 1 );
-      XGrabKey(self.display, 0, (mod_key | MOD_LOCK) as u32, self.root, 1, 1, 1 );
-      XGrabKey(self.display, 0, (mod_key | MOD_2 | MOD_LOCK) as u32, self.root, 1, 1, 1 );
+      XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 0, 1);
+      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 0, 1 );
+      XGrabKey(self.display, 0, (mod_key | MOD_LOCK) as u32, self.root, 1, 0, 1 );
+      XGrabKey(self.display, 0, (mod_key | MOD_2 | MOD_LOCK) as u32, self.root, 1, 0, 1 );
     }
   }
 
   pub fn keycode_to_string(&self, keycode: u32) -> String {
     unsafe {
       let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
-      String::from_str(c_str_to_static_slice(transmute(XKeysymToString(keysym))))
+      String::from_str(str::from_c_str(transmute(XKeysymToString(keysym))))
     }
   }
 
@@ -224,7 +224,7 @@ impl XlibWindowSystem {
     unsafe {
       let mut name : *mut c_char = uninitialized();
       XFetchName(self.display, window, &mut name);
-      String::from_str(c_str_to_static_slice(transmute(name)))
+      String::from_str(str::from_c_str(transmute(name)))
     }
   }
 
@@ -288,7 +288,7 @@ impl XlibWindowSystem {
       },
       KeyPress => {
         let evt : &XKeyPressedEvent = self.cast_event_to();
-        XKeyPress(evt.window, Keystroke{mods: evt.state as u8, key: self.keycode_to_string(evt.keycode)})
+        XKeyPress(evt.window, evt.state as u8, self.keycode_to_string(evt.keycode))
       },
       _ => {
         Ignored
