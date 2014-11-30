@@ -55,9 +55,20 @@ impl Cmd {
 
 fn exec(cmd: String) {
   spawn(proc() {
-    match Command::new(cmd.clone()).detached().spawn() {
-      Ok(_) => (),
-      _ => panic!("failed to start \"{}\"", cmd)
+    let args : Vec<&str> = cmd.as_slice().split(' ').collect();
+
+    if args.len() > 0 {
+      let mut cmd = Command::new(args[0]);
+
+      if args.len() > 1 {
+        cmd.args(args.as_slice().slice_from(1));
+      }
+
+      match cmd.detached().spawn() {
+        Ok(_) => (),
+        _ => panic!("failed to start \"{}\"", cmd)
+      }
     }
+
   });
 }
