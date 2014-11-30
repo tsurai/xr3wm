@@ -24,7 +24,7 @@ pub struct Config {
 impl Default for Config {
   fn default() -> Config {
     let mut config = Config {
-      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: || { box BarLayout::new(15, 15, TallLayout::new(1, 0.5, 0.01))} }),
+      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: || { box TallLayout::new(1, 0.5, 0.01) }}),
       mod_key: MOD_4,
       border_width: 2,
       border_color: 0x002e2e2e,
@@ -33,12 +33,12 @@ impl Default for Config {
         Keybinding {
           mods: 0,
           key: String::from_str("Return"),
-          cmd: Cmd::Exec(String::from_str("xterm"))
+          cmd: Cmd::Exec(String::from_str("xterm -u8"))
         },
         Keybinding {
           mods: 0,
           key: String::from_str("d"),
-          cmd: Cmd::Exec(String::from_str("dmenu"))
+          cmd: Cmd::Exec(String::from_str("dmenu_run"))
         },
         Keybinding {
           mods: MOD_SHIFT,
