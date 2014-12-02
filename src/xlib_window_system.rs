@@ -136,7 +136,7 @@ impl XlibWindowSystem {
       let mut atoms : *mut Atom = uninitialized();
 
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 0))
+      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1))
     }
   }
 
@@ -153,7 +153,7 @@ impl XlibWindowSystem {
         msg.display = self.display;
         msg.window = window;
         msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 0), 0, 0, 0, 0]);
+        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0]);
 
         XSendEvent(self.display, window, 0, 0, transmute(&msg));
       } else {

@@ -8,6 +8,7 @@ use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::{ XMapRequest,
                           XConfigurationRequest,
                           XDestroy,
+                          XUnmapNotify,
                           XEnterNotify,
                           XFocusOut,
                           XKeyPress};
@@ -37,6 +38,9 @@ fn main() {
         workspace.focus_window(ws, &config, window);
       },
       XDestroy(window) => {
+        workspaces.remove_window(ws, &config, window);
+      },
+      XUnmapNotify(window) => {
         workspaces.remove_window(ws, &config, window);
       },
       XConfigurationRequest(window, changes, mask) => {
