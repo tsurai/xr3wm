@@ -19,6 +19,7 @@ extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int
 }
 
 const KeyPress         : i32 = 2;
+const ButtonPress      : i32 = 4;
 const EnterNotify      : i32 = 7;
 const FocusOut         : i32 = 10;
 const Destroy          : i32 = 17;
@@ -40,6 +41,7 @@ pub enum XlibEvent {
   XEnterNotify(Window),
   XFocusOut(Window),
   XKeyPress(Window, u8, String),
+  XButtonPress(Window),
   Ignored
 }
 
@@ -62,7 +64,7 @@ impl XlibWindowSystem {
       }
 
       let root = XDefaultRootWindow(display);
-      XSelectInput(display, root, 0x1A0035);
+      XSelectInput(display, root, 0x1A0030);
       XDefineCursor(display, root, XCreateFontCursor(display, 68));
 
       XSetErrorHandler(error_handler as *mut u8);
@@ -96,17 +98,14 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn new_vroot(&self) -> Window {
+  pub fn unmap_window(&self, window: Window) {
     unsafe {
-      let window = XCreateSimpleWindow(self.display, self.root, 0, 0, self.get_display_width(0), self.get_display_height(0), 0, 0, 0);
-      XMapWindow(self.display, window);
-      window
+      XUnmapWindow(self.display, window);
     }
   }
 
-  pub fn map_to_parent(&self, parent: Window, window: Window) {
+  pub fn map_window(&self, window: Window) {
     unsafe {
-      XReparentWindow(self.display, window, parent, 0, 0);
       XMapWindow(self.display, window);
     }
   }
@@ -117,16 +116,11 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn raise_window(&self, window: Window) {
-    unsafe {
-      XRaiseWindow(self.display, window);
-    }
-  }
-
   pub fn focus_window(&self, window: Window, color: u32) {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
       self.set_window_border_color(window, color);
+      self.sync();
     }
   }
 
@@ -168,12 +162,18 @@ impl XlibWindowSystem {
     }
   }
 
+  pub fn grab_button(&self, window: Window) {
+    unsafe {
+      XGrabButton(self.display, 1, 0x8000, window, 1, 256, 0, 0, 0, 0);
+    }
+  }
+
   pub fn grab_modifier(&self, mod_key: u8) {
     unsafe {
       XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 0, 1);
-      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 0, 1 );
-      XGrabKey(self.display, 0, (mod_key | MOD_LOCK) as u32, self.root, 1, 0, 1 );
-      XGrabKey(self.display, 0, (mod_key | MOD_2 | MOD_LOCK) as u32, self.root, 1, 0, 1 );
+      XGrabKey(self.display, 0, (mod_key | MOD_2) as u32, self.root, 1, 0, 1);
+      XGrabKey(self.display, 0, (mod_key | MOD_LOCK) as u32, self.root, 1, 0, 1);
+      XGrabKey(self.display, 0, (mod_key | MOD_2 | MOD_LOCK) as u32, self.root, 1, 0, 1);
     }
   }
 
@@ -244,9 +244,9 @@ impl XlibWindowSystem {
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         unsafe {
-          XSelectInput(self.display, evt.window, 0x420030);
+          XSelectInput(self.display, evt.window, 0x42003c);
+          self.grab_button(evt.window);
         }
-        
         XMapRequest(evt.window)
       },
       ConfigureRequest => {
@@ -268,7 +268,11 @@ impl XlibWindowSystem {
       },
       UnmapNotify => {
         let evt : &XUnmapEvent = self.cast_event_to();
-        XUnmapNotify(evt.window)
+        if evt.send_event > 0 {
+          XUnmapNotify(evt.window)
+        } else {
+          Ignored
+        }
       },
       EnterNotify => {
         let evt : &XEnterWindowEvent = self.cast_event_to();
@@ -285,6 +289,14 @@ impl XlibWindowSystem {
         } else {
           Ignored
         }
+      },
+      ButtonPress => {
+        let evt : &XButtonPressedEvent = self.cast_event_to();
+        unsafe {
+          XAllowEvents(self.display, 2, 0);
+        }
+
+        XButtonPress(evt.window)
       },
       KeyPress => {
         let evt : &XKeyPressedEvent = self.cast_event_to();
