@@ -35,6 +35,7 @@ fn main() {
     match ws.get_event() {
       XMapRequest(window) => {
         let workspace = workspaces.get_current();
+
         workspace.add_window(ws, config, window);
         workspace.focus_window(ws, config, window);
       },

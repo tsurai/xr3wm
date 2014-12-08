@@ -120,7 +120,6 @@ impl XlibWindowSystem {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
       self.set_window_border_color(window, color);
-      self.sync();
     }
   }
 
@@ -216,6 +215,13 @@ impl XlibWindowSystem {
     Rect{x: 0, y: 0, width: self.get_display_width(screen), height: self.get_display_height(screen)}
   }
 
+  pub fn is_transient_for(&self, window: Window) -> bool {
+    unsafe {
+      let mut w : Window = uninitialized();
+      return XGetTransientForHint(self.display, window, &mut w) == 1;
+    }
+  }
+
   pub fn get_window_name(&self, window: Window) -> String {
     if window == self.root {
       return String::from_str("root");
@@ -244,9 +250,10 @@ impl XlibWindowSystem {
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         unsafe {
-          XSelectInput(self.display, evt.window, 0x42003c);
+          XSelectInput(self.display, evt.window, 0x420038);
           self.grab_button(evt.window);
         }
+
         XMapRequest(evt.window)
       },
       ConfigureRequest => {
