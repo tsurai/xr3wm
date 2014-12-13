@@ -6,7 +6,9 @@ use workspaces::{Workspaces, MoveOp};
 pub enum Cmd {
   Exec(String),
   SwitchWorkspace(uint),
+  SwitchScreen(uint),
   MoveToWorkspace(uint),
+  MoveToScreen(uint),
   KillClient,
   FocusUp,
   FocusDown,
@@ -23,31 +25,37 @@ impl Cmd {
         exec(cmd.clone());
       },
       Cmd::SwitchWorkspace(index) => {
-        workspaces.change_to(ws, config, index);
+        workspaces.switch_to(ws, config, index);
+      },
+      Cmd::SwitchScreen(screen) => {
+        workspaces.switch_to_screen(ws, config, screen);
       },
       Cmd::MoveToWorkspace(index) => {
         workspaces.move_window_to(ws, config, index);
       },
+      Cmd::MoveToScreen(screen) => {
+        workspaces.move_window_to_screen(ws, config, screen);
+      }
       Cmd::KillClient => {
-        ws.kill_window(workspaces.get_current().get_focused_window());
+        ws.kill_window(workspaces.current().get_focused_window());
       },
       Cmd::FocusUp => {
-        workspaces.get_current().move_focus(ws, config, MoveOp::Up);
+        workspaces.current().move_focus(ws, config, MoveOp::Up);
       },
       Cmd::FocusDown => {
-        workspaces.get_current().move_focus(ws, config, MoveOp::Down);
+        workspaces.current().move_focus(ws, config, MoveOp::Down);
       },
       Cmd::FocusMaster => {
-        workspaces.get_current().move_focus(ws, config, MoveOp::Swap);
+        workspaces.current().move_focus(ws, config, MoveOp::Swap);
       },
       Cmd::SwapUp => {
-        workspaces.get_current().move_window(ws, config, MoveOp::Up);
+        workspaces.current().move_window(ws, config, MoveOp::Up);
       },
       Cmd::SwapDown => {
-        workspaces.get_current().move_window(ws, config, MoveOp::Down);
+        workspaces.current().move_window(ws, config, MoveOp::Down);
       },
       Cmd::SwapMaster => {
-        workspaces.get_current().move_window(ws, config, MoveOp::Swap);
+        workspaces.current().move_window(ws, config, MoveOp::Swap);
       }
     }
   }

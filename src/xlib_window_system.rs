@@ -7,9 +7,11 @@ use std::str;
 use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
+use std::slice::from_raw_buf;
 use self::libc::{c_void, c_int, c_char, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
+use xinerama::XineramaQueryScreens;
 use xlib::*;
 
 extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
@@ -120,6 +122,7 @@ impl XlibWindowSystem {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
       self.set_window_border_color(window, color);
+      self.sync();
     }
   }
 
@@ -211,8 +214,28 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn get_display_rect(&self, screen: u32) -> Rect {
-    Rect{x: 0, y: 0, width: self.get_display_width(screen), height: self.get_display_height(screen)}
+  pub fn get_display_rect(&self) -> Rect {
+    Rect{x: 0, y: 0, width: self.get_display_width(0), height: self.get_display_height(0)}
+  }
+
+  pub fn get_screen_infos(&self) -> Vec<Rect> {
+    unsafe {
+      let mut num : c_int = 0;
+      let screen_ptr = XineramaQueryScreens(self.display, &mut num);
+
+      if num == 0 {
+        return vec!(self.get_display_rect());
+      }
+
+      from_raw_buf(&screen_ptr, num as uint).iter().map(|ref screen_info|
+        Rect{
+          x: screen_info.x_org as u32,
+          y: screen_info.y_org as u32,
+          width: screen_info.width as u32,
+          height: screen_info.height as u32
+        }
+      ).collect()
+    }
   }
 
   pub fn is_transient_for(&self, window: Window) -> bool {
@@ -250,7 +273,7 @@ impl XlibWindowSystem {
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
         unsafe {
-          XSelectInput(self.display, evt.window, 0x420038);
+          XSelectInput(self.display, evt.window, 0x420030);
           self.grab_button(evt.window);
         }
 

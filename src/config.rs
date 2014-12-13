@@ -79,17 +79,35 @@ impl Default for Config {
     };
 
     for i in range(0u, 9) {
-      config.keybindings.push(Keybinding {
-        mods: 0,
-        key: (i + 1).to_string(),
-        cmd: Cmd::SwitchWorkspace(i)
-      });
+      config.keybindings.push(
+        Keybinding {
+          mods: 0,
+          key: (i + 1).to_string(),
+          cmd: Cmd::SwitchWorkspace(i)
+        });
 
-      config.keybindings.push(Keybinding {
-        mods: MOD_SHIFT,
-        key: (i + 1).to_string(),
-        cmd: Cmd::MoveToWorkspace(i)
-      });
+      config.keybindings.push(
+        Keybinding {
+          mods: MOD_SHIFT,
+          key: (i + 1).to_string(),
+          cmd: Cmd::MoveToWorkspace(i)
+        });
+    }
+
+    for &(i, key) in vec![(0, "w"), (1, "e"), (2, "r")].iter() {
+      config.keybindings.push(
+        Keybinding {
+          mods: 0,
+          key: String::from_str(key),
+          cmd: Cmd::SwitchScreen(i)
+        });
+
+      config.keybindings.push(
+        Keybinding {
+          mods: MOD_SHIFT,
+          key: String::from_str(key),
+          cmd: Cmd::MoveToScreen(i)
+        });
     }
 
     config

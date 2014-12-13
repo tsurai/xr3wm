@@ -4,7 +4,7 @@ use std::num::Float;
 
 pub type LayoutBox = ||:'static -> Box<Layout>;
 
-#[deriving(Clone)]
+#[deriving(Copy)]
 pub struct Rect {
   pub x: u32,
   pub y: u32,
@@ -66,6 +66,6 @@ impl BarLayout {
 
 impl Layout for BarLayout {
   fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    self.layout.apply(Rect{x: 0, y: self.top, width: area.width, height: area.height - (self.top + self.bottom)}, windows)
+    self.layout.apply(Rect{x: area.x, y: area.y + self.top, width: area.width, height: area.height - (self.top + self.bottom)}, windows)
   }
 }

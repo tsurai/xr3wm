@@ -1,6 +1,7 @@
 #![feature(globs)]
 
 extern crate xlib;
+extern crate xinerama;
 
 use config::get_config;
 use workspaces::Workspaces;
@@ -28,13 +29,12 @@ fn main() {
   let ws = &mut XlibWindowSystem::new().unwrap();
   ws.grab_modifier(config.mod_key);
 
-  let mut workspaces = Workspaces::new(config);
-  workspaces.change_to(ws, config, 0);
+  let mut workspaces = Workspaces::new(config, ws.get_screen_infos().len());
 
   loop {
     match ws.get_event() {
       XMapRequest(window) => {
-        let workspace = workspaces.get_current();
+        let workspace = workspaces.current();
 
         workspace.add_window(ws, config, window);
         workspace.focus_window(ws, config, window);
@@ -49,13 +49,13 @@ fn main() {
         ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window) => {
-        workspaces.get_current().focus_window(ws, config, window);
+        workspaces.current().focus_window(ws, config, window);
       },
       XFocusOut(_) => {
-        workspaces.get_current().unfocus_window(ws, config);
+        workspaces.current().unfocus_window(ws, config);
       },
       XButtonPress(window) => {
-        workspaces.get_current().focus_window(ws, config, window);
+        workspaces.current().focus_window(ws, config, window);
       },
       XKeyPress(_, mods, key) => {
         let mods = mods & !(config.mod_key | 0b10010);

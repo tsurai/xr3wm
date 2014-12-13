@@ -8,5 +8,9 @@ build = "build.rs"
 [dependencies.xlib]
 git = "https://github.com/tsurai/rust-xlib.git"
 
+[dependencies.xinerama]
+git = "https://github.com/Kintaro/rust-xinerama.git"
+
 [[bin]]
 name = "xr3wm"
+
