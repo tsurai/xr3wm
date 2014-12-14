@@ -215,7 +215,7 @@ impl XlibWindowSystem {
   }
 
   pub fn get_display_rect(&self) -> Rect {
-    Rect{x: 0, y: 0, width: self.get_display_width(0), height: self.get_display_height(0)}
+    Rect {x: 0, y: 0, width: self.get_display_width(0), height: self.get_display_height(0)}
   }
 
   pub fn get_screen_infos(&self) -> Vec<Rect> {
@@ -228,7 +228,7 @@ impl XlibWindowSystem {
       }
 
       from_raw_buf(&screen_ptr, num as uint).iter().map(|ref screen_info|
-        Rect{
+        Rect {
           x: screen_info.x_org as u32,
           y: screen_info.y_org as u32,
           width: screen_info.width as u32,
@@ -242,6 +242,14 @@ impl XlibWindowSystem {
     unsafe {
       let mut w : Window = uninitialized();
       return XGetTransientForHint(self.display, window, &mut w) == 1;
+    }
+  }
+
+  pub fn get_class_name(&self, window: Window) -> String {
+    unsafe {
+      let mut hint : XClassHint = uninitialized();
+      XGetClassHint(self.display, window, &mut hint);
+      String::from_str(str::from_c_str(transmute(hint.res_class)))
     }
   }
 

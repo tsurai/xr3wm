@@ -2,7 +2,7 @@ use layout::*;
 use keycode::*;
 use std::default::Default;
 use workspaces::WorkspaceConfig;
-use commands::Cmd;
+use commands::{Cmd, CmdManage};
 
 include!(concat!(env!("HOME"), "/.xr3wm/config.rs"))
 
@@ -12,13 +12,19 @@ pub struct Keybinding {
   pub cmd: Cmd
 }
 
+pub struct ManageHook {
+  pub class_name: String,
+  pub cmd: CmdManage
+}
+
 pub struct Config {
   pub workspaces: Vec<WorkspaceConfig>,
   pub mod_key: u8,
   pub border_width: u32,
   pub border_color: u32,
   pub border_focus_color: u32,
-  pub keybindings: Vec<Keybinding>
+  pub keybindings: Vec<Keybinding>,
+  pub manage_hooks: Vec<ManageHook>
 }
 
 impl Default for Config {
@@ -75,21 +81,22 @@ impl Default for Config {
           key: String::from_str("Return"),
           cmd: Cmd::SwapMaster
         },
-      ]
+      ],
+      manage_hooks: Vec::new()
     };
 
-    for i in range(0u, 9) {
+    for i in range(1u, 10) {
       config.keybindings.push(
         Keybinding {
           mods: 0,
-          key: (i + 1).to_string(),
+          key: i.to_string(),
           cmd: Cmd::SwitchWorkspace(i)
         });
 
       config.keybindings.push(
         Keybinding {
           mods: MOD_SHIFT,
-          key: (i + 1).to_string(),
+          key: i.to_string(),
           cmd: Cmd::MoveToWorkspace(i)
         });
     }

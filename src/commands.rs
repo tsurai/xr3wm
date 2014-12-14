@@ -2,6 +2,7 @@ use std::io::process::Command;
 use config::Config;
 use xlib_window_system::XlibWindowSystem;
 use workspaces::{Workspaces, MoveOp};
+use xlib::Window;
 
 pub enum Cmd {
   Exec(String),
@@ -19,19 +20,19 @@ pub enum Cmd {
 }
 
 impl Cmd {
-  pub fn run(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) {
     match *self {
       Cmd::Exec(ref cmd) => {
         exec(cmd.clone());
       },
       Cmd::SwitchWorkspace(index) => {
-        workspaces.switch_to(ws, config, index);
+        workspaces.switch_to(ws, config, index - 1);
       },
       Cmd::SwitchScreen(screen) => {
         workspaces.switch_to_screen(ws, config, screen);
       },
       Cmd::MoveToWorkspace(index) => {
-        workspaces.move_window_to(ws, config, index);
+        workspaces.move_window_to(ws, config, index - 1);
       },
       Cmd::MoveToScreen(screen) => {
         workspaces.move_window_to_screen(ws, config, screen);
@@ -56,6 +57,32 @@ impl Cmd {
       },
       Cmd::SwapMaster => {
         workspaces.current().move_window(ws, config, MoveOp::Swap);
+      }
+    }
+  }
+}
+
+pub enum CmdManage {
+  Move(uint),
+  Float,
+  Fullscreen,
+  Ignore
+}
+
+impl CmdManage {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config, window: Window) {
+    match *self {
+      CmdManage::Move(index) => {
+        workspaces.move_window_to(ws, config, index - 1);
+      },
+      CmdManage::Float => {
+        unimplemented!()
+      },
+      CmdManage::Fullscreen => {
+        unimplemented!()
+      },
+      CmdManage::Ignore => {
+        unimplemented!()
       }
     }
   }

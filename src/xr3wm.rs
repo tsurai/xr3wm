@@ -34,10 +34,16 @@ fn main() {
   loop {
     match ws.get_event() {
       XMapRequest(window) => {
-        let workspace = workspaces.current();
+        let class = ws.get_class_name(window);
 
-        workspace.add_window(ws, config, window);
-        workspace.focus_window(ws, config, window);
+        workspaces.current().add_window(ws, config, window);
+        workspaces.current().focus_window(ws, config, window);
+
+        for hook in config.manage_hooks.iter() {
+          if hook.class_name == class {
+            hook.cmd.call(ws, &mut workspaces, config, window);
+          }
+        }
       },
       XDestroy(window) => {
         workspaces.remove_window(ws, config, window);
@@ -62,7 +68,7 @@ fn main() {
 
         for binding in config.keybindings.iter() {
           if binding.mods == mods && binding.key == key {
-            binding.cmd.run(ws, &mut workspaces, config);
+            binding.cmd.call(ws, &mut workspaces, config);
           }
         }
       },
