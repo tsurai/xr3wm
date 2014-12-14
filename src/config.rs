@@ -101,7 +101,7 @@ impl Default for Config {
         });
     }
 
-    for &(i, key) in vec![(0, "w"), (1, "e"), (2, "r")].iter() {
+    for &(i, key) in vec![(1, "w"), (2, "e"), (3, "r")].iter() {
       config.keybindings.push(
         Keybinding {
           mods: 0,

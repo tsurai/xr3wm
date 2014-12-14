@@ -29,13 +29,13 @@ impl Cmd {
         workspaces.switch_to(ws, config, index - 1);
       },
       Cmd::SwitchScreen(screen) => {
-        workspaces.switch_to_screen(ws, config, screen);
+        workspaces.switch_to_screen(ws, config, screen - 1);
       },
       Cmd::MoveToWorkspace(index) => {
         workspaces.move_window_to(ws, config, index - 1);
       },
       Cmd::MoveToScreen(screen) => {
-        workspaces.move_window_to_screen(ws, config, screen);
+        workspaces.move_window_to_screen(ws, config, screen - 1);
       }
       Cmd::KillClient => {
         ws.kill_window(workspaces.current().get_focused_window());
