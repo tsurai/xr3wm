@@ -7,6 +7,7 @@ use config::get_config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::{ XMapRequest,
+                          XConfigurationNotify,
                           XConfigurationRequest,
                           XDestroy,
                           XUnmapNotify,
@@ -50,6 +51,9 @@ fn main() {
       },
       XUnmapNotify(window) => {
         workspaces.remove_window(ws, config, window);
+      },
+      XConfigurationNotify(_) => {
+        workspaces.reconfigure(ws, config);
       },
       XConfigurationRequest(window, changes, mask) => {
         ws.configure_window(window, changes, mask);

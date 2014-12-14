@@ -330,6 +330,18 @@ impl Workspaces {
     }
   }
 
+  pub fn reconfigure(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    let screens = ws.get_screen_infos().len();
+
+    for workspace in self.list.iter_mut() {
+      if workspace.screen >= screens {
+        workspace.screen = 0;
+        workspace.visible = false;
+      }
+      workspace.redraw(ws, config);
+    }
+  }
+
   fn switch_screens(&mut self, dest: uint) {
     let screen = self.list[self.cur].screen;
     self.list[self.cur].screen = self.list[dest].screen;

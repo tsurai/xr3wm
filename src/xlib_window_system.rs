@@ -20,14 +20,15 @@ extern fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int
   return 0;
 }
 
-const KeyPress         : i32 = 2;
-const ButtonPress      : i32 = 4;
-const EnterNotify      : i32 = 7;
-const FocusOut         : i32 = 10;
-const Destroy          : i32 = 17;
-const UnmapNotify      : i32 = 18;
-const MapRequest       : i32 = 20;
-const ConfigureRequest : i32 = 23;
+const KeyPress             : i32 = 2;
+const ButtonPress          : i32 = 4;
+const EnterNotify          : i32 = 7;
+const FocusOut             : i32 = 10;
+const Destroy              : i32 = 17;
+const UnmapNotify          : i32 = 18;
+const MapRequest           : i32 = 20;
+const ConfigurationNotify  : i32 = 22;
+const ConfigurationRequest : i32 = 23;
 
 pub struct XlibWindowSystem {
   display:   *mut Display,
@@ -37,6 +38,7 @@ pub struct XlibWindowSystem {
 
 pub enum XlibEvent {
   XMapRequest(Window),
+  XConfigurationNotify(Window),
   XConfigurationRequest(Window, WindowChanges, u32),
   XDestroy(Window),
   XUnmapNotify(Window),
@@ -287,7 +289,15 @@ impl XlibWindowSystem {
 
         XMapRequest(evt.window)
       },
-      ConfigureRequest => {
+      ConfigurationNotify => {
+        let evt : &XConfigureEvent = self.cast_event_to();
+        if evt.window == self.root {
+          XConfigurationNotify(evt.window)
+        } else {
+          Ignored
+        }
+      },
+      ConfigurationRequest => {
         let event : &XConfigureRequestEvent = self.cast_event_to();
         let changes = WindowChanges{
           x: event.x as u32,
