@@ -89,7 +89,7 @@ impl CmdManage {
 }
 
 fn exec(cmd: String) {
-  spawn(proc() {
+  spawn(move || {
     let args : Vec<&str> = cmd.as_slice().split(' ').collect();
 
     if args.len() > 0 {
