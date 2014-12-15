@@ -41,11 +41,11 @@ impl Workspace {
   }
 
   fn is_managed(&self, window: Window) -> bool {
-    self.managed.iter().find(|&x| *x == window).is_some()
+    self.managed.iter().any(|&x| x == window)
   }
 
   fn is_unmanaged(&self, window: Window) -> bool {
-    self.unmanaged.iter().find(|&x| *x == window).is_some()
+    self.unmanaged.iter().any(|&x| x == window)
   }
 
   fn get_managed(&self, window: Window) -> uint {
@@ -183,6 +183,10 @@ impl Workspace {
 
   pub fn index_of(&self, window: Window) -> Option<uint> {
     self.managed.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last()
+  }
+
+  pub fn contains(&self, window: Window) -> bool {
+    self.managed.iter().chain(self.unmanaged.iter()).any(|&w| w == window)
   }
 
   pub fn get_focused_window(&self) -> Window {
@@ -340,6 +344,10 @@ impl Workspaces {
       }
       workspace.redraw(ws, config);
     }
+  }
+
+  pub fn contains(&self, window: Window) -> bool {
+    self.list.iter().any(|ws| ws.contains(window))
   }
 
   fn switch_screens(&mut self, dest: uint) {

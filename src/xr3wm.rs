@@ -35,14 +35,16 @@ fn main() {
   loop {
     match ws.get_event() {
       XMapRequest(window) => {
-        let class = ws.get_class_name(window);
+        if !workspaces.contains(window) {
+          let class = ws.get_class_name(window);
 
-        workspaces.current().add_window(ws, config, window);
-        workspaces.current().focus_window(ws, config, window);
+          workspaces.current().add_window(ws, config, window);
+          workspaces.current().focus_window(ws, config, window);
 
-        for hook in config.manage_hooks.iter() {
-          if hook.class_name == class {
-            hook.cmd.call(ws, &mut workspaces, config, window);
+          for hook in config.manage_hooks.iter() {
+            if hook.class_name == class {
+              hook.cmd.call(ws, &mut workspaces, config, window);
+            }
           }
         }
       },
