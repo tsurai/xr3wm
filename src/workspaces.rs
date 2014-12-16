@@ -232,6 +232,7 @@ impl Workspace {
     for (i,rect) in self.layout.apply(ws.get_screen_infos()[self.screen], &self.managed).iter().enumerate() {
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.managed[i]);
     }
+    self.focus(ws, config);
   }
 }
 
