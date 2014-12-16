@@ -37,14 +37,18 @@ fn main() {
       XMapRequest(window) => {
         if !workspaces.contains(window) {
           let class = ws.get_class_name(window);
-
-          workspaces.current().add_window(ws, config, window);
-          workspaces.current().focus_window(ws, config, window);
+          let mut is_hooked = false;
 
           for hook in config.manage_hooks.iter() {
             if hook.class_name == class {
+              is_hooked = true;
               hook.cmd.call(ws, &mut workspaces, config, window);
             }
+          }
+
+          if !is_hooked {
+            workspaces.current().add_window(ws, config, window);
+            workspaces.current().focus_window(ws, config, window);
           }
         }
       },

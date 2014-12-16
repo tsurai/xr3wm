@@ -277,6 +277,14 @@ impl Workspaces {
     workspaces
   }
 
+  pub fn get(&mut self, index: uint) -> &mut Workspace {
+    if index < self.list.len() {
+      self.list.get_mut(index).unwrap()
+    } else {
+      self.current()
+    }
+  }
+
   pub fn current(&mut self) -> &mut Workspace {
     self.list.get_mut(self.cur).unwrap()
   }

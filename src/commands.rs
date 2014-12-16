@@ -73,7 +73,8 @@ impl CmdManage {
   pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
-        workspaces.move_window_to(ws, config, index - 1);
+        workspaces.get(index - 1).add_window(ws, config, window);
+        workspaces.get(index - 1).focus_window(ws, config, window);
       },
       CmdManage::Float => {
         unimplemented!()
