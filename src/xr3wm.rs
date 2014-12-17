@@ -59,7 +59,7 @@ fn main() {
         workspaces.remove_window(ws, config, window);
       },
       XConfigurationNotify(_) => {
-        workspaces.reconfigure(ws, config);
+        workspaces.rescreen(ws, config);
       },
       XConfigurationRequest(window, changes, mask) => {
         ws.configure_window(window, changes, mask);

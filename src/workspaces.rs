@@ -3,6 +3,7 @@ use layout::{Layout, LayoutBox};
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
+use std::cmp;
 
 pub struct WorkspaceConfig {
   pub tag: String,
@@ -343,15 +344,27 @@ impl Workspaces {
     }
   }
 
-  pub fn reconfigure(&mut self, ws: &XlibWindowSystem, config: &Config) {
-    let screens = ws.get_screen_infos().len();
+  pub fn rescreen(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    let new_screens = ws.get_screen_infos().len();
 
-    for workspace in self.list.iter_mut() {
-      if workspace.screen >= screens {
-        workspace.screen = 0;
-        workspace.visible = false;
+    // move and hide workspaces if their screens got removed
+    for workspace in self.list.iter_mut().filter(|ws| ws.screen >= new_screens) {
+      workspace.screen = 0;
+      workspace.hide(ws);
+    }
+
+    // assign the first hidden workspace to the new screen
+    let prev_screens = self.list.iter().fold(0, |acc, x| cmp::max(acc, x.screen));
+    for screen in range(prev_screens, new_screens) {
+      match self.list.iter_mut().find(|ws| !ws.visible) {
+        Some(workspace) => {
+          workspace.screen = screen;
+          workspace.show(ws, config);
+        },
+        None => {
+          break;
+        }
       }
-      workspace.redraw(ws, config);
     }
   }
 
