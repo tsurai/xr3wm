@@ -4,7 +4,7 @@ use std::default::Default;
 use workspaces::WorkspaceConfig;
 use commands::{Cmd, CmdManage};
 
-include!(concat!(env!("HOME"), "/.xr3wm/config.rs"))
+include!(concat!(env!("HOME"), "/.xr3wm/config.rs"));
 
 pub struct Keybinding {
   pub mods: u8,
@@ -23,6 +23,7 @@ pub struct Config {
   pub border_width: u32,
   pub border_color: u32,
   pub border_focus_color: u32,
+  pub greedy_view: bool,
   pub keybindings: Vec<Keybinding>,
   pub manage_hooks: Vec<ManageHook>
 }
@@ -35,6 +36,7 @@ impl Default for Config {
       border_width: 2,
       border_color: 0x002e2e2e,
       border_focus_color: 0x002a82e6,
+      greedy_view: false,
       keybindings: vec![
         Keybinding {
           mods: 0,

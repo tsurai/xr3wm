@@ -35,6 +35,7 @@ impl Workspace {
       self.unmanaged.push(window);
     }
 
+    self.focus_window(ws, config, window);
     if self.visible {
       ws.map_window(window);
       self.redraw(ws, config);
@@ -293,13 +294,16 @@ impl Workspaces {
   pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
     if self.cur != index && index < self.list.len() {
       if self.list[index].visible {
-        self.switch_screens(index);
-        self.list[self.cur].redraw(ws, config);
-        self.list[self.cur].unfocus(ws, config);
+        if config.greedy_view {
+          self.switch_screens(index);
+          self.list[self.cur].show(ws, config);
+        }
       } else {
+        self.list[index].screen = self.list[self.cur].screen;
         self.list[self.cur].hide(ws);
       }
 
+      self.list[self.cur].unfocus(ws, config);
       self.list[index].show(ws, config);
       self.list[index].focus(ws, config);
       self.cur = index;
@@ -323,7 +327,6 @@ impl Workspaces {
       return;
     }
 
-    ws.unmap_window(window);
     self.remove_window(ws, config, window);
     self.list[index].add_window(ws, config, window);
     self.list[index].unfocus(ws, config);
