@@ -13,6 +13,7 @@ pub struct Rect {
 }
 
 pub trait Layout {
+  fn name(&self) -> String;
   fn apply(&self, Rect, &Vec<Window>) -> Vec<Rect>;
 }
 
@@ -33,6 +34,10 @@ impl TallLayout {
 }
 
 impl Layout for TallLayout {
+  fn name(&self) -> String {
+    String::from_str("Tall")
+  }
+
   fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     Vec::from_fn(windows.len(), |i| {
       if i < self.num_masters {
@@ -65,6 +70,10 @@ impl BarLayout {
 }
 
 impl Layout for BarLayout {
+  fn name(&self) -> String {
+    self.layout.name()
+  }
+
   fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     self.layout.apply(Rect{x: area.x, y: area.y + self.top, width: area.width, height: area.height - (self.top + self.bottom)}, windows)
   }

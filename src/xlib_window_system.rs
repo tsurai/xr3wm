@@ -87,7 +87,7 @@ impl XlibWindowSystem {
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
-  pub fn configure_window(&mut self, window: Window, window_changes: WindowChanges, mask: u32) {
+  pub fn configure_window(&self, window: Window, window_changes: WindowChanges, mask: u32) {
     unsafe {
       let mut ret_window_changes = XWindowChanges{
         x: window_changes.x as i32,
@@ -255,15 +255,18 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn get_window_name(&self, window: Window) -> String {
+  pub fn get_window_title(&self, window: Window) -> String {
     if window == self.root {
-      return String::from_str("root");
+      return String::from_str("");
     }
 
     unsafe {
       let mut name : *mut c_char = uninitialized();
-      XFetchName(self.display, window, &mut name);
-      String::from_str(str::from_c_str(transmute(name)))
+      if XFetchName(self.display, window, &mut name) == 3 || name.is_null() {
+        String::from_str("")
+      } else {
+        String::from_str(str::from_c_str(transmute(name)))
+      }
     }
   }
 

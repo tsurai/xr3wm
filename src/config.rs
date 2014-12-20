@@ -2,7 +2,7 @@ use layout::*;
 use keycode::*;
 use std::default::Default;
 use workspaces::WorkspaceConfig;
-use commands::{Cmd, CmdManage};
+use commands::{Cmd, ManageHook, CmdManage, LogHook, LogInfo, CmdLogHook};
 
 include!(concat!(env!("HOME"), "/.xr3wm/config.rs"));
 
@@ -12,12 +12,7 @@ pub struct Keybinding {
   pub cmd: Cmd
 }
 
-pub struct ManageHook {
-  pub class_name: String,
-  pub cmd: CmdManage
-}
-
-pub struct Config {
+pub struct Config<'a> {
   pub workspaces: Vec<WorkspaceConfig>,
   pub mod_key: u8,
   pub border_width: u32,
@@ -25,11 +20,12 @@ pub struct Config {
   pub border_focus_color: u32,
   pub greedy_view: bool,
   pub keybindings: Vec<Keybinding>,
-  pub manage_hooks: Vec<ManageHook>
+  pub manage_hooks: Vec<ManageHook>,
+  pub log_hook: Option<LogHook<'a>>
 }
 
-impl Default for Config {
-  fn default() -> Config {
+impl<'a> Default for Config<'a> {
+  fn default() -> Config<'a> {
     let mut config = Config {
       workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: || { box TallLayout::new(1, 0.5, 0.01) }}),
       mod_key: MOD_4,
@@ -84,7 +80,8 @@ impl Default for Config {
           cmd: Cmd::SwapMaster
         },
       ],
-      manage_hooks: Vec::new()
+      manage_hooks: Vec::new(),
+      log_hook: None
     };
 
     for i in range(1u, 10) {

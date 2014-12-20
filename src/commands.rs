@@ -38,28 +38,33 @@ impl Cmd {
         workspaces.move_window_to_screen(ws, config, screen - 1);
       }
       Cmd::KillClient => {
-        ws.kill_window(workspaces.current().get_focused_window());
+        ws.kill_window(workspaces.current_mut().get_focused_window());
       },
       Cmd::FocusUp => {
-        workspaces.current().move_focus(ws, config, MoveOp::Up);
+        workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
       },
       Cmd::FocusDown => {
-        workspaces.current().move_focus(ws, config, MoveOp::Down);
+        workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
       },
       Cmd::FocusMaster => {
-        workspaces.current().move_focus(ws, config, MoveOp::Swap);
+        workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
       },
       Cmd::SwapUp => {
-        workspaces.current().move_window(ws, config, MoveOp::Up);
+        workspaces.current_mut().move_window(ws, config, MoveOp::Up);
       },
       Cmd::SwapDown => {
-        workspaces.current().move_window(ws, config, MoveOp::Down);
+        workspaces.current_mut().move_window(ws, config, MoveOp::Down);
       },
       Cmd::SwapMaster => {
-        workspaces.current().move_window(ws, config, MoveOp::Swap);
+        workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
       }
     }
   }
+}
+
+pub struct ManageHook {
+  pub class_name: String,
+  pub cmd: CmdManage
 }
 
 pub enum CmdManage {
@@ -73,8 +78,8 @@ impl CmdManage {
   pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
-        workspaces.get(index - 1).add_window(ws, config, window);
-        workspaces.get(index - 1).focus_window(ws, config, window);
+        workspaces.get_mut(index - 1).add_window(ws, config, window);
+        workspaces.get_mut(index - 1).focus_window(ws, config, window);
       },
       CmdManage::Float => {
         unimplemented!()
@@ -84,6 +89,45 @@ impl CmdManage {
       },
       CmdManage::Ignore => {
         unimplemented!()
+      }
+    }
+  }
+}
+
+pub enum LogInfo {
+  Workspaces(Vec<String>, uint, Vec<uint>),
+  Title(String),
+  Layout(String)
+}
+
+pub struct LogHook<'a> {
+  pub logs: Vec<CmdLogHook>,
+  pub output: |Vec<LogInfo>|:'a -> String
+}
+
+impl<'a> LogHook<'a> {
+  pub fn call(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) {
+    println!("{}", (self.output)(self.logs.iter().map(|x| x.call(ws, workspaces)).collect()));
+  }
+}
+
+pub enum CmdLogHook {
+  Workspaces,
+  Title,
+  Layout
+}
+
+impl CmdLogHook {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> LogInfo {
+    match *self {
+      CmdLogHook::Workspaces => {
+        LogInfo::Workspaces(workspaces.all().iter().map(|x| x.get_tag()).collect(), workspaces.get_index(), Vec::new())
+      },
+      CmdLogHook::Title => {
+        LogInfo::Title(ws.get_window_title(workspaces.current().get_focused_window()))
+      },
+      CmdLogHook::Layout => {
+        LogInfo::Layout(workspaces.current().get_layout().name())
       }
     }
   }

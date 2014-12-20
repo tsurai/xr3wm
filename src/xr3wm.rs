@@ -25,12 +25,12 @@ mod layout;
 
 
 fn main() {
-  let mut config = &mut get_config();
+  let mut config = get_config();
 
-  let ws = &mut XlibWindowSystem::new().unwrap();
+  let ws = &XlibWindowSystem::new().unwrap();
   ws.grab_modifier(config.mod_key);
 
-  let mut workspaces = Workspaces::new(config, ws.get_screen_infos().len());
+  let mut workspaces = Workspaces::new(&mut config, ws.get_screen_infos().len());
 
   loop {
     match ws.get_event() {
@@ -42,47 +42,51 @@ fn main() {
           for hook in config.manage_hooks.iter() {
             if hook.class_name == class {
               is_hooked = true;
-              hook.cmd.call(ws, &mut workspaces, config, window);
+              hook.cmd.call(ws, &mut workspaces, &config, window);
             }
           }
 
           if !is_hooked {
-            workspaces.current().add_window(ws, config, window);
-            workspaces.current().focus_window(ws, config, window);
+            workspaces.current_mut().add_window(ws, &config, window);
+            workspaces.current_mut().focus_window(ws, &config, window);
           }
         }
       },
       XDestroy(window) => {
-        workspaces.remove_window(ws, config, window);
+        workspaces.remove_window(ws, &config, window);
       },
       XUnmapNotify(window) => {
-        workspaces.remove_window(ws, config, window);
+        workspaces.remove_window(ws, &config, window);
       },
       XConfigurationNotify(_) => {
-        workspaces.rescreen(ws, config);
+        workspaces.rescreen(ws, &config);
       },
       XConfigurationRequest(window, changes, mask) => {
         ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window) => {
-        workspaces.current().focus_window(ws, config, window);
+        workspaces.current_mut().focus_window(ws, &config, window);
       },
       XFocusOut(_) => {
-        workspaces.current().unfocus_window(ws, config);
+        workspaces.current_mut().unfocus_window(ws, &config);
       },
       XButtonPress(window) => {
-        workspaces.current().focus_window(ws, config, window);
+        workspaces.current_mut().focus_window(ws, &config, window);
       },
       XKeyPress(_, mods, key) => {
         let mods = mods & !(config.mod_key | 0b10010);
 
         for binding in config.keybindings.iter() {
           if binding.mods == mods && binding.key == key {
-            binding.cmd.call(ws, &mut workspaces, config);
+            binding.cmd.call(ws, &mut workspaces, &config);
           }
         }
       },
       _ => {}
+    }
+
+    if let Some(ref mut loghook) = (&mut config).log_hook {
+      loghook.call(ws, &workspaces);
     }
   }
 }

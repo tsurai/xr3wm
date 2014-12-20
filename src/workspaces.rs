@@ -58,6 +58,14 @@ impl Workspace {
     self.unmanaged.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last().unwrap()
   }
 
+  pub fn get_layout(&self) -> &Box<Layout + 'static> {
+    &self.layout
+  }
+
+  pub fn get_tag(&self) -> String {
+    self.tag.clone()
+  }
+
   fn remove_managed(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     let index = self.get_managed(window);
 
@@ -279,16 +287,36 @@ impl Workspaces {
     workspaces
   }
 
-  pub fn get(&mut self, index: uint) -> &mut Workspace {
+  pub fn get(&self, index: uint) -> &Workspace {
     if index < self.list.len() {
-      self.list.get_mut(index).unwrap()
+      self.list.get(index).unwrap()
     } else {
       self.current()
     }
   }
 
-  pub fn current(&mut self) -> &mut Workspace {
+  pub fn get_mut(&mut self, index: uint) -> &mut Workspace {
+    if index < self.list.len() {
+      self.list.get_mut(index).unwrap()
+    } else {
+      self.current_mut()
+    }
+  }
+
+  pub fn current(&self) -> &Workspace {
+    self.list.get(self.cur).unwrap()
+  }
+
+   pub fn current_mut(&mut self) -> &mut Workspace {
     self.list.get_mut(self.cur).unwrap()
+  }
+
+  pub fn all(&self) -> &Vec<Workspace> {
+    &self.list
+  }
+
+  pub fn get_index(&self) -> uint {
+    self.cur
   }
 
   pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
