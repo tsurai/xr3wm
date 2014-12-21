@@ -393,11 +393,7 @@ impl XlibWindowSystem {
       },
       UnmapNotify => {
         let evt : &XUnmapEvent = self.cast_event_to();
-        if evt.send_event > 0 {
-          XUnmapNotify(evt.window)
-        } else {
-          Ignored
-        }
+        XUnmapNotify(evt.window)
       },
       EnterNotify => {
         let evt : &XEnterWindowEvent = self.cast_event_to();

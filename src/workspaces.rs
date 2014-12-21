@@ -99,7 +99,11 @@ impl Workspace {
     let new_focused_window = if !self.unmanaged.is_empty() {
       self.unmanaged[if index < self.unmanaged.len() { index } else { index - 1}]
     } else {
-      0
+      if !self.managed.is_empty() {
+        self.managed[self.managed.len() - 1]
+      } else {
+        0
+      }
     };
 
     if self.visible {
