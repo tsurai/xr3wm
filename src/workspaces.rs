@@ -194,10 +194,6 @@ impl Workspace {
     self.redraw(ws, config);
   }
 
-  pub fn index_of(&self, window: Window) -> Option<uint> {
-    self.managed.iter().chain(self.unmanaged.iter()).enumerate().find(|&(_,&w)| w == window).map(|(i,_)| i)
-  }
-
   pub fn contains(&self, window: Window) -> bool {
     self.managed.iter().chain(self.unmanaged.iter()).any(|&w| w == window)
   }
