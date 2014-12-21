@@ -10,7 +10,7 @@ use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_buf;
-use self::libc::{c_void, c_int, c_char, c_ulong};
+use self::libc::{c_void, c_int, c_uint, c_char, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
 use xinerama::XineramaQueryScreens;
@@ -167,12 +167,18 @@ impl XlibWindowSystem {
         msg.display = self.display;
         msg.window = window;
         msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1), 0, 0, 0, 0]);
+        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1) as u64, 0, 0, 0, 0]);
 
         XSendEvent(self.display, window, 0, 0, transmute(&msg));
       } else {
         XKillClient(self.display, window);
       }
+    }
+  }
+
+  pub fn restack_windows(&self, mut windows: Vec<Window>) {
+    unsafe {
+      XRestackWindows(self.display, windows.as_mut_slice().as_mut_ptr(), windows.len() as i32);
     }
   }
 
@@ -233,7 +239,33 @@ impl XlibWindowSystem {
   }
 
   pub fn get_display_rect(&self) -> Rect {
-    Rect {x: 0, y: 0, width: self.get_display_width(0), height: self.get_display_height(0)}
+    Rect {
+      x: 0,
+      y: 0,
+      width: self.get_display_width(0),
+      height: self.get_display_height(0)
+    }
+  }
+
+  pub fn get_geometry(&self, window: Window) -> Rect {
+    unsafe {
+      let mut root : Window = uninitialized();
+      let mut x : c_int = uninitialized();
+      let mut y : c_int = uninitialized();
+      let mut width : c_uint = uninitialized();
+      let mut height : c_uint = uninitialized();
+      let mut depth : c_uint = uninitialized();
+      let mut border : c_uint = uninitialized();
+
+      XGetGeometry(self.display, window, &mut root, &mut x, &mut y, &mut width, &mut height, &mut border, &mut depth);
+
+      Rect {
+        x: x as u32,
+        y: y as u32,
+        width: width,
+        height: height
+      }
+    }
   }
 
   pub fn get_screen_infos(&self) -> Vec<Rect> {
@@ -256,10 +288,36 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn is_transient_for(&self, window: Window) -> bool {
+  pub fn is_window_floating(&self, window: Window) -> bool {
+    if self.is_transient_for(window) {
+      return true;
+    }
+
+    if let Some(hints) = self.get_size_hints(window) {
+      return hints.min_width == hints.max_width && hints.min_height == hints.max_height;
+    }
+
+    return false;
+  }
+
+  fn is_transient_for(&self, window: Window) -> bool {
     unsafe {
       let mut w : Window = uninitialized();
+
       return XGetTransientForHint(self.display, window, &mut w) == 1;
+    }
+  }
+
+  pub fn get_size_hints(&self, window: Window) -> Option<XSizeHints> {
+    unsafe {
+      let mut ret : c_long = uninitialized();
+      let mut hints : XSizeHints = uninitialized();
+
+      if XGetWMNormalHints(self.display, window, &mut hints, &mut ret) != 0 {
+        Some(hints)
+      } else {
+        None
+      }
     }
   }
 

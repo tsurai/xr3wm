@@ -29,16 +29,20 @@ pub enum MoveOp {
 
 impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-    if !ws.is_transient_for(window) {
+    if !ws.is_window_floating(window) {
       self.managed.push(window);
+
+      if self.unmanaged.len() > 0 {
+        ws.restack_windows(self.unmanaged.iter_mut().chain(self.managed.iter_mut()).map(|&x| x).collect());
+      }
     } else {
       self.unmanaged.push(window);
     }
 
     self.focus_window(ws, config, window);
     if self.visible {
-      ws.map_window(window);
       self.redraw(ws, config);
+      ws.map_window(window);
     }
   }
 
@@ -104,18 +108,14 @@ impl Workspace {
     }
   }
 
-  pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) -> bool {
+  pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if self.is_managed(window) {
       self.remove_managed(ws, config, window);
     } else {
       if self.is_unmanaged(window) {
         self.remove_unmanaged(ws, config, window);
-      } else {
-        return false;
       }
     }
-
-    return true;
   }
 
   pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
@@ -136,24 +136,27 @@ impl Workspace {
   }
 
   pub fn move_focus(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-    if self.focused_window == 0 || self.managed.len() < 2 {
+    let windows : Vec<Window> = self.managed.iter().chain(self.unmanaged.iter()).map(|&x| x).collect();
+    let count = windows.len();
+
+    if self.focused_window == 0 || count < 2 {
       return;
     }
 
-    let index = self.index_of(self.focused_window).unwrap();
+    let index = windows.iter().enumerate().find(|&(_,&w)| w == self.focused_window).map(|(i,_)| i).unwrap();
     let new_focused_window = match op {
       Up => {
         if index == 0 {
-          self.managed[self.managed.len() - 1]
+          windows[count - 1]
         } else {
-          self.managed[index - 1]
+          windows[index - 1]
         }
       },
       Down => {
-        self.managed[(index + 1) % self.managed.len()]
+        windows[(index + 1) % count]
       },
       Swap => {
-        self.managed[0]
+        windows[0]
       }
     };
 
@@ -165,7 +168,7 @@ impl Workspace {
       return;
     }
 
-    let pos = self.index_of(self.focused_window).unwrap();
+    let pos = self.managed.iter().enumerate().find(|&(_,&w)| w == self.focused_window).map(|(i,_)| i).unwrap();
     let new_pos = match op {
       Up => {
         if pos == 0 {
@@ -192,7 +195,7 @@ impl Workspace {
   }
 
   pub fn index_of(&self, window: Window) -> Option<uint> {
-    self.managed.iter().enumerate().filter(|&(_,&w)| w == window).map(|(i,_)| i).last()
+    self.managed.iter().chain(self.unmanaged.iter()).enumerate().find(|&(_,&w)| w == window).map(|(i,_)| i)
   }
 
   pub fn contains(&self, window: Window) -> bool {
@@ -239,8 +242,19 @@ impl Workspace {
   }
 
   pub fn redraw(&self, ws: &XlibWindowSystem, config: &Config) {
-    for (i,rect) in self.layout.apply(ws.get_screen_infos()[self.screen], &self.managed).iter().enumerate() {
+    debug!("Redraw");
+    let screen = ws.get_screen_infos()[self.screen];
+
+    for (i,rect) in self.layout.apply(screen, &self.managed).iter().enumerate() {
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.managed[i]);
+    }
+
+    for &window in self.unmanaged.iter() {
+      let mut rect = ws.get_geometry(window);
+      rect.width = rect.width + (2 * config.border_width);
+      rect.height = rect.height + (2 * config.border_width);
+
+      ws.setup_window((screen.width - rect.width) / 2, (screen.height - rect.height) / 2, rect.width, rect.height, config.border_width, config.border_color, window);
     }
     self.focus(ws, config);
   }
@@ -370,10 +384,11 @@ impl Workspaces {
   }
 
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-    for workspace in self.list.iter_mut() {
-      if workspace.remove_window(ws, config, window) {
-        return;
-      }
+    match self.list.iter_mut().find(|workspace| workspace.contains(window)) {
+      Some(workspace) => {
+        workspace.remove_window(ws, config, window);
+      },
+      None => {}
     }
   }
 
