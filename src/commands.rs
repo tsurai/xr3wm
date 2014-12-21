@@ -23,39 +23,52 @@ impl Cmd {
   pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) {
     match *self {
       Cmd::Exec(ref cmd) => {
+        debug!("Cmd::Exec: {}", cmd);
         exec(cmd.clone());
       },
       Cmd::SwitchWorkspace(index) => {
+        debug!("Cmd::SwitchWorkspace: {}", index);
         workspaces.switch_to(ws, config, index - 1);
       },
       Cmd::SwitchScreen(screen) => {
+        debug!("Cmd::SwitchScreen: {}", screen);
         workspaces.switch_to_screen(ws, config, screen - 1);
       },
       Cmd::MoveToWorkspace(index) => {
+        debug!("Cmd::MoveToWorkspace: {}", index);
         workspaces.move_window_to(ws, config, index - 1);
       },
       Cmd::MoveToScreen(screen) => {
+        debug!("Cmd::MoveToScreen: {}", screen);
         workspaces.move_window_to_screen(ws, config, screen - 1);
       }
       Cmd::KillClient => {
-        ws.kill_window(workspaces.current_mut().get_focused_window());
+        let focused_window = workspaces.current_mut().get_focused_window();
+        debug!("Cmd::KillClient: {}", focused_window);
+        ws.kill_window(focused_window);
       },
       Cmd::FocusUp => {
+        debug!("Cmd::FocusUp: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
       },
       Cmd::FocusDown => {
+        debug!("Cmd::FocusDown: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
       },
       Cmd::FocusMaster => {
+        debug!("Cmd::FocusMaster: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
       },
       Cmd::SwapUp => {
+        debug!("Cmd::SwapUp: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Up);
       },
       Cmd::SwapDown => {
+        debug!("Cmd::SwapDown: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Down);
       },
       Cmd::SwapMaster => {
+        debug!("Cmd::SwapMaster: {}", workspaces.current_mut().get_focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
       }
     }
@@ -78,16 +91,20 @@ impl CmdManage {
   pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
+        debug!("CmdManage::Move: {}, {}", window, index - 1);
         workspaces.get_mut(index - 1).add_window(ws, config, window);
         workspaces.get_mut(index - 1).focus_window(ws, config, window);
       },
       CmdManage::Float => {
+        debug!("CmdManage::Float");
         unimplemented!()
       },
       CmdManage::Fullscreen => {
+        debug!("CmdManage::Fullscreen");
         unimplemented!()
       },
       CmdManage::Ignore => {
+        debug!("CmdManage::Ignore");
         unimplemented!()
       }
     }

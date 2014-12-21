@@ -4,6 +4,8 @@ extern crate libc;
 use keycode::{MOD_2, MOD_LOCK};
 use layout::Rect;
 use std::str;
+use std::fmt;
+use std::os::env;
 use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
@@ -59,12 +61,26 @@ pub struct WindowChanges {
   pub stack_mode: u32,
 }
 
+impl fmt::Show for WindowChanges {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{{ x: {}, y: {}, width: {}, height: {}, border_width: {}, sibling: {}, stack_mode: {} }}", 
+      self.x,
+      self.y,
+      self.width,
+      self.height,
+      self.border_width,
+      self.sibling,
+      self.stack_mode)
+  }
+}
+
 impl XlibWindowSystem {
-  pub fn new() -> Option<XlibWindowSystem> {
+  pub fn new() -> XlibWindowSystem {
     unsafe {
       let display = XOpenDisplay(null_mut());
       if display.is_null() {
-        return None;
+        error!("Can't open display{}", env().iter().find(|&&(ref x,_)| *x == String::from_str("DISPLAY")).map(|&(_,ref x)| x.clone()).unwrap());
+        panic!();
       }
 
       let root = XDefaultRootWindow(display);
@@ -73,11 +89,11 @@ impl XlibWindowSystem {
 
       XSetErrorHandler(error_handler as *mut u8);
 
-      Some(XlibWindowSystem{
+      XlibWindowSystem {
         display: display,
         root: root,
         event: malloc(256)
-      })
+      }
     }
   }
 
