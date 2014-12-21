@@ -72,7 +72,7 @@ fn main() {
         ws.configure_window(window, changes, mask);
       },
       XEnterNotify(window) => {
-        debug!("XConfigurationRequest: {}", window);
+        debug!("XEnterNotify: {}", window);
         workspaces.current_mut().focus_window(ws, &config, window);
       },
       XFocusOut(_) => {
