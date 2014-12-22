@@ -43,7 +43,7 @@ pub enum XlibEvent {
   XConfigurationNotify(Window),
   XConfigurationRequest(Window, WindowChanges, u32),
   XDestroy(Window),
-  XUnmapNotify(Window),
+  XUnmapNotify(Window, bool),
   XEnterNotify(Window),
   XFocusOut(Window),
   XKeyPress(Window, u8, String),
@@ -393,7 +393,8 @@ impl XlibWindowSystem {
       },
       UnmapNotify => {
         let evt : &XUnmapEvent = self.cast_event_to();
-        XUnmapNotify(evt.window)
+        debug!("UnmapNotify {}", evt.send_event);
+        XUnmapNotify(evt.window, evt.send_event > 0)
       },
       EnterNotify => {
         let evt : &XEnterWindowEvent = self.cast_event_to();

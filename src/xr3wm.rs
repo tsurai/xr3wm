@@ -59,9 +59,11 @@ fn main() {
         debug!("XDestroy: {}", window);
         workspaces.remove_window(ws, &config, window);
       },
-      XUnmapNotify(window) => {
+      XUnmapNotify(window, send) => {
         debug!("XUnmapNotify: {}", window);
-        workspaces.remove_window(ws, &config, window);
+        if send {
+          workspaces.remove_window(ws, &config, window);
+        }
       },
       XConfigurationNotify(_) => {
         debug!("XConfigurationNotify");

@@ -44,32 +44,32 @@ impl Cmd {
         workspaces.move_window_to_screen(ws, config, screen - 1);
       }
       Cmd::KillClient => {
-        let focused_window = workspaces.current_mut().get_focused_window();
+        let focused_window = workspaces.current_mut().focused_window();
         debug!("Cmd::KillClient: {}", focused_window);
         ws.kill_window(focused_window);
       },
       Cmd::FocusUp => {
-        debug!("Cmd::FocusUp: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::FocusUp: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
       },
       Cmd::FocusDown => {
-        debug!("Cmd::FocusDown: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::FocusDown: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
       },
       Cmd::FocusMaster => {
-        debug!("Cmd::FocusMaster: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::FocusMaster: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
       },
       Cmd::SwapUp => {
-        debug!("Cmd::SwapUp: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::SwapUp: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Up);
       },
       Cmd::SwapDown => {
-        debug!("Cmd::SwapDown: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::SwapDown: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Down);
       },
       Cmd::SwapMaster => {
-        debug!("Cmd::SwapMaster: {}", workspaces.current_mut().get_focused_window());
+        debug!("Cmd::SwapMaster: {}", workspaces.current_mut().focused_window());
         workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
       }
     }
@@ -142,7 +142,7 @@ impl CmdLogHook {
         LogInfo::Workspaces(workspaces.all().iter().map(|x| x.get_tag()).collect(), workspaces.get_index(), Vec::new())
       },
       CmdLogHook::Title => {
-        LogInfo::Title(ws.get_window_title(workspaces.current().get_focused_window()))
+        LogInfo::Title(ws.get_window_title(workspaces.current().focused_window()))
       },
       CmdLogHook::Layout => {
         LogInfo::Layout(workspaces.current().get_layout().name())
