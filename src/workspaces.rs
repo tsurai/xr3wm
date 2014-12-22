@@ -321,7 +321,7 @@ impl Workspaces {
     self.list.get(self.cur).unwrap()
   }
 
-   pub fn current_mut(&mut self) -> &mut Workspace {
+  pub fn current_mut(&mut self) -> &mut Workspace {
     self.list.get_mut(self.cur).unwrap()
   }
 
@@ -331,6 +331,24 @@ impl Workspaces {
 
   pub fn get_index(&self) -> uint {
     self.cur
+  }
+
+  pub fn contains(&self, window: Window) -> bool {
+    self.list.iter().any(|ws| ws.contains(window))
+  }
+
+  pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    match self.list.iter().enumerate().find(|&(_,workspace)| workspace.contains(window)).map(|(i,_)| i) {
+      Some(index) => {
+        if self.cur != index {
+          self.list[index].focus_window(ws, config, window);
+          self.switch_to(ws, config, index);
+        } else {
+          self.current_mut().focus_window(ws, config, window);
+        }
+      },
+      None => {}
+    }
   }
 
   pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
@@ -384,7 +402,7 @@ impl Workspaces {
   }
 
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-    match self.list.iter_mut().find(|workspace| workspace.contains(window)) {
+    match self.find_window(window) {
       Some(workspace) => {
         workspace.remove_window(ws, config, window);
       },
@@ -416,8 +434,8 @@ impl Workspaces {
     }
   }
 
-  pub fn contains(&self, window: Window) -> bool {
-    self.list.iter().any(|ws| ws.contains(window))
+  fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
+    self.list.iter_mut().find(|workspace| workspace.contains(window))
   }
 
   fn switch_screens(&mut self, dest: uint) {

@@ -73,7 +73,7 @@ fn main() {
       },
       XEnterNotify(window) => {
         debug!("XEnterNotify: {}", window);
-        workspaces.current_mut().focus_window(ws, &config, window);
+        workspaces.focus_window(ws, &config, window);
       },
       XFocusOut(_) => {
         debug!("XFocusOut");
@@ -81,7 +81,7 @@ fn main() {
       },
       XButtonPress(window) => {
         debug!("XButtonPress: {}", window);
-        workspaces.current_mut().focus_window(ws, &config, window);
+        workspaces.focus_window(ws, &config, window);
       },
       XKeyPress(_, mods, key) => {
         debug!("XButtonPress: {}, {}", mods, key);
