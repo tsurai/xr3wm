@@ -1,4 +1,5 @@
 use std::io::process::Command;
+use std::thread::Thread;
 use config::Config;
 use xlib_window_system::XlibWindowSystem;
 use workspaces::{Workspaces, MoveOp};
@@ -151,7 +152,7 @@ impl CmdLogHook {
 }
 
 fn exec(cmd: String) {
-  spawn(move || {
+  Thread::spawn(move || {
     let args : Vec<&str> = cmd.as_slice().split(' ').collect();
 
     if args.len() > 0 {
@@ -167,5 +168,5 @@ fn exec(cmd: String) {
       }
     }
 
-  });
+  }).detach();
 }
