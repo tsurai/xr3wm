@@ -515,7 +515,7 @@ impl Workspaces {
     }
 
     // assign the first hidden workspace to the new screen
-    for screen in range(prev_screens, new_screens) {
+    for screen in range(prev_screens + 1, new_screens) {
       match self.list.iter_mut().find(|ws| !ws.visible) {
         Some(workspace) => {
           workspace.screen = screen;
@@ -526,6 +526,8 @@ impl Workspaces {
         }
       }
     }
+
+    self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(ws, config);
   }
 
   fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
