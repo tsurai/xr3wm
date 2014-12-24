@@ -324,8 +324,11 @@ impl XlibWindowSystem {
   pub fn get_class_name(&self, window: Window) -> String {
     unsafe {
       let mut hint : XClassHint = uninitialized();
-      XGetClassHint(self.display, window, &mut hint);
-      String::from_str(str::from_c_str(transmute(hint.res_class)))
+      if XGetClassHint(self.display, window, &mut hint) != 0 || hint.res_class.is_null() {
+        String::from_str("")
+      } else {
+        String::from_str(str::from_c_str(transmute(hint.res_class)))
+      }
     }
   }
 
