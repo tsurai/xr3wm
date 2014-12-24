@@ -162,11 +162,10 @@ fn exec(cmd: String) {
         cmd.args(args.as_slice().slice_from(1));
       }
 
-      match cmd.detached().spawn() {
+      match cmd.detached().output() {
         Ok(_) => (),
         _ => panic!("failed to start \"{}\"", cmd)
       }
     }
-
   }).detach();
 }
