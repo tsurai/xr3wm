@@ -104,15 +104,15 @@ impl Workspace {
   }
 
   fn all(&self) -> Vec<Window> {
-    self.managed.all().iter().chain(self.unmanaged.all().iter()).map(|&x| x).collect()
+    self.unmanaged.all().iter().chain(self.managed.all().iter()).map(|&x| x).collect()
   }
 
   fn all_mut(&mut self) -> Vec<Window> {
-    self.managed.all_mut().iter_mut().chain(self.unmanaged.all_mut().iter_mut()).map(|&x| x).collect()
+    self.unmanaged.all_mut().iter_mut().chain(self.managed.all_mut().iter_mut()).map(|&x| x).collect()
   }
 
   fn all_visible(&self) -> Vec<Window> {
-    self.managed.visible.iter().chain(self.unmanaged.visible.iter()).map(|&x| x).collect()
+    self.unmanaged.visible.iter().chain(self.managed.visible.iter()).map(|&x| x).collect()
   }
 
   pub fn get_layout(&self) -> &Box<Layout + 'static> {
@@ -175,9 +175,11 @@ impl Workspace {
 
   pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if self.managed.contains(window) {
+      debug!("Remove Managed: {}", window);
       self.remove_managed(ws, config, window);
     } else {
       if self.unmanaged.contains(window) {
+        debug!("Remove Unmanaged: {}", window);
         self.remove_unmanaged(ws, config, window);
       }
     }
