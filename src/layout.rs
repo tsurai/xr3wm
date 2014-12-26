@@ -1,6 +1,7 @@
 use xlib::Window;
 use std::cmp::min;
 use std::num::Float;
+use std::fmt;
 
 pub type LayoutBox = ||:'static -> Box<Layout>;
 
@@ -10,6 +11,12 @@ pub struct Rect {
   pub y: u32,
   pub width: u32,
   pub height: u32
+}
+
+impl fmt::Show for Rect {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{{ x: {}, y: {}, width: {}, height: {} }}", self.x, self.y, self.width, self.height)
+  }
 }
 
 pub trait Layout {

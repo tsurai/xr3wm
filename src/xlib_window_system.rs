@@ -10,6 +10,7 @@ use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_buf;
+use std::c_str::CString;
 use self::libc::{c_void, c_int, c_uint, c_char, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
@@ -103,18 +104,46 @@ impl XlibWindowSystem {
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
-  pub fn configure_window(&self, window: Window, window_changes: WindowChanges, mask: u32) {
+  pub fn configure_window(&self, window: Window, window_changes: WindowChanges, mask: u32, unmanaged: bool) {
     unsafe {
-      let mut ret_window_changes = XWindowChanges{
-        x: window_changes.x as i32,
-        y: window_changes.y as i32,
-        width: window_changes.width as i32,
-        height: window_changes.height as i32,
-        border_width: window_changes.border_width as i32,
-        sibling: window_changes.sibling,
-        stack_mode: window_changes.stack_mode as i32
-      };
-      XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
+      if unmanaged {
+          let mut ret_window_changes = XWindowChanges{
+            x: window_changes.x as i32,
+            y: window_changes.y as i32,
+            width: window_changes.width as i32,
+            height: window_changes.height as i32,
+            border_width: window_changes.border_width as i32,
+            sibling: window_changes.sibling,
+            stack_mode: window_changes.stack_mode as i32
+          };
+          debug!("XConfigurationRequest: {}, {}", window, window_changes);
+          XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
+
+      } else {
+        let rect = self.get_geometry(window);
+        let mut attributes : XWindowAttributes = uninitialized();
+
+        XGetWindowAttributes(self.display, window, &mut attributes);
+
+        let mut event = XConfigureEvent {
+          _type: ConfigurationRequest as i32,
+          display: self.display,
+          serial: 0,
+          send_event: 1,
+          x: rect.x as i32,
+          y: rect.y as i32,
+          width: rect.width as i32,
+          height: rect.height as i32,
+          border_width: 0,
+          event: window,
+          window: window,
+          above: 0,
+          override_redirect: attributes.override_redirect
+        };
+
+        let event_ptr : *mut XConfigureEvent = &mut event;
+        XSendEvent(self.display, window, 0, 0, (event_ptr as *mut c_void));
+      }
     }
   }
 
@@ -178,6 +207,9 @@ impl XlibWindowSystem {
 
   pub fn restack_windows(&self, mut windows: Vec<Window>) {
     unsafe {
+      for w in windows.iter() {
+        debug!("{}", w);
+      }
       XRestackWindows(self.display, windows.as_mut_slice().as_mut_ptr(), windows.len() as i32);
     }
   }
@@ -324,10 +356,11 @@ impl XlibWindowSystem {
   pub fn get_class_name(&self, window: Window) -> String {
     unsafe {
       let mut hint : XClassHint = uninitialized();
-      if XGetClassHint(self.display, window, &mut hint) != 0 || hint.res_class.is_null() {
+      if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
         String::from_str("")
       } else {
-        String::from_str(str::from_c_str(transmute(hint.res_class)))
+        let string = CString::new(hint.res_class as *const c_char, false);
+        (format!("{}", string)).clone()
       }
     }
   }
@@ -339,10 +372,11 @@ impl XlibWindowSystem {
 
     unsafe {
       let mut name : *mut c_char = uninitialized();
-      if XFetchName(self.display, window, &mut name) == 3 || name.is_null() {
+      if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
         String::from_str("")
       } else {
-        String::from_str(str::from_c_str(transmute(name)))
+        let string = CString::new(name as *const c_char, false);
+        (format!("{}", string)).clone()
       }
     }
   }
@@ -396,7 +430,6 @@ impl XlibWindowSystem {
       },
       UnmapNotify => {
         let evt : &XUnmapEvent = self.cast_event_to();
-        debug!("UnmapNotify {}", evt.send_event);
         XUnmapNotify(evt.window, evt.send_event > 0)
       },
       EnterNotify => {

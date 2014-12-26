@@ -60,8 +60,8 @@ fn main() {
         workspaces.remove_window(ws, &config, window);
       },
       XUnmapNotify(window, send) => {
-        debug!("XUnmapNotify: {}", window);
         if send {
+          debug!("XUnmapNotify: {}", window);
           workspaces.remove_window(ws, &config, window);
         }
       },
@@ -70,8 +70,8 @@ fn main() {
         workspaces.rescreen(ws, &config);
       },
       XConfigurationRequest(window, changes, mask) => {
-        debug!("XConfigurationRequest: {}, {}, {}", window, changes, mask);
-        ws.configure_window(window, changes, mask);
+        let unmanaged = workspaces.is_unmanaged(window) || !workspaces.contains(window);
+        ws.configure_window(window, changes, mask, unmanaged);
       },
       XEnterNotify(window) => {
         debug!("XEnterNotify: {}", window);

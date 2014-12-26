@@ -87,13 +87,16 @@ pub enum MoveOp {
 impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if !ws.is_window_floating(window) {
+      debug!("Add Managed: {}", window);
       self.managed.visible.push(window);
 
       if self.unmanaged.len() > 0 {
+        debug!("Restacking");
         ws.restack_windows(self.all_mut());
       }
     } else {
       self.unmanaged.visible.push(window);
+      debug!("Add Unmanaged: {}", window);
     }
 
     self.focus_window(ws, config, window);
@@ -121,6 +124,14 @@ impl Workspace {
 
   pub fn get_tag(&self) -> String {
     self.tag.clone()
+  }
+
+  pub fn is_unmanaged(&self, window: Window) -> bool {
+    self.unmanaged.contains(window)
+  }
+
+  pub fn is_managed(&self, window: Window) -> bool {
+    self.managed.contains(window)
   }
 
   pub fn focused_window(&self) -> Window {
@@ -158,7 +169,7 @@ impl Workspace {
     self.unmanaged.remove(index);
 
     let new_focused_window = if !self.unmanaged.visible.is_empty() {
-      self.unmanaged.visible[if index < self.unmanaged.len() { index } else { index - 1}]
+      self.unmanaged.visible[if index < self.unmanaged.visible.len() { index } else { index - 1}]
     } else {
       if !self.managed.visible.is_empty() {
         self.managed.visible[self.managed.len() - 1]
@@ -193,15 +204,7 @@ impl Workspace {
       self.unmanaged.hide(window);
     }
   }
-/*
-  pub fn show_window(&mut self, window: Window) {
-    if self.managed.contains(window) {
-      self.managed.hide(window):
-    } else {
-      self.unmanaged.hide(window);
-    }
-  }
-*/
+
   pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if window == 0 {
       return;
@@ -333,10 +336,12 @@ impl Workspace {
   }
 
   pub fn redraw(&self, ws: &XlibWindowSystem, config: &Config) {
-    debug!("Redraw");
+    debug!("Redraw...");
+
     let screen = ws.get_screen_infos()[self.screen];
 
     for (i,rect) in self.layout.apply(screen, &self.managed.visible).iter().enumerate() {
+      debug!("  {}, {}", self.managed.visible[i], rect);
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.managed.visible[i]);
     }
 
@@ -347,6 +352,7 @@ impl Workspace {
 
       ws.setup_window((screen.width - rect.width) / 2, (screen.height - rect.height) / 2, rect.width, rect.height, config.border_width, config.border_color, window);
     }
+
     self.focus(ws, config);
   }
 }
@@ -425,6 +431,10 @@ impl Workspaces {
 
   pub fn contains(&self, window: Window) -> bool {
     self.list.iter().any(|ws| ws.contains(window))
+  }
+
+  pub fn is_unmanaged(&self, window: Window) -> bool {
+    self.list.iter().any(|ws| ws.is_unmanaged(window))
   }
 
   pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
@@ -532,7 +542,7 @@ impl Workspaces {
     self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(ws, config);
   }
 
-  fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
+  pub fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
     self.list.iter_mut().find(|workspace| workspace.contains(window))
   }
 
