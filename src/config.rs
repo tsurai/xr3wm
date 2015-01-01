@@ -1,6 +1,7 @@
 use layout::*;
 use keycode::*;
 use std::default::Default;
+use std::iter::range;
 use workspaces::WorkspaceConfig;
 use commands::{Cmd, ManageHook, CmdManage, LogHook, LogInfo, CmdLogHook};
 
@@ -27,7 +28,7 @@ pub struct Config<'a> {
 impl<'a> Default for Config<'a> {
   fn default() -> Config<'a> {
     let mut config = Config {
-      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig { tag: (idx + 1).to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }),
+      workspaces: range(1u, 10).map(|idx| WorkspaceConfig { tag: idx.to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }).collect(),
       mod_key: MOD_4,
       border_width: 2,
       border_color: 0x002e2e2e,

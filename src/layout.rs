@@ -1,6 +1,7 @@
 use xlib::Window;
 use std::cmp::min;
 use std::num::Float;
+use std::iter::range;
 use std::fmt;
 
 #[deriving(Copy)]
@@ -110,7 +111,7 @@ impl Layout for TallLayout {
   }
 
   fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    Vec::from_fn(windows.len(), |i| {
+    range(0, windows.len()).map(|i| {
       if i < self.num_masters {
         let yoff = area.height / min(self.num_masters, windows.len()) as u32;
 
@@ -120,7 +121,7 @@ impl Layout for TallLayout {
 
         Rect{x: area.x + (area.width as f32 * self.ratio).floor() as u32, y: area.y + (yoff * (i - self.num_masters) as u32), width: (area.width as f32 * (1.0 - self.ratio)).floor() as u32 , height: yoff}
       }
-    })
+    }).collect()
   }
 
   fn copy<'b>(&self) -> Box<Layout + 'b> {
