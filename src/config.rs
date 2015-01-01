@@ -13,7 +13,7 @@ pub struct Keybinding {
 }
 
 pub struct Config<'a> {
-  pub workspaces: Vec<WorkspaceConfig>,
+  pub workspaces: Vec<WorkspaceConfig<'a>>,
   pub mod_key: u8,
   pub border_width: u32,
   pub border_color: u32,
@@ -27,7 +27,7 @@ pub struct Config<'a> {
 impl<'a> Default for Config<'a> {
   fn default() -> Config<'a> {
     let mut config = Config {
-      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig{tag: (idx + 1).to_string(), screen: 0, layout: || { box TallLayout::new(1, 0.5, 0.01) }}),
+      workspaces: Vec::from_fn(9, |idx| WorkspaceConfig { tag: (idx + 1).to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }),
       mod_key: MOD_4,
       border_width: 2,
       border_color: 0x002e2e2e,
@@ -79,6 +79,26 @@ impl<'a> Default for Config<'a> {
           key: String::from_str("Return"),
           cmd: Cmd::SwapMaster
         },
+        Keybinding {
+          mods: 0,
+          key: String::from_str("comma"),
+          cmd: Cmd::SendLayoutMsg(LayoutMsg::IncreaseMaster)
+        },
+        Keybinding {
+          mods: 0,
+          key: String::from_str("period"),
+          cmd: Cmd::SendLayoutMsg(LayoutMsg::DecreaseMaster)
+        },
+        Keybinding {
+          mods: 0,
+          key: String::from_str("l"),
+          cmd: Cmd::SendLayoutMsg(LayoutMsg::Increase)
+        },
+        Keybinding {
+          mods: 0,
+          key: String::from_str("h"),
+          cmd: Cmd::SendLayoutMsg(LayoutMsg::Decrease)
+        }
       ],
       manage_hooks: Vec::new(),
       log_hook: None

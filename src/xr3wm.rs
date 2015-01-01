@@ -32,7 +32,7 @@ fn main() {
   let ws = &XlibWindowSystem::new();
   ws.grab_modifier(config.mod_key);
 
-  let mut workspaces = Workspaces::new(&mut config, ws.get_screen_infos().len());
+  let mut workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
 
   loop {
     match ws.get_event() {
@@ -60,7 +60,7 @@ fn main() {
         workspaces.remove_window(ws, &config, window);
       },
       XUnmapNotify(window, send) => {
-        if send {
+        if send && workspaces.contains(window) {
           debug!("XUnmapNotify: {}", window);
           workspaces.remove_window(ws, &config, window);
         }

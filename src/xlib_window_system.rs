@@ -1,4 +1,5 @@
-#![allow(non_upper_case_globals)]
+#![allow(non_upper_case_globals, unused_variables)]
+
 extern crate libc;
 
 use keycode::{MOD_2, MOD_LOCK};

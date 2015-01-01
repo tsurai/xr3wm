@@ -1,5 +1,7 @@
+#![allow(dead_code)]
+
 use config::Config;
-use layout::{Layout, LayoutBox};
+use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
@@ -63,19 +65,19 @@ impl Stack {
   }
 }
 
-pub struct WorkspaceConfig {
+pub struct WorkspaceConfig<'a> {
   pub tag: String,
   pub screen: uint,
-  pub layout: LayoutBox
+  pub layout: Box<Layout + 'a>
 }
 
-struct Workspace {
+struct Workspace<'a> {
   managed: Stack,
   unmanaged: Stack,
   tag: String,
   screen: uint,
   visible: bool,
-  layout: Box<Layout + 'static>
+  layout: Box<Layout + 'a>
 }
 
 pub enum MoveOp {
@@ -84,7 +86,7 @@ pub enum MoveOp {
   Swap
 }
 
-impl Workspace {
+impl<'a> Workspace<'a> {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if !ws.is_window_floating(window) {
       debug!("Add Managed: {}", window);
@@ -118,8 +120,12 @@ impl Workspace {
     self.unmanaged.visible.iter().chain(self.managed.visible.iter()).map(|&x| x).collect()
   }
 
-  pub fn get_layout(&self) -> &Box<Layout + 'static> {
+  pub fn get_layout(&self) -> &Box<Layout + 'a> {
     &self.layout
+  }
+
+  pub fn get_layout_mut(&mut self) -> &mut Box<Layout + 'a> {
+    &mut self.layout
   }
 
   pub fn get_tag(&self) -> String {
@@ -197,7 +203,6 @@ impl Workspace {
   }
 
   pub fn hide_window(&mut self, window: Window) {
-    debug!("Hide Window {}", window);
     if self.managed.contains(window) {
       self.managed.hide(window);
     } else {
@@ -357,22 +362,22 @@ impl Workspace {
   }
 }
 
-pub struct Workspaces {
-  list: Vec<Workspace>,
+pub struct Workspaces<'a> {
+  list: Vec<Workspace<'a>>,
   cur: uint
 }
 
-impl Workspaces {
-  pub fn new(config: &mut Config, screens: uint) -> Workspaces{
-    let mut workspaces = Workspaces{
-      list: config.workspaces.iter_mut().map(|c| {
+impl<'a> Workspaces<'a> {
+  pub fn new<'b>(config: &'b Config<'a>, screens: uint) -> Workspaces<'a> {
+    let mut workspaces = Workspaces {
+      list: config.workspaces.iter().map(|c| {
         Workspace {
           managed: Stack::new(),
           unmanaged: Stack::new(),
           tag: c.tag.clone(),
           screen: c.screen,
           visible: false,
-          layout: (c.layout)()
+          layout: c.layout.copy()
         }
       }).collect(),
       cur: 0,
@@ -397,7 +402,7 @@ impl Workspaces {
     workspaces
   }
 
-  pub fn get(&self, index: uint) -> &Workspace {
+  pub fn get(&self, index: uint) -> &Workspace<'a> {
     if index < self.list.len() {
       self.list.get(index).unwrap()
     } else {
@@ -405,7 +410,7 @@ impl Workspaces {
     }
   }
 
-  pub fn get_mut(&mut self, index: uint) -> &mut Workspace {
+  pub fn get_mut(&mut self, index: uint) -> &mut Workspace<'a> {
     if index < self.list.len() {
       self.list.get_mut(index).unwrap()
     } else {
@@ -413,15 +418,15 @@ impl Workspaces {
     }
   }
 
-  pub fn current(&self) -> &Workspace {
+  pub fn current(&self) -> &Workspace<'a> {
     self.list.get(self.cur).unwrap()
   }
 
-  pub fn current_mut(&mut self) -> &mut Workspace {
+  pub fn current_mut(&mut self) -> &mut Workspace<'a> {
     self.list.get_mut(self.cur).unwrap()
   }
 
-  pub fn all(&self) -> &Vec<Workspace> {
+  pub fn all(&self) -> &Vec<Workspace<'a>> {
     &self.list
   }
 
@@ -510,7 +515,7 @@ impl Workspaces {
     }
   }
 
-  pub fn hide_window(&mut self, window: Window) {
+  pub fn hide_window(&'a mut self, window: Window) {
     if let Some(workspace) = self.find_window(window) {
       workspace.hide_window(window);
     }
@@ -542,7 +547,7 @@ impl Workspaces {
     self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(ws, config);
   }
 
-  pub fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
+  pub fn find_window(&mut self, window: Window) -> Option<&mut Workspace<'a>> {
     self.list.iter_mut().find(|workspace| workspace.contains(window))
   }
 
