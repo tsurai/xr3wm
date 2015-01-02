@@ -99,6 +99,12 @@ impl XlibWindowSystem {
     }
   }
 
+  pub fn close(&self) {
+    unsafe {
+      XCloseDisplay(self.display);
+    }
+  }
+
   pub fn setup_window(&self, x: u32, y: u32, width: u32, height: u32, border_width: u32, border_color: u32, window: Window) {
     self.set_window_border_width(window, border_width);
     self.set_window_border_color(window, border_color);

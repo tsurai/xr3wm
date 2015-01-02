@@ -1,5 +1,10 @@
+extern crate libc;
+
 use std::io::process::Command;
 use std::thread::Thread;
+use std::ptr::null;
+use std::os;
+use self::libc::funcs::posix88::unistd::execvp;
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
@@ -13,6 +18,8 @@ pub enum Cmd {
   MoveToWorkspace(uint),
   MoveToScreen(uint),
   SendLayoutMsg(LayoutMsg),
+  Reload,
+  Exit,
   KillClient,
   FocusUp,
   FocusDown,
@@ -49,6 +56,43 @@ impl Cmd {
         debug!("Cmd::SendLayoutMsg::{}", msg);
         workspaces.current_mut().get_layout_mut().deref_mut().send_msg(msg.clone());
         workspaces.current().redraw(ws, config);
+      },
+      Cmd::Reload => {
+        let path = os::self_exe_name().unwrap();
+        let filename = String::from_str(path.filename_str().unwrap());
+        let absolute = String::from_str(path.as_str().unwrap());
+        let dir = String::from_str(path.dirname_str().unwrap());
+
+        debug!("Cmd::Reload: compiling...");
+
+        Thread::spawn(move || {
+          let mut cmd = Command::new(String::from_str("cargo"));
+          cmd.cwd(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
+
+          match cmd.output() {
+            Ok(output) => {
+              if output.status.success() {
+                debug!("Cmd::Reload: restarting... {}", absolute);
+
+                unsafe {
+                  let mut slice : &mut [*const i8, ..2] = &mut [
+                    filename.to_c_str().as_ptr(),
+                    null()
+                  ];
+
+                  execvp(absolute.to_c_str().as_ptr(), slice.as_mut_ptr());
+                }
+              } else {
+                panic!("failed to recompile: '{}'", output.output);
+              }
+            },
+            _ => panic!("failed to start \"{}\"", cmd)
+          }
+        }).detach();
+      },
+      Cmd::Exit => {
+        debug!("Cmd::Exit");
+        ws.close();
       },
       Cmd::KillClient => {
         debug!("Cmd::KillClient: {}", workspaces.current_mut().focused_window());

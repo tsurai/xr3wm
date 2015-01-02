@@ -99,6 +99,16 @@ impl<'a> Default for Config<'a> {
           mods: 0,
           key: String::from_str("h"),
           cmd: Cmd::SendLayoutMsg(LayoutMsg::Decrease)
+        },
+        Keybinding {
+          mods: MOD_SHIFT,
+          key: String::from_str("c"),
+          cmd: Cmd::Exit
+        },
+        Keybinding {
+          mods: MOD_SHIFT,
+          key: String::from_str("x"),
+          cmd: Cmd::Reload
         }
       ],
       manage_hooks: Vec::new(),
