@@ -1,10 +1,12 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_must_use)]
 
 use config::Config;
 use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
+use std::io::{fs, BufferedReader, File};
+use std::io::fs::PathExtensions;
 use std::cmp;
 
 struct Stack {
@@ -106,6 +108,15 @@ impl<'a> Workspace<'a> {
       self.redraw(ws, config);
       ws.map_window(window);
     }
+  }
+
+  pub fn serialize(&self) -> String {
+    format!("{}:{}:{}:{}:{}", self.screen, self.visible, self.managed.focused_window, self.unmanaged.focused_window, vec![
+      self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
+      self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
+      self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
+      self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
+    ].connect(":").as_slice())
   }
 
   fn all(&self) -> Vec<Window> {
@@ -369,37 +380,93 @@ pub struct Workspaces<'a> {
 
 impl<'a> Workspaces<'a> {
   pub fn new<'b>(config: &'b Config<'a>, screens: uint) -> Workspaces<'a> {
-    let mut workspaces = Workspaces {
-      list: config.workspaces.iter().map(|c| {
-        Workspace {
-          managed: Stack::new(),
-          unmanaged: Stack::new(),
-          tag: c.tag.clone(),
-          screen: c.screen,
-          visible: false,
-          layout: c.layout.copy()
-        }
-      }).collect(),
-      cur: 0,
-    };
+    if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
+      Workspaces::load_workspaces(config)
+    } else {
+      let mut workspaces = Workspaces {
+        list: config.workspaces.iter().map(|c| {
+          Workspace {
+            managed: Stack::new(),
+            unmanaged: Stack::new(),
+            tag: c.tag.clone(),
+            screen: c.screen,
+            visible: false,
+            layout: c.layout.copy()
+          }
+        }).collect(),
+        cur: 0,
+      };
 
-    for screen in range(0u, screens) {
-      if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
-        match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
-          Some(ws) => {
-            ws.screen = screen;
-          },
-          None => {}
+      for screen in range(0u, screens) {
+        if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
+          match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
+            Some(ws) => {
+              ws.screen = screen;
+            },
+            None => {}
+          }
         }
       }
-    }
 
-    for screen in range(0u, screens) {
-      let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
-      ws.visible = true;
-    }
+      for screen in range(0u, screens) {
+        let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
+        ws.visible = true;
+      }
 
-    workspaces
+      workspaces
+    }
+  }
+
+  fn load_workspaces(config: &Config) -> Workspaces<'a>{
+    let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+    let mut file = BufferedReader::new(File::open(&path));
+    let cur = file.read_line().unwrap();
+    let lines : Vec<String> = file.lines().map(|x| x.unwrap()).collect();
+    fs::unlink(&path);
+
+    Workspaces {
+      list: config.workspaces.iter().enumerate().map(|(i,c)| {
+        if i < lines.len() {
+          let data : Vec<&str> = lines.get(i).unwrap().as_slice().split(':').collect();
+
+          let mut managed = Stack::new();
+          let mut unmanaged = Stack::new();
+
+          managed.focused_window = data[2].parse::<u64>().unwrap();
+          unmanaged.focused_window = data[3].parse::<u64>().unwrap();
+          managed.visible = data[4].split(',').filter_map(|x| x.parse::<u64>()).collect();
+          managed.hidden = data[5].split(',').filter_map(|x| x.parse::<u64>()).collect();
+          unmanaged.visible = data[6].split(',').filter_map(|x| x.parse::<u64>()).collect();
+          unmanaged.hidden = data[7].split(',').filter_map(|x| x.parse::<u64>()).collect();
+          debug!("loading workspace {}", i+1);
+          debug!("managed {}", managed.visible);
+          debug!("unmanaged {}", unmanaged.visible);
+
+          Workspace {
+            managed: managed,
+            unmanaged: unmanaged,
+            tag: c.tag.clone(),
+            screen: data[0].parse::<uint>().unwrap(),
+            visible: data[1].parse::<bool>().unwrap(),
+            layout: c.layout.copy()
+          }
+        } else {
+          Workspace {
+            managed: Stack::new(),
+            unmanaged: Stack::new(),
+            tag: c.tag.clone(),
+            screen: c.screen,
+            visible: false,
+            layout: c.layout.copy()
+          }
+        }
+      }).collect(),
+    cur: cur.slice_to(cur.len()-1).parse::<uint>().unwrap()
+    }
+  }
+
+  pub fn serialize(&self) -> String {
+    format!("{}\n{}", self.cur, self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().connect("\n"))
   }
 
   pub fn get(&self, index: uint) -> &Workspace<'a> {

@@ -1,10 +1,14 @@
+#![allow(dead_code, unused_must_use)]
+
 extern crate libc;
 
+use self::libc::funcs::posix88::unistd::execvp;
 use std::io::process::Command;
 use std::thread::Thread;
 use std::ptr::null;
 use std::os;
-use self::libc::funcs::posix88::unistd::execvp;
+use std::io::fs::PathExtensions;
+use std::io::{fs, File, Open, Write};
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
@@ -65,30 +69,37 @@ impl Cmd {
 
         debug!("Cmd::Reload: compiling...");
 
-        Thread::spawn(move || {
-          let mut cmd = Command::new(String::from_str("cargo"));
-          cmd.cwd(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
+        let mut cmd = Command::new(String::from_str("cargo"));
+        cmd.cwd(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
 
-          match cmd.output() {
-            Ok(output) => {
-              if output.status.success() {
-                debug!("Cmd::Reload: restarting... {}", absolute);
+        match cmd.output() {
+          Ok(output) => {
+            if output.status.success() {
+              debug!("Cmd::Reload: restarting... {}", absolute);
 
-                unsafe {
-                  let mut slice : &mut [*const i8, ..2] = &mut [
-                    filename.to_c_str().as_ptr(),
-                    null()
-                  ];
+              unsafe {
+                let mut slice : &mut [*const i8, ..2] = &mut [
+                  filename.to_c_str().as_ptr(),
+                  null()
+                ];
 
-                  execvp(absolute.to_c_str().as_ptr(), slice.as_mut_ptr());
+                let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+                if path.exists() {
+                  fs::unlink(&path);
                 }
-              } else {
-                panic!("failed to recompile: '{}'", output.output);
+
+                let mut file = File::open_mode(&path, Open, Write).unwrap();
+                file.write_str(workspaces.serialize().as_slice());
+                file.flush();
+
+                execvp(absolute.to_c_str().as_ptr(), slice.as_mut_ptr());
               }
-            },
-            _ => panic!("failed to start \"{}\"", cmd)
-          }
-        }).detach();
+            } else {
+              panic!("failed to recompile: '{}'", output.status);
+            }
+          },
+          _ => panic!("failed to start \"{}\"", cmd)
+        }
       },
       Cmd::Exit => {
         debug!("Cmd::Exit");
