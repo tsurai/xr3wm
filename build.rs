@@ -9,7 +9,7 @@ fn main() {
       fs::mkdir(&dst.dir_path(), io::USER_RWX);
       let mut f = File::create(&dst).unwrap();
       f.write_str(
-"pub fn get_config() -> Config {
+"pub fn get_config<'a>() -> Config<'a> {
   Default::default()
 }").unwrap();
     }
