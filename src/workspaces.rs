@@ -28,10 +28,6 @@ impl Stack {
     self.hidden.iter().chain(self.visible.iter()).map(|&x| x).collect()
   }
 
-  fn all_mut(&mut self) -> Vec<Window> {
-    self.hidden.iter_mut().chain(self.visible.iter_mut()).map(|&x| x).collect()
-  }
-
   fn len(&self) -> uint {
     self.hidden.len() + self.visible.len()
   }
@@ -96,7 +92,7 @@ impl<'a> Workspace<'a> {
 
       if self.unmanaged.len() > 0 {
         debug!("Restacking");
-        ws.restack_windows(self.all_mut());
+        ws.restack_windows(self.all());
       }
     } else {
       self.unmanaged.visible.push(window);
@@ -106,7 +102,7 @@ impl<'a> Workspace<'a> {
     self.focus_window(ws, config, window);
     if self.visible {
       self.redraw(ws, config);
-      ws.map_window(window);
+      ws.show_window(window);
     }
   }
 
@@ -121,10 +117,6 @@ impl<'a> Workspace<'a> {
 
   fn all(&self) -> Vec<Window> {
     self.unmanaged.all().iter().chain(self.managed.all().iter()).map(|&x| x).collect()
-  }
-
-  fn all_mut(&mut self) -> Vec<Window> {
-    self.unmanaged.all_mut().iter_mut().chain(self.managed.all_mut().iter_mut()).map(|&x| x).collect()
   }
 
   fn all_visible(&self) -> Vec<Window> {
@@ -323,6 +315,7 @@ impl<'a> Workspace<'a> {
   pub fn focus(&self, ws: &XlibWindowSystem, config: &Config) {
     if self.focused_window() != 0 {
       ws.focus_window(self.focused_window(), config.border_focus_color);
+      ws.skip_enter_events();
     }
   }
 
@@ -330,11 +323,11 @@ impl<'a> Workspace<'a> {
     self.visible = false;
 
     for &w in self.managed.visible.iter() {
-      ws.unmap_window(w);
+      ws.hide_window(w);
     }
 
     for &w in self.unmanaged.visible.iter() {
-      ws.unmap_window(w);
+      ws.hide_window(w);
     }
   }
 
@@ -343,11 +336,11 @@ impl<'a> Workspace<'a> {
 
     self.redraw(ws, config);
     for &w in self.managed.visible.iter() {
-      ws.map_window(w);
+      ws.show_window(w);
     }
 
     for &w in self.unmanaged.visible.iter() {
-      ws.map_window(w);
+      ws.show_window(w);
     }
   }
 

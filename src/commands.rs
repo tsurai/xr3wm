@@ -7,6 +7,7 @@ use std::io::process::Command;
 use std::thread::Thread;
 use std::ptr::null;
 use std::os;
+use std::c_str::ToCStr;
 use std::io::fs::PathExtensions;
 use std::io::{fs, File, Open, Write};
 use config::Config;
@@ -58,7 +59,7 @@ impl Cmd {
       },
       Cmd::SendLayoutMsg(ref msg) => {
         debug!("Cmd::SendLayoutMsg::{}", msg);
-        workspaces.current_mut().get_layout_mut().deref_mut().send_msg(msg.clone());
+        workspaces.current_mut().get_layout_mut().send_msg(msg.clone());
         workspaces.current().redraw(ws, config);
       },
       Cmd::Reload => {
@@ -78,7 +79,7 @@ impl Cmd {
               debug!("Cmd::Reload: restarting... {}", absolute);
 
               unsafe {
-                let mut slice : &mut [*const i8, ..2] = &mut [
+                let mut slice : &mut [*const i8; 2] = &mut [
                   filename.to_c_str().as_ptr(),
                   null()
                 ];
@@ -153,7 +154,7 @@ impl CmdManage {
   pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces<'a>, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
-        debug!("CmdManage::Move: {}, {}", window, index - 1);
+        debug!("CmdManage::Move: {}, {}", window, index);
         workspaces.get_mut(index - 1).add_window(ws, config, window);
         workspaces.get_mut(index - 1).focus_window(ws, config, window);
       },

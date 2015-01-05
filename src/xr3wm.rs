@@ -56,8 +56,10 @@ fn main() {
         }
       },
       XDestroy(window) => {
-        debug!("XDestroy: {}", window);
-        workspaces.remove_window(ws, &config, window);
+        if workspaces.contains(window) {
+          debug!("XDestroy: {}", window);
+          workspaces.remove_window(ws, &config, window);
+        }
       },
       XUnmapNotify(window, send) => {
         if send && workspaces.contains(window) {

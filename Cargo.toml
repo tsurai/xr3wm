@@ -6,7 +6,8 @@ authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 build = "build.rs"
 
 [dependencies.xlib]
-git = "https://github.com/tsurai/rust-xlib.git"
+git = "https://github.com/Kintaro/rust-xlib.git"
+branch = "wtftw"
 
 [dependencies.xinerama]
 git = "https://github.com/Kintaro/rust-xinerama.git"

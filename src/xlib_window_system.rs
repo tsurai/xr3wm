@@ -11,7 +11,7 @@ use std::c_vec::CVec;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_buf;
-use std::c_str::CString;
+use std::c_str::{CString, ToCStr};
 use self::libc::{c_void, c_int, c_uint, c_char, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
@@ -53,6 +53,11 @@ pub enum XlibEvent {
   Ignored
 }
 
+pub struct SizeHint {
+  pub min: Option<(u32,u32)>,
+  pub max: Option<(u32,u32)>
+}
+
 pub struct WindowChanges {
   pub x: u32,
   pub y: u32,
@@ -60,7 +65,7 @@ pub struct WindowChanges {
   pub height: u32,
   pub border_width: u32,
   pub sibling: Window,
-  pub stack_mode: u32,
+  pub stack_mode: u32
 }
 
 impl fmt::Show for WindowChanges {
@@ -86,9 +91,8 @@ impl XlibWindowSystem {
       }
 
       let root = XDefaultRootWindow(display);
-      XSelectInput(display, root, 0x1A0030);
+      XSelectInput(display, root, 0x1A0034);
       XDefineCursor(display, root, XCreateFontCursor(display, 68));
-
       XSetErrorHandler(error_handler as *mut u8);
 
       XlibWindowSystem {
@@ -111,27 +115,31 @@ impl XlibWindowSystem {
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
   }
 
+  fn change_property(&self, window: Window, property: u64, typ: u64, mode: c_int, dat: &mut [c_ulong]) {
+    unsafe {
+      let ptr : *mut u8 = transmute(dat.as_mut_ptr());
+      XChangeProperty(self.display, window, property as c_ulong, typ as c_ulong, 32, mode, ptr, 2);
+    }
+  }
+
   pub fn configure_window(&self, window: Window, window_changes: WindowChanges, mask: u32, unmanaged: bool) {
     unsafe {
       if unmanaged {
-          let mut ret_window_changes = XWindowChanges{
-            x: window_changes.x as i32,
-            y: window_changes.y as i32,
-            width: window_changes.width as i32,
-            height: window_changes.height as i32,
-            border_width: window_changes.border_width as i32,
-            sibling: window_changes.sibling,
-            stack_mode: window_changes.stack_mode as i32
-          };
-          debug!("XConfigurationRequest: {}, {}", window, window_changes);
-          XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
-
+        let mut ret_window_changes = XWindowChanges{
+          x: window_changes.x as i32,
+          y: window_changes.y as i32,
+          width: window_changes.width as i32,
+          height: window_changes.height as i32,
+          border_width: window_changes.border_width as i32,
+          sibling: window_changes.sibling,
+          stack_mode: window_changes.stack_mode as i32
+        };
+        debug!("XConfigurationRequest: {}, {}", window, window_changes);
+        XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
       } else {
         let rect = self.get_geometry(window);
         let mut attributes : XWindowAttributes = uninitialized();
-
         XGetWindowAttributes(self.display, window, &mut attributes);
-
         let mut event = XConfigureEvent {
           _type: ConfigurationRequest as i32,
           display: self.display,
@@ -147,22 +155,35 @@ impl XlibWindowSystem {
           above: 0,
           override_redirect: attributes.override_redirect
         };
-
         let event_ptr : *mut XConfigureEvent = &mut event;
         XSendEvent(self.display, window, 0, 0, (event_ptr as *mut c_void));
       }
+      XSync(self.display, 0);
+    }
+  }
+
+  pub fn show_window(&self, window: Window) {
+    unsafe {
+      let atom = self.get_atom("WM_STATE");
+      self.change_property(window, atom, atom, 0, &mut [1, 0]);
+      XMapWindow(self.display, window);
+    }
+  }
+
+  pub fn hide_window(&self, window: Window) {
+    unsafe {
+      XSelectInput(self.display, window, 0x400010);
+      XUnmapWindow(self.display, window);
+      XSelectInput(self.display, window, 0x420010);
+
+      let atom = self.get_atom("WM_STATE");
+      self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
     }
   }
 
   pub fn unmap_window(&self, window: Window) {
     unsafe {
       XUnmapWindow(self.display, window);
-    }
-  }
-
-  pub fn map_window(&self, window: Window) {
-    unsafe {
-      XMapWindow(self.display, window);
     }
   }
 
@@ -176,9 +197,18 @@ impl XlibWindowSystem {
     unsafe {
       XSetInputFocus(self.display, window, 1, 0);
       self.set_window_border_color(window, color);
-      self.sync();
+      XSync(self.display, 0);
     }
   }
+
+  pub fn skip_enter_events(&self) {
+    unsafe {
+      let event : *mut c_void = malloc(256);
+      XSync(self.display, 0);
+      while XCheckMaskEvent(self.display, 16, event) != 0 { }
+    }
+  }
+
 
   fn has_protocol(&self, window: Window, protocol: &str) -> bool {
     unsafe {
@@ -190,6 +220,12 @@ impl XlibWindowSystem {
     }
   }
 
+  fn get_atom(&self, s: &str) -> u64 {
+    unsafe {
+      XInternAtom(self.display, s.to_c_str().as_mut_ptr(), 0) as u64
+    }
+  }
+
   pub fn kill_window(&self, window: Window) {
     if window == 0 {
       return;
@@ -197,15 +233,19 @@ impl XlibWindowSystem {
 
     unsafe {
       if self.has_protocol(window, "WM_DELETE_WINDOW") {
-        let mut msg : XClientMessageEvent = uninitialized();
-        msg._type = 33;
-        msg.format = 32;
-        msg.display = self.display;
-        msg.window = window;
-        msg.message_type = XInternAtom(self.display, "WM_PROTOCOLS".to_c_str().as_mut_ptr(), 1);
-        msg.set_l(&[XInternAtom(self.display, "WM_DELETE_WINDOW".to_c_str().as_mut_ptr(), 1) as u64, 0, 0, 0, 0]);
+        let event = XClientMessageEvent {
+          serial: 0,
+          send_event: 0,
+          _type: 33,
+          format: 32,
+          display: self.display,
+          window: window,
+          message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
+          data: [((self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF00000000) >> 32) as i32,
+(self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF) as i32, 0, 0, 0]
+        };
 
-        XSendEvent(self.display, window, 0, 0, transmute(&msg));
+        XSendEvent(self.display, window, 0, 0, transmute(&event));
       } else {
         XKillClient(self.display, window);
       }
@@ -218,12 +258,6 @@ impl XlibWindowSystem {
         debug!("{}", w);
       }
       XRestackWindows(self.display, windows.as_mut_slice().as_mut_ptr(), windows.len() as i32);
-    }
-  }
-
-  pub fn sync(&self) {
-    unsafe {
-      XSync(self.display, 1);
     }
   }
 
@@ -332,8 +366,12 @@ impl XlibWindowSystem {
       return true;
     }
 
-    if let Some(hints) = self.get_size_hints(window) {
-      return hints.min_width == hints.max_width && hints.min_height == hints.max_height;
+    let hints = self.get_size_hints(window);
+    let min = hints.min;
+    let max = hints.max;
+
+    if min.is_some() && max.is_some() {
+      return min.unwrap().0 == max.unwrap().0 && min.unwrap().1 == max.unwrap().1;
     }
 
     return false;
@@ -347,16 +385,24 @@ impl XlibWindowSystem {
     }
   }
 
-  pub fn get_size_hints(&self, window: Window) -> Option<XSizeHints> {
+  pub fn get_size_hints(&self, window: Window) -> SizeHint {
     unsafe {
-      let mut ret : c_long = uninitialized();
-      let mut hints : XSizeHints = uninitialized();
+      let mut size_hint : XSizeHints = uninitialized();
+      let mut tmp : c_long = 0;
+      XGetWMNormalHints(self.display, window, &mut size_hint, &mut tmp);
 
-      if XGetWMNormalHints(self.display, window, &mut hints, &mut ret) != 0 {
-        Some(hints)
+      let min = if size_hint.flags & PMinSize == PMinSize {
+          Some((size_hint.min_width as u32, size_hint.min_height as u32))
       } else {
-        None
-      }
+          None
+      };
+
+      let max = if size_hint.flags & PMaxSize == PMaxSize {
+          Some((size_hint.max_width as u32, size_hint.max_height as u32))
+      } else {
+          None
+      };
+      SizeHint { min: min, max: max }
     }
   }
 
@@ -403,9 +449,12 @@ impl XlibWindowSystem {
     match evt_type{
       MapRequest => {
         let evt : &XMapRequestEvent = self.cast_event_to();
+
         unsafe {
-          XSelectInput(self.display, evt.window, 0x420030);
+          let atom = self.get_atom("WM_STATE");
+          self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
           self.grab_button(evt.window);
+          XSelectInput(self.display, evt.window, 0x420010);
         }
 
         XMapRequest(evt.window)

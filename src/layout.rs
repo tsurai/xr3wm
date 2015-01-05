@@ -4,7 +4,7 @@ use std::num::Float;
 use std::iter::range;
 use std::fmt;
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct Rect {
   pub x: u32,
   pub y: u32,
@@ -18,7 +18,7 @@ impl fmt::Show for Rect {
   }
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub enum LayoutMsg {
   Increase,
   Decrease,
@@ -64,7 +64,7 @@ pub trait Layout {
   fn copy<'a>(&self) -> Box<Layout + 'a> { panic!("") }
 }
 
-#[deriving(Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TallLayout {
   num_masters: uint,
   ratio: f32,
