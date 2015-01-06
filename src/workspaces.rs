@@ -12,6 +12,7 @@ use std::cmp;
 struct Stack {
   hidden: Vec<Window>,
   visible: Vec<Window>,
+  urgent: Vec<Window>,
   focused_window: Window
 }
 
@@ -20,6 +21,7 @@ impl Stack {
     Stack {
       hidden: Vec::new(),
       visible: Vec::new(),
+      urgent: Vec::new(),
       focused_window: 0
     }
   }
@@ -34,6 +36,10 @@ impl Stack {
 
   fn contains(&self, window: Window) -> bool {
     self.all().iter().any(|&x| x == window)
+  }
+
+  fn is_urgent(&self) -> bool {
+    !self.urgent.is_empty()
   }
 
   fn index_of(&self, window: Window) -> uint {
@@ -123,6 +129,10 @@ impl<'a> Workspace<'a> {
     self.unmanaged.visible.iter().chain(self.managed.visible.iter()).map(|&x| x).collect()
   }
 
+  fn all_urgent(&self) -> Vec<Window> {
+    self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).map(|&x| x).collect()
+  }
+
   pub fn get_layout(&self) -> &Box<Layout + 'a> {
     &self.layout
   }
@@ -143,11 +153,40 @@ impl<'a> Workspace<'a> {
     self.managed.contains(window)
   }
 
+  pub fn is_urgent(&self) -> bool {
+    self.managed.is_urgent() || self.unmanaged.is_urgent()
+  }
+
   pub fn focused_window(&self) -> Window {
     if self.unmanaged.focused_window == 0 {
       self.managed.focused_window
     } else {
       self.unmanaged.focused_window
+    }
+  }
+
+  pub fn set_urgency(&mut self, urgent: bool, ws: &XlibWindowSystem,config: &Config, window: Window) {
+    if self.all_urgent().contains(&window) && !urgent {
+      debug!("unset urgent {}", window);
+      self.remove_urgent_window(window)
+    } else {
+      debug!("set urgent {}", window);
+      if self.is_managed(window) {
+        self.managed.urgent.push(window);
+      } else {
+        self.unmanaged.urgent.push(window);
+      }
+    }
+
+    self.redraw(ws, config);
+  }
+
+  fn remove_urgent_window(&mut self, window: Window) {
+    let index = self.all_urgent().iter().enumerate().find(|&(_,&x)| x == window).map(|(i,_)| i).unwrap();
+    if index < self.unmanaged.urgent.len() {
+      self.unmanaged.urgent.remove(index - 1);
+    } else {
+      self.managed.urgent.remove(self.unmanaged.urgent.len() - index);
     }
   }
 
@@ -360,6 +399,10 @@ impl<'a> Workspace<'a> {
       rect.height = rect.height + (2 * config.border_width);
 
       ws.setup_window((screen.width - rect.width) / 2, (screen.height - rect.height) / 2, rect.width, rect.height, config.border_width, config.border_color, window);
+    }
+
+    for &window in self.all_urgent().iter() {
+      ws.set_window_border_color(window, config.border_urgent_color);
     }
 
     self.focus(ws, config);
@@ -584,6 +627,7 @@ impl<'a> Workspaces<'a> {
   pub fn rescreen(&mut self, ws: &XlibWindowSystem, config: &Config) {
     let new_screens = ws.get_screen_infos().len();
     let prev_screens = self.list.iter().fold(0, |acc, x| cmp::max(acc, x.screen));
+    debug!("rescreen {}", new_screens);
 
     // move and hide workspaces if their screens got removed
     for workspace in self.list.iter_mut().filter(|ws| ws.screen > (new_screens - 1)) {

@@ -175,7 +175,7 @@ impl CmdManage {
 }
 
 pub enum LogInfo {
-  Workspaces(Vec<String>, uint, Vec<uint>),
+  Workspaces(Vec<String>, uint, Vec<bool>),
   Title(String),
   Layout(String)
 }
@@ -201,7 +201,10 @@ impl CmdLogHook {
   pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &Workspaces<'a>) -> LogInfo {
     match *self {
       CmdLogHook::Workspaces => {
-        LogInfo::Workspaces(workspaces.all().iter().map(|x| x.get_tag()).collect(), workspaces.get_index(), Vec::new())
+        LogInfo::Workspaces(
+          workspaces.all().iter().map(|x| x.get_tag()).collect(),
+          workspaces.get_index(),
+          workspaces.all().iter().map(|x| x.is_urgent()).collect())
       },
       CmdLogHook::Title => {
         LogInfo::Title(ws.get_window_title(workspaces.current().focused_window()))

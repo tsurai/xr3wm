@@ -13,6 +13,7 @@ use xlib_window_system::XlibEvent::{ XMapRequest,
                           XConfigurationRequest,
                           XDestroy,
                           XUnmapNotify,
+                          XPropertyNotify,
                           XEnterNotify,
                           XFocusOut,
                           XKeyPress,
@@ -67,8 +68,14 @@ fn main() {
           workspaces.remove_window(ws, &config, window);
         }
       },
+      XPropertyNotify(window, atom, _) => {
+        if atom == ws.get_atom("WM_HINTS") {
+          if let Some(workspace) = workspaces.find_window(window) {
+            workspace.set_urgency(ws.is_urgent(window), ws, &config, window);
+          }
+        }
+      },
       XConfigurationNotify(_) => {
-        debug!("XConfigurationNotify");
         workspaces.rescreen(ws, &config);
       },
       XConfigurationRequest(window, changes, mask) => {
@@ -88,7 +95,7 @@ fn main() {
         workspaces.focus_window(ws, &config, window);
       },
       XKeyPress(_, mods, key) => {
-        debug!("XButtonPress: {}, {}", mods, key);
+        debug!("XKeyPress: {}, {}", mods, key);
         let mods = mods & !(config.mod_key | 0b10010);
 
         for binding in config.keybindings.iter() {

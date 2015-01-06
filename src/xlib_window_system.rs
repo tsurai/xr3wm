@@ -33,6 +33,7 @@ const UnmapNotify          : i32 = 18;
 const MapRequest           : i32 = 20;
 const ConfigurationNotify  : i32 = 22;
 const ConfigurationRequest : i32 = 23;
+const PropertyNotify       : i32 = 28;
 
 pub struct XlibWindowSystem {
   display:   *mut Display,
@@ -46,6 +47,7 @@ pub enum XlibEvent {
   XConfigurationRequest(Window, WindowChanges, u32),
   XDestroy(Window),
   XUnmapNotify(Window, bool),
+  XPropertyNotify(Window, u64, bool),
   XEnterNotify(Window),
   XFocusOut(Window),
   XKeyPress(Window, u8, String),
@@ -134,7 +136,6 @@ impl XlibWindowSystem {
           sibling: window_changes.sibling,
           stack_mode: window_changes.stack_mode as i32
         };
-        debug!("XConfigurationRequest: {}, {}", window, window_changes);
         XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
       } else {
         let rect = self.get_geometry(window);
@@ -220,7 +221,7 @@ impl XlibWindowSystem {
     }
   }
 
-  fn get_atom(&self, s: &str) -> u64 {
+  pub fn get_atom(&self, s: &str) -> u64 {
     unsafe {
       XInternAtom(self.display, s.to_c_str().as_mut_ptr(), 0) as u64
     }
@@ -242,7 +243,7 @@ impl XlibWindowSystem {
           window: window,
           message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
           data: [((self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF00000000) >> 32) as i32,
-(self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF) as i32, 0, 0, 0]
+                 (self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF) as i32, 0, 0, 0]
         };
 
         XSendEvent(self.display, window, 0, 0, transmute(&event));
@@ -406,6 +407,17 @@ impl XlibWindowSystem {
     }
   }
 
+  fn get_wm_hints(&self, window: Window) -> &XWMHints {
+    unsafe {
+      &*XGetWMHints(self.display, window)
+    }
+  }
+
+  pub fn is_urgent(&self, window: Window) -> bool {
+    let hints = self.get_wm_hints(window);
+    hints.flags.contains(Urgency)
+  }
+
   pub fn get_class_name(&self, window: Window) -> String {
     unsafe {
       let mut hint : XClassHint = uninitialized();
@@ -487,6 +499,10 @@ impl XlibWindowSystem {
       UnmapNotify => {
         let evt : &XUnmapEvent = self.cast_event_to();
         XUnmapNotify(evt.window, evt.send_event > 0)
+      },
+      PropertyNotify => {
+        let evt : &XPropertyEvent = self.cast_event_to();
+        XPropertyNotify(evt.window, evt.atom, evt.state == 0)
       },
       EnterNotify => {
         let evt : &XEnterWindowEvent = self.cast_event_to();

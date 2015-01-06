@@ -19,6 +19,7 @@ pub struct Config<'a> {
   pub border_width: u32,
   pub border_color: u32,
   pub border_focus_color: u32,
+  pub border_urgent_color: u32,
   pub greedy_view: bool,
   pub keybindings: Vec<Keybinding>,
   pub manage_hooks: Vec<ManageHook>,
@@ -33,6 +34,7 @@ impl<'a> Default for Config<'a> {
       border_width: 2,
       border_color: 0x002e2e2e,
       border_focus_color: 0x002a82e6,
+      border_urgent_color: 0x00ff0000,
       greedy_view: false,
       keybindings: vec![
         Keybinding {
