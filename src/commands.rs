@@ -182,7 +182,7 @@ pub enum LogInfo {
 
 pub struct LogHook<'a> {
   pub logs: Vec<CmdLogHook>,
-  pub output: |Vec<LogInfo>|:'a -> String
+  pub output: Box<Fn(Vec<LogInfo>) -> String + 'a>
 }
 
 impl<'a> LogHook<'a> {
