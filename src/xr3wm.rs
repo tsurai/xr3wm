@@ -1,5 +1,5 @@
-#![feature(globs, phase)]
-#[phase(plugin, link)]
+#![feature(plugin)]
+#[macro_use]
 
 extern crate log;
 extern crate xlib;

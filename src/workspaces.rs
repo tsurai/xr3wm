@@ -30,7 +30,7 @@ impl Stack {
     self.hidden.iter().chain(self.visible.iter()).map(|&x| x).collect()
   }
 
-  fn len(&self) -> uint {
+  fn len(&self) -> usize {
     self.hidden.len() + self.visible.len()
   }
 
@@ -42,15 +42,15 @@ impl Stack {
     !self.urgent.is_empty()
   }
 
-  fn index_of(&self, window: Window) -> uint {
+  fn index_of(&self, window: Window) -> usize {
     self.all().iter().enumerate().find(|&(_,&w)| w == window).map(|(i,_)| i).unwrap()
   }
 
-  fn index_of_visible(&self, window: Window) -> uint {
+  fn index_of_visible(&self, window: Window) -> usize {
     self.visible.iter().enumerate().find(|&(_,&w)| w == window).map(|(i,_)| i).unwrap()
   }
 
-  fn index_of_hidden(&self, window: Window) -> uint {
+  fn index_of_hidden(&self, window: Window) -> usize {
     self.hidden.iter().enumerate().find(|&(_,&w)| w == window).map(|(i,_)| i).unwrap()
   }
 
@@ -60,7 +60,7 @@ impl Stack {
     self.hidden.push(window);
   }
 
-  fn remove(&mut self, index: uint) {
+  fn remove(&mut self, index: usize) {
     if index < self.hidden.len() {
       self.hidden.remove(index);
     } else {
@@ -71,7 +71,7 @@ impl Stack {
 
 pub struct WorkspaceConfig<'a> {
   pub tag: String,
-  pub screen: uint,
+  pub screen: usize,
   pub layout: Box<Layout + 'a>
 }
 
@@ -79,7 +79,7 @@ struct Workspace<'a> {
   managed: Stack,
   unmanaged: Stack,
   tag: String,
-  screen: uint,
+  screen: usize,
   visible: bool,
   layout: Box<Layout + 'a>
 }
@@ -411,11 +411,11 @@ impl<'a> Workspace<'a> {
 
 pub struct Workspaces<'a> {
   list: Vec<Workspace<'a>>,
-  cur: uint
+  cur: usize
 }
 
 impl<'a> Workspaces<'a> {
-  pub fn new<'b>(config: &'b Config<'a>, screens: uint) -> Workspaces<'a> {
+  pub fn new<'b>(config: &'b Config<'a>, screens: usize) -> Workspaces<'a> {
     if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
       Workspaces::load_workspaces(config)
     } else {
@@ -433,7 +433,7 @@ impl<'a> Workspaces<'a> {
         cur: 0,
       };
 
-      for screen in range(0u, screens) {
+      for screen in range(0us, screens) {
         if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
           match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
             Some(ws) => {
@@ -444,7 +444,7 @@ impl<'a> Workspaces<'a> {
         }
       }
 
-      for screen in range(0u, screens) {
+      for screen in range(0us, screens) {
         let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
         ws.visible = true;
       }
@@ -475,14 +475,12 @@ impl<'a> Workspaces<'a> {
           unmanaged.visible = data[6].split(',').filter_map(|x| x.parse::<u64>()).collect();
           unmanaged.hidden = data[7].split(',').filter_map(|x| x.parse::<u64>()).collect();
           debug!("loading workspace {}", i+1);
-          debug!("managed {}", managed.visible);
-          debug!("unmanaged {}", unmanaged.visible);
 
           Workspace {
             managed: managed,
             unmanaged: unmanaged,
             tag: c.tag.clone(),
-            screen: data[0].parse::<uint>().unwrap(),
+            screen: data[0].parse::<usize>().unwrap(),
             visible: data[1].parse::<bool>().unwrap(),
             layout: c.layout.copy()
           }
@@ -497,7 +495,7 @@ impl<'a> Workspaces<'a> {
           }
         }
       }).collect(),
-    cur: cur.slice_to(cur.len()-1).parse::<uint>().unwrap()
+    cur: cur.slice_to(cur.len()-1).parse::<usize>().unwrap()
     }
   }
 
@@ -505,7 +503,7 @@ impl<'a> Workspaces<'a> {
     format!("{}\n{}", self.cur, self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().connect("\n"))
   }
 
-  pub fn get(&self, index: uint) -> &Workspace<'a> {
+  pub fn get(&self, index: usize) -> &Workspace<'a> {
     if index < self.list.len() {
       self.list.get(index).unwrap()
     } else {
@@ -513,7 +511,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn get_mut(&mut self, index: uint) -> &mut Workspace<'a> {
+  pub fn get_mut(&mut self, index: usize) -> &mut Workspace<'a> {
     if index < self.list.len() {
       self.list.get_mut(index).unwrap()
     } else {
@@ -533,7 +531,7 @@ impl<'a> Workspaces<'a> {
     &self.list
   }
 
-  pub fn get_index(&self) -> uint {
+  pub fn get_index(&self) -> usize {
     self.cur
   }
 
@@ -559,7 +557,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
+  pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
     if self.cur != index && index < self.list.len() {
       if self.list[index].visible {
         if config.greedy_view {
@@ -578,7 +576,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: uint) {
+  pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
     match self.list.iter().enumerate().filter(|&(_,ws)| ws.screen == screen && ws.visible).map(|(i,_)| i).last() {
       Some(index) => {
         self.list[self.cur].unfocus(ws, config);
@@ -589,7 +587,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn move_window_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: uint) {
+  pub fn move_window_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
     let window = self.list[self.cur].focused_window();
     if window == 0 {
       return;
@@ -600,7 +598,7 @@ impl<'a> Workspaces<'a> {
     self.list[index].unfocus(ws, config);
   }
 
-  pub fn move_window_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: uint) {
+  pub fn move_window_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
     match self.list.iter().enumerate().find(|&(_,ws)| ws.screen == screen) {
       Some((index,_)) => {
         self.move_window_to(ws, config, index);
@@ -655,7 +653,7 @@ impl<'a> Workspaces<'a> {
     self.list.iter_mut().find(|workspace| workspace.contains(window))
   }
 
-  fn switch_screens(&mut self, dest: uint) {
+  fn switch_screens(&mut self, dest: usize) {
     let screen = self.list[self.cur].screen;
     self.list[self.cur].screen = self.list[dest].screen;
     self.list[dest].screen = screen;

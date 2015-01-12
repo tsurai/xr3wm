@@ -7,7 +7,7 @@ use std::io::process::Command;
 use std::thread::Thread;
 use std::ptr::null;
 use std::os;
-use std::c_str::ToCStr;
+use std::ffi::CString;
 use std::io::fs::PathExtensions;
 use std::io::{fs, File, Open, Write};
 use config::Config;
@@ -18,10 +18,10 @@ use xlib::Window;
 
 pub enum Cmd {
   Exec(String),
-  SwitchWorkspace(uint),
-  SwitchScreen(uint),
-  MoveToWorkspace(uint),
-  MoveToScreen(uint),
+  SwitchWorkspace(usize),
+  SwitchScreen(usize),
+  MoveToWorkspace(usize),
+  MoveToScreen(usize),
   SendLayoutMsg(LayoutMsg),
   Reload,
   Exit,
@@ -80,7 +80,7 @@ impl Cmd {
 
               unsafe {
                 let mut slice : &mut [*const i8; 2] = &mut [
-                  filename.to_c_str().as_ptr(),
+                  CString::from_slice(filename.as_bytes()).as_slice_with_nul().as_ptr(),
                   null()
                 ];
 
@@ -93,7 +93,7 @@ impl Cmd {
                 file.write_str(workspaces.serialize().as_slice());
                 file.flush();
 
-                execvp(absolute.to_c_str().as_ptr(), slice.as_mut_ptr());
+                execvp(CString::from_slice(absolute.as_bytes()).as_slice_with_nul().as_ptr(), slice.as_mut_ptr());
               }
             } else {
               panic!("failed to recompile: '{}'", output.status);
@@ -144,7 +144,7 @@ pub struct ManageHook {
 }
 
 pub enum CmdManage {
-  Move(uint),
+  Move(usize),
   Float,
   Fullscreen,
   Ignore
@@ -175,7 +175,7 @@ impl CmdManage {
 }
 
 pub enum LogInfo {
-  Workspaces(Vec<String>, uint, Vec<bool>),
+  Workspaces(Vec<String>, usize, Vec<bool>),
   Title(String),
   Layout(String)
 }
@@ -217,7 +217,7 @@ impl CmdLogHook {
 }
 
 fn exec(cmd: String) {
-  Thread::spawn(move || {
+  Thread::scoped(move || {
     let args : Vec<&str> = cmd.as_slice().split(' ').collect();
 
     if args.len() > 0 {

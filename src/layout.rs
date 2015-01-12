@@ -12,7 +12,7 @@ pub struct Rect {
   pub height: u32
 }
 
-impl fmt::Show for Rect {
+impl fmt::String for Rect {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{{ x: {}, y: {}, width: {}, height: {} }}", self.x, self.y, self.width, self.height)
   }
@@ -29,7 +29,7 @@ pub enum LayoutMsg {
   Custom(String)
 }
 
-impl fmt::Show for LayoutMsg {
+impl fmt::String for LayoutMsg {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       &LayoutMsg::Increase => {
@@ -66,18 +66,18 @@ pub trait Layout {
 
 #[derive(Clone, Copy)]
 pub struct TallLayout {
-  num_masters: uint,
+  num_masters: usize,
   ratio: f32,
   ratio_increment: f32
 }
 
 impl TallLayout {
-  pub fn new<'a>(num_masters: uint, ratio: f32, ratio_increment: f32) -> Box<Layout + 'a> {
-    box TallLayout {
+  pub fn new<'a>(num_masters: usize, ratio: f32, ratio_increment: f32) -> Box<Layout + 'a> {
+    Box::new(TallLayout {
       num_masters: num_masters,
       ratio: ratio,
       ratio_increment: ratio_increment
-    } as Box<Layout + 'a>
+    })
   }
 }
 
@@ -125,7 +125,7 @@ impl Layout for TallLayout {
   }
 
   fn copy<'b>(&self) -> Box<Layout + 'b> {
-    box self.clone()
+    Box::new(self.clone())
   }
 }
 
@@ -137,11 +137,11 @@ pub struct BarLayout<'a> {
 
 impl<'a> BarLayout<'a> {
   pub fn new(top: u32, bottom: u32, layout: Box<Layout + 'a>) -> Box<Layout + 'a> {
-    box BarLayout {
+    Box::new(BarLayout {
       top: top,
       bottom: bottom,
       layout: layout.copy()
-    } as Box<Layout + 'a>
+    })
   }
 }
 
@@ -169,9 +169,9 @@ pub struct MirrorLayout<'a> {
 
 impl<'a> MirrorLayout<'a> {
   pub fn new(layout: Box<Layout + 'a>) -> Box<Layout + 'a> {
-    box MirrorLayout {
+    Box::new(MirrorLayout {
       layout: layout.copy()
-    } as Box<Layout + 'a>
+    })
   }
 }
 

@@ -7,11 +7,11 @@ use layout::Rect;
 use std::str;
 use std::fmt;
 use std::os::env;
-use std::c_vec::CVec;
+use std::str::from_c_str;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_buf;
-use std::c_str::{CString, ToCStr};
+use std::ffi::{CString, c_str_to_bytes};
 use self::libc::{c_void, c_int, c_uint, c_char, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
@@ -70,7 +70,7 @@ pub struct WindowChanges {
   pub stack_mode: u32
 }
 
-impl fmt::Show for WindowChanges {
+impl fmt::String for WindowChanges {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{{ x: {}, y: {}, width: {}, height: {}, border_width: {}, sibling: {}, stack_mode: {} }}", 
       self.x,
@@ -210,20 +210,19 @@ impl XlibWindowSystem {
     }
   }
 
-
   fn has_protocol(&self, window: Window, protocol: &str) -> bool {
     unsafe {
       let mut count : c_int = uninitialized();
       let mut atoms : *mut Atom = uninitialized();
 
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-      CVec::new(atoms, count as uint).as_slice().contains(&XInternAtom(self.display, protocol.to_c_str().as_mut_ptr(), 1))
+      from_raw_buf(&(atoms as *const c_ulong), count as usize).contains(&self.get_atom(protocol))
     }
   }
 
   pub fn get_atom(&self, s: &str) -> u64 {
     unsafe {
-      XInternAtom(self.display, s.to_c_str().as_mut_ptr(), 0) as u64
+      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_slice_with_nul().as_ptr() as *mut i8, 0) as u64
     }
   }
 
@@ -351,7 +350,7 @@ impl XlibWindowSystem {
         return vec!(self.get_display_rect());
       }
 
-      from_raw_buf(&screen_ptr, num as uint).iter().map(|ref screen_info|
+      from_raw_buf(&screen_ptr, num as usize).iter().map(|ref screen_info|
         Rect {
           x: screen_info.x_org as u32,
           y: screen_info.y_org as u32,
@@ -424,8 +423,7 @@ impl XlibWindowSystem {
       if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
         String::from_str("")
       } else {
-        let string = CString::new(hint.res_class as *const c_char, false);
-        (format!("{}", string)).clone()
+        String::from_str(from_c_str(hint.res_class as *const c_char))
       }
     }
   }
@@ -440,8 +438,7 @@ impl XlibWindowSystem {
       if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
         String::from_str("")
       } else {
-        let string = CString::new(name as *const c_char, false);
-        (format!("{}", string)).clone()
+        String::from_str(from_c_str(name as *const c_char))
       }
     }
   }
