@@ -35,6 +35,18 @@ const ConfigurationNotify  : i32 = 22;
 const ConfigurationRequest : i32 = 23;
 const PropertyNotify       : i32 = 28;
 
+const Success     : i32 = 0;
+const BadRequest  : i32 = 1;
+const BadValue    : i32 = 2;
+const BadWindow   : i32 = 3;
+const BadPixmap   : i32 = 4;
+const BadAtom     : i32 = 5;
+const BadCursor   : i32 = 6;
+const BadFont     : i32 = 7;
+const BadMatch    : i32 = 8;
+const BadDrawable : i32 = 9;
+const BadAccess   : i32 = 10;
+
 pub struct XlibWindowSystem {
   display:   *mut Display,
   root:      Window,
@@ -420,7 +432,7 @@ impl XlibWindowSystem {
   pub fn get_class_name(&self, window: Window) -> String {
     unsafe {
       let mut hint : XClassHint = uninitialized();
-      if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
+      if XGetClassHint(self.display, window, &mut hint) != Success || hint.res_class.is_null() {
         String::from_str("")
       } else {
         String::from_str(from_c_str(hint.res_class as *const c_char))
@@ -435,7 +447,7 @@ impl XlibWindowSystem {
 
     unsafe {
       let mut name : *mut c_char = uninitialized();
-      if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
+      if XFetchName(self.display, window, &mut name) != Success || name.is_null() {
         String::from_str("")
       } else {
         String::from_str(from_c_str(name as *const c_char))
