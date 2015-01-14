@@ -163,6 +163,47 @@ impl<'a> Layout for BarLayout<'a> {
   }
 }
 
+pub struct GapLayout<'a> {
+  gap: u32,
+  layout: Box<Layout + 'a>
+}
+
+impl<'a> GapLayout<'a> {
+  pub fn new(gap: u32, layout: Box<Layout + 'a>) -> Box<Layout + 'a> {
+    Box::new(GapLayout {
+      gap: gap,
+      layout: layout.copy()
+    })
+  }
+}
+
+impl<'a> Layout for GapLayout<'a> {
+  fn name(&self) -> String {
+    self.layout.name()
+  }
+
+  fn send_msg(&mut self, msg: LayoutMsg) {
+    self.layout.send_msg(msg);
+  }
+
+  fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    let mut rects = self.layout.apply(area, windows);
+
+    for rect in rects.iter_mut() {
+      rect.x = rect.x + self.gap;
+      rect.y = rect.y + self.gap;
+      rect.width = rect.width - 2 * self.gap;
+      rect.height = rect.height - 2 * self.gap;
+    }
+
+    rects
+  }
+
+  fn copy<'b>(&self) -> Box<Layout + 'b> {
+    GapLayout::new(self.gap, self.layout.copy())
+  }
+}
+
 pub struct MirrorLayout<'a> {
   layout: Box<Layout + 'a>
 }
