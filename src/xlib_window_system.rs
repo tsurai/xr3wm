@@ -12,7 +12,7 @@ use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_buf;
 use std::ffi::{CString, c_str_to_bytes};
-use self::libc::{c_void, c_int, c_uint, c_char, c_long, c_ulong};
+use self::libc::{c_void, c_int, c_uint, c_char, c_uchar, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
 use xinerama::XineramaQueryScreens;
@@ -127,6 +127,26 @@ impl XlibWindowSystem {
     self.set_window_border_width(window, border_width);
     self.set_window_border_color(window, border_color);
     self.move_resize_window(window, x, y, width - (2 * border_width), height - (2 * border_width));
+  }
+
+  fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
+    unsafe {
+      let mut ret_type : c_ulong = 0;
+      let mut ret_format : c_int = 0;
+      let mut ret_nitems : c_ulong = 0;
+      let mut ret_bytes_after : c_ulong = 0;
+      let mut ret_prop : *mut c_uchar = uninitialized();
+
+      if XGetWindowProperty(self.display, window, property, 0, 0xFFFFFFFF, 0, 0, &mut ret_type, &mut ret_format, &mut ret_nitems, &mut ret_bytes_after, &mut ret_prop) == Success {
+        if ret_format != 0 {
+          Some(from_raw_buf(&(ret_prop as *const c_ulong), ret_nitems as usize).iter().map(|&x| x as u64).collect())
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+    }
   }
 
   fn change_property(&self, window: Window, property: u64, typ: u64, mode: c_int, dat: &mut [c_ulong]) {
@@ -382,11 +402,18 @@ impl XlibWindowSystem {
     let min = hints.min;
     let max = hints.max;
 
-    if min.is_some() && max.is_some() {
-      return min.unwrap().0 == max.unwrap().0 && min.unwrap().1 == max.unwrap().1;
+    if min.is_some() && max.is_some() && min.unwrap().0 == max.unwrap().0 && min.unwrap().1 == max.unwrap().1 {
+      return true;
     }
 
-    return false;
+    if let Some(property) = self.get_property(window, self.get_atom("_NET_WM_WINDOW_TYPE")) {
+      let dialog = self.get_atom("_NET_WM_WINDOW_TYPE_DIALOG");
+      let splash = self.get_atom("_NET_WM_WINDOW_TYPE_SPLASH");
+
+       property.iter().any(|&x| x == dialog || x == splash)
+    } else {
+      false
+    }
   }
 
   fn is_transient_for(&self, window: Window) -> bool {
