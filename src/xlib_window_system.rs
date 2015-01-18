@@ -394,7 +394,7 @@ impl XlibWindowSystem {
   }
 
   pub fn is_window_floating(&self, window: Window) -> bool {
-    if self.is_transient_for(window) {
+    if self.transient_for(window).is_some() {
       return true;
     }
 
@@ -416,11 +416,15 @@ impl XlibWindowSystem {
     }
   }
 
-  fn is_transient_for(&self, window: Window) -> bool {
+  pub fn transient_for(&self, window: Window) -> Option<Window> {
     unsafe {
       let mut w : Window = uninitialized();
 
-      return XGetTransientForHint(self.display, window, &mut w) == 1;
+      if XGetTransientForHint(self.display, window, &mut w) != 0 {
+        Some(w)
+      } else {
+        None
+      }
     }
   }
 
@@ -459,7 +463,8 @@ impl XlibWindowSystem {
   pub fn get_class_name(&self, window: Window) -> String {
     unsafe {
       let mut hint : XClassHint = uninitialized();
-      if XGetClassHint(self.display, window, &mut hint) != Success || hint.res_class.is_null() {
+
+      if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
         String::from_str("")
       } else {
         String::from_str(from_c_str(hint.res_class as *const c_char))
@@ -474,7 +479,7 @@ impl XlibWindowSystem {
 
     unsafe {
       let mut name : *mut c_char = uninitialized();
-      if XFetchName(self.display, window, &mut name) != Success || name.is_null() {
+      if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
         String::from_str("")
       } else {
         String::from_str(from_c_str(name as *const c_char))

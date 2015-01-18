@@ -154,9 +154,16 @@ impl CmdManage {
   pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces<'a>, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
-        debug!("CmdManage::Move: {}, {}", window, index);
-        workspaces.get_mut(index - 1).add_window(ws, config, window);
-        workspaces.get_mut(index - 1).focus_window(ws, config, window);
+        if let Some(parent) = ws.transient_for(window) {
+          if let Some(workspace) = workspaces.find_window(parent) {
+            workspace.add_window(ws, config, window);
+            workspace.focus_window(ws, config, window);
+          }
+        } else {
+          debug!("CmdManage::Move: {}, {}", window, index);
+          workspaces.get_mut(index - 1).add_window(ws, config, window);
+          workspaces.get_mut(index - 1).focus_window(ws, config, window);
+        }
       },
       CmdManage::Float => {
         debug!("CmdManage::Float");
