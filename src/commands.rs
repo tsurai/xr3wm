@@ -99,7 +99,7 @@ impl Cmd {
               panic!("failed to recompile: '{}'", output.status);
             }
           },
-          _ => panic!("failed to start \"{}\"", cmd)
+          _ => panic!("failed to start \"{:?}\"", cmd)
         }
       },
       Cmd::Exit => {
@@ -236,7 +236,7 @@ fn exec(cmd: String) {
 
       match cmd.detached().output() {
         Ok(_) => (),
-        _ => panic!("failed to start \"{}\"", cmd)
+        _ => panic!("failed to start \"{:?}\"", cmd)
       }
     }
   }).detach();
