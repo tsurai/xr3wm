@@ -388,7 +388,7 @@ impl<'a> Workspace<'a> {
 
     let screen = ws.get_screen_infos()[self.screen];
 
-    for (i,rect) in self.layout.apply(screen, &self.managed.visible).iter().enumerate() {
+    for (i,rect) in self.layout.apply(ws, screen, &self.managed.visible).iter().enumerate() {
       debug!("  {}, {}", self.managed.visible[i], rect);
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.managed.visible[i]);
     }

@@ -1,3 +1,4 @@
+use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
 use std::cmp::min;
 use std::num::Float;
@@ -60,7 +61,7 @@ impl fmt::String for LayoutMsg {
 pub trait Layout {
   fn name(&self) -> String;
   fn send_msg(&mut self, LayoutMsg);
-  fn apply(&self, Rect, &Vec<Window>) -> Vec<Rect>;
+  fn apply(&self, &XlibWindowSystem, Rect, &Vec<Window>) -> Vec<Rect>;
   fn copy<'a>(&self) -> Box<Layout + 'a> { panic!("") }
 }
 
@@ -110,7 +111,7 @@ impl Layout for TallLayout {
     }
   }
 
-  fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+  fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     range(0, windows.len()).map(|i| {
       if i < self.num_masters {
         let yoff = area.height / min(self.num_masters, windows.len()) as u32;
@@ -129,23 +130,19 @@ impl Layout for TallLayout {
   }
 }
 
-pub struct BarLayout<'a> {
-  top: u32,
-  bottom: u32,
+pub struct StrutLayout<'a> {
   layout: Box<Layout + 'a>
 }
 
-impl<'a> BarLayout<'a> {
-  pub fn new(top: u32, bottom: u32, layout: Box<Layout + 'a>) -> Box<Layout + 'a> {
-    Box::new(BarLayout {
-      top: top,
-      bottom: bottom,
+impl<'a> StrutLayout<'a> {
+  pub fn new(layout: Box<Layout + 'a>) -> Box<Layout + 'a> {
+    Box::new(StrutLayout {
       layout: layout.copy()
     })
   }
 }
 
-impl<'a> Layout for BarLayout<'a> {
+impl<'a> Layout for StrutLayout<'a> {
   fn name(&self) -> String {
     self.layout.name()
   }
@@ -154,12 +151,20 @@ impl<'a> Layout for BarLayout<'a> {
     self.layout.send_msg(msg);
   }
 
-  fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    self.layout.apply(Rect {x: area.x, y: area.y + self.top, width: area.width, height: area.height - (self.top + self.bottom)}, windows)
+  fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    let mut new_area = Rect { x: 0, y: 0, width: 0, height: 0 };
+    let strut = ws.get_strut(area);
+
+    new_area.x = area.x + strut.0;
+    new_area.width = area.width - (strut.0 + strut.1);
+    new_area.y = area.y + strut.2;
+    new_area.height = area.height - (strut.2 + strut.3);
+
+    self.layout.apply(ws, new_area, windows)
   }
 
   fn copy<'b>(&self) -> Box<Layout + 'b> {
-    BarLayout::new(self.top, self.bottom, self.layout.copy())
+    StrutLayout::new(self.layout.copy())
   }
 }
 
@@ -186,8 +191,8 @@ impl<'a> Layout for GapLayout<'a> {
     self.layout.send_msg(msg);
   }
 
-  fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    let mut rects = self.layout.apply(area, windows);
+  fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    let mut rects = self.layout.apply(ws, area, windows);
 
     for rect in rects.iter_mut() {
       rect.x = rect.x + self.gap;
@@ -225,8 +230,8 @@ impl<'a> Layout for MirrorLayout<'a> {
     self.layout.send_msg(msg);
   }
 
-  fn apply(&self, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    let mut rects = self.layout.apply(area, windows);
+  fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    let mut rects = self.layout.apply(ws, area, windows);
 
     for rect in rects.iter_mut() {
       rect.x = area.width - (rect.x + rect.width);

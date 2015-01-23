@@ -4,6 +4,7 @@ extern crate libc;
 
 use keycode::{MOD_2, MOD_LOCK};
 use layout::Rect;
+use std::cmp;
 use std::str;
 use std::fmt;
 use std::os::env;
@@ -71,6 +72,8 @@ pub struct SizeHint {
   pub min: Option<(u32,u32)>,
   pub max: Option<(u32,u32)>
 }
+
+pub struct Strut(pub u32, pub u32, pub u32, pub u32);
 
 pub struct WindowChanges {
   pub x: u32,
@@ -147,6 +150,38 @@ impl XlibWindowSystem {
         None
       }
     }
+  }
+
+  pub fn get_atom(&self, s: &str) -> u64 {
+    unsafe {
+      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_slice_with_nul().as_ptr() as *mut i8, 0) as u64
+    }
+  }
+
+  fn get_windows(&self) -> Vec<Window> {
+    unsafe {
+      let mut ret_root : c_ulong = 0;
+      let mut ret_parent : c_ulong = 0;
+      let mut ret_nchildren : c_uint = 0;
+      let mut ret_children : *mut c_ulong = uninitialized();
+
+      XQueryTree(self.display, self.root, &mut ret_root, &mut ret_parent, &mut ret_children, &mut ret_nchildren);
+      from_raw_buf(&(ret_children as *const c_ulong), ret_nchildren as usize).iter().map(|&x| x as u64).collect()
+    }
+  }
+
+  pub fn get_strut(&self, screen: Rect) -> Strut {
+    let atom = self.get_atom("_NET_WM_STRUT_PARTIAL");
+
+    self.get_windows().iter().filter_map(|&w| self.get_property(w, atom)).filter(|x| {
+      match x.as_slice() {
+        [ls, rs, ts, bs, l1, l2, r1, r2, t1, t2, b1, b2] => {
+          ((ls > 0 || rs > 0) && (l1 >= screen.y as u64 && l1 <= screen.height as u64) || (l2 >= screen.y as u64 && l2 <= screen.height as u64)) ||
+          ((ts > 0 || bs > 0) && (t1 >= screen.x as u64 && t1 <= screen.width as u64)  || (t2 >= screen.x as u64 && t2 <= screen.width as u64))
+        },
+        _ => { false }
+      }
+    }).map(|x| Strut(x[0] as u32, x[1] as u32, x[2] as u32, x[3] as u32)).fold(Strut(0, 0, 0, 0), |a, b| Strut(cmp::max(a.0, b.0), cmp::max(a.1, b.1), cmp::max(a.2, b.2), cmp::max(a.3, b.3)))
   }
 
   fn change_property(&self, window: Window, property: u64, typ: u64, mode: c_int, dat: &mut [c_ulong]) {
@@ -249,12 +284,6 @@ impl XlibWindowSystem {
 
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
       from_raw_buf(&(atoms as *const c_ulong), count as usize).contains(&self.get_atom(protocol))
-    }
-  }
-
-  pub fn get_atom(&self, s: &str) -> u64 {
-    unsafe {
-      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_slice_with_nul().as_ptr() as *mut i8, 0) as u64
     }
   }
 
