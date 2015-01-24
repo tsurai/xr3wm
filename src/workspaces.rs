@@ -577,7 +577,7 @@ impl<'a> Workspaces<'a> {
   }
 
   pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
-    match self.list.iter().enumerate().filter(|&(_,ws)| ws.screen == screen && ws.visible).map(|(i,_)| i).last() {
+    match self.list.iter().enumerate().filter(|&(i,ws)| ws.screen == screen && ws.visible && i != self.cur).map(|(i,_)| i).last() {
       Some(index) => {
         self.list[self.cur].unfocus(ws, config);
         self.list[index].focus(ws, config);

@@ -176,8 +176,10 @@ impl XlibWindowSystem {
     self.get_windows().iter().filter_map(|&w| self.get_property(w, atom)).filter(|x| {
       match x.as_slice() {
         [ls, rs, ts, bs, l1, l2, r1, r2, t1, t2, b1, b2] => {
-          ((ls > 0 || rs > 0) && (l1 >= screen.y as u64 && l1 <= screen.height as u64) || (l2 >= screen.y as u64 && l2 <= screen.height as u64)) ||
-          ((ts > 0 || bs > 0) && (t1 >= screen.x as u64 && t1 <= screen.width as u64)  || (t2 >= screen.x as u64 && t2 <= screen.width as u64))
+          (ls > 0 && ((l1 >= screen.y as u64 && l1 < (screen.y + screen.height) as u64) || (l2 >= screen.y as u64 && l2 <= (screen.y + screen.height) as u64))) ||
+          (rs > 0 && ((r1 >= screen.y as u64 && r1 < (screen.y + screen.height) as u64) || (r2 >= screen.y as u64 && r2 <= (screen.y + screen.height) as u64))) ||
+          (ts > 0 && ((t1 >= screen.x as u64 && t1 < (screen.x + screen.width) as u64)  || (t2 >= screen.x as u64 && t2 <= (screen.x + screen.width) as u64))) ||
+          (bs > 0 && ((b1 >= screen.x as u64 && b1 < (screen.x + screen.width) as u64)  || (b2 >= screen.x as u64 && b2 <= (screen.x + screen.width) as u64)))
         },
         _ => { false }
       }
