@@ -13,7 +13,7 @@ pub struct Rect {
   pub height: u32
 }
 
-impl fmt::String for Rect {
+impl fmt::Debug for Rect {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{{ x: {}, y: {}, width: {}, height: {} }}", self.x, self.y, self.width, self.height)
   }
@@ -30,7 +30,7 @@ pub enum LayoutMsg {
   Custom(String)
 }
 
-impl fmt::String for LayoutMsg {
+impl fmt::Debug for LayoutMsg {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       &LayoutMsg::Increase => {

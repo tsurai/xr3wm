@@ -389,7 +389,7 @@ impl<'a> Workspace<'a> {
     let screen = ws.get_screen_infos()[self.screen];
 
     for (i,rect) in self.layout.apply(ws, screen, &self.managed.visible).iter().enumerate() {
-      debug!("  {}, {}", self.managed.visible[i], rect);
+      debug!("  {}, {:?}", self.managed.visible[i], rect);
       ws.setup_window(rect.x, rect.y, rect.width, rect.height, config.border_width, config.border_color, self.managed.visible[i]);
     }
 
@@ -417,6 +417,7 @@ pub struct Workspaces<'a> {
 impl<'a> Workspaces<'a> {
   pub fn new<'b>(config: &'b Config<'a>, screens: usize) -> Workspaces<'a> {
     if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
+      println!("recompiling... done");
       Workspaces::load_workspaces(config)
     } else {
       let mut workspaces = Workspaces {
@@ -566,11 +567,12 @@ impl<'a> Workspaces<'a> {
         }
       } else {
         self.list[index].screen = self.list[self.cur].screen;
+        self.list[index].show(ws, config);
         self.list[self.cur].hide(ws);
       }
 
       self.list[self.cur].unfocus(ws, config);
-      self.list[index].show(ws, config);
+      //self.list[index].show(ws, config);
       self.list[index].focus(ws, config);
       self.cur = index;
     }
@@ -589,7 +591,7 @@ impl<'a> Workspaces<'a> {
 
   pub fn move_window_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
     let window = self.list[self.cur].focused_window();
-    if window == 0 {
+    if window == 0 || index == self.cur {
       return;
     }
 

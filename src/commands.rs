@@ -58,7 +58,7 @@ impl Cmd {
         workspaces.move_window_to_screen(ws, config, screen - 1);
       },
       Cmd::SendLayoutMsg(ref msg) => {
-        debug!("Cmd::SendLayoutMsg::{}", msg);
+        debug!("Cmd::SendLayoutMsg::{:?}", msg);
         workspaces.current_mut().get_layout_mut().send_msg(msg.clone());
         workspaces.current().redraw(ws, config);
       },
@@ -68,6 +68,7 @@ impl Cmd {
         let absolute = String::from_str(path.as_str().unwrap());
         let dir = String::from_str(path.dirname_str().unwrap());
 
+        println!("recompiling...");
         debug!("Cmd::Reload: compiling...");
 
         let mut cmd = Command::new(String::from_str("cargo"));

@@ -85,19 +85,6 @@ pub struct WindowChanges {
   pub stack_mode: u32
 }
 
-impl fmt::String for WindowChanges {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{{ x: {}, y: {}, width: {}, height: {}, border_width: {}, sibling: {}, stack_mode: {} }}", 
-      self.x,
-      self.y,
-      self.width,
-      self.height,
-      self.border_width,
-      self.sibling,
-      self.stack_mode)
-  }
-}
-
 impl XlibWindowSystem {
   pub fn new() -> XlibWindowSystem {
     unsafe {
