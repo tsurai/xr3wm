@@ -183,7 +183,7 @@ impl CmdManage {
 }
 
 pub enum LogInfo {
-  Workspaces(Vec<String>, usize, Vec<bool>),
+  Workspaces(Vec<String>, usize, Vec<usize>, Vec<bool>),
   Title(String),
   Layout(String)
 }
@@ -212,6 +212,7 @@ impl CmdLogHook {
         LogInfo::Workspaces(
           workspaces.all().iter().map(|x| x.get_tag()).collect(),
           workspaces.get_index(),
+          workspaces.all().iter().enumerate().filter(|&(i,x)| x.is_visible()).map(|(i,_)| i).collect(),
           workspaces.all().iter().map(|x| x.is_urgent()).collect())
       },
       CmdLogHook::Title => {

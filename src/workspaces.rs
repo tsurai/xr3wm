@@ -157,6 +157,10 @@ impl<'a> Workspace<'a> {
     self.managed.is_urgent() || self.unmanaged.is_urgent()
   }
 
+  pub fn is_visible(&self) -> bool {
+    self.visible
+  }
+
   pub fn focused_window(&self) -> Window {
     if self.unmanaged.focused_window == 0 {
       self.managed.focused_window
