@@ -5,8 +5,8 @@ use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
-use std::io::{fs, BufferedReader, File};
-use std::io::fs::PathExtensions;
+use std::old_io::{fs, BufferedReader, File};
+use std::old_io::fs::PathExtensions;
 use std::cmp;
 
 struct Stack {

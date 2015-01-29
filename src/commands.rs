@@ -3,13 +3,13 @@
 extern crate libc;
 
 use self::libc::funcs::posix88::unistd::execvp;
-use std::io::process::Command;
 use std::thread::Thread;
 use std::ptr::null;
 use std::os;
 use std::ffi::CString;
-use std::io::fs::PathExtensions;
-use std::io::{fs, File, Open, Write};
+use std::old_io::process::Command;
+use std::old_io::fs::PathExtensions;
+use std::old_io::{fs, File, Open, Write};
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
