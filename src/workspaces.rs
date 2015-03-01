@@ -475,10 +475,10 @@ impl<'a> Workspaces<'a> {
 
           managed.focused_window = data[2].parse::<u64>().unwrap();
           unmanaged.focused_window = data[3].parse::<u64>().unwrap();
-          managed.visible = data[4].split(',').filter_map(|x| x.parse::<u64>()).collect();
-          managed.hidden = data[5].split(',').filter_map(|x| x.parse::<u64>()).collect();
-          unmanaged.visible = data[6].split(',').filter_map(|x| x.parse::<u64>()).collect();
-          unmanaged.hidden = data[7].split(',').filter_map(|x| x.parse::<u64>()).collect();
+          managed.visible = data[4].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
+          managed.hidden = data[5].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
+          unmanaged.visible = data[6].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
+          unmanaged.hidden = data[7].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
           debug!("loading workspace {}", i+1);
 
           Workspace {

@@ -81,7 +81,7 @@ impl Cmd {
 
               unsafe {
                 let mut slice : &mut [*const i8; 2] = &mut [
-                  CString::from_slice(filename.as_bytes()).as_slice_with_nul().as_ptr(),
+                  CString::from_slice(filename.as_bytes()).as_bytes_with_nul().as_ptr() as *const i8,
                   null()
                 ];
 
@@ -94,7 +94,7 @@ impl Cmd {
                 file.write_str(workspaces.serialize().as_slice());
                 file.flush();
 
-                execvp(CString::from_slice(absolute.as_bytes()).as_slice_with_nul().as_ptr(), slice.as_mut_ptr());
+                execvp(CString::from_slice(absolute.as_bytes()).as_bytes_with_nul().as_ptr() as *const i8, slice.as_mut_ptr());
               }
             } else {
               panic!("failed to recompile: '{}'", output.status);

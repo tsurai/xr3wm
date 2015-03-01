@@ -141,7 +141,7 @@ impl XlibWindowSystem {
 
   pub fn get_atom(&self, s: &str) -> u64 {
     unsafe {
-      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_slice_with_nul().as_ptr() as *mut i8, 0) as u64
+      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_bytes_with_nul().as_ptr() as *mut i8, 0) as u64
     }
   }
 
