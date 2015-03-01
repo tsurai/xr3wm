@@ -438,7 +438,7 @@ impl<'a> Workspaces<'a> {
         cur: 0,
       };
 
-      for screen in range(0us, screens) {
+      for screen in range(0usize, screens) {
         if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
           match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
             Some(ws) => {
@@ -449,7 +449,7 @@ impl<'a> Workspaces<'a> {
         }
       }
 
-      for screen in range(0us, screens) {
+      for screen in range(0usize, screens) {
         let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
         ws.visible = true;
       }
