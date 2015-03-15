@@ -2,7 +2,6 @@ use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
 use std::cmp::min;
 use std::num::Float;
-use std::iter::range;
 use std::fmt;
 
 #[derive(Copy)]
@@ -112,7 +111,7 @@ impl Layout for TallLayout {
   }
 
   fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
-    range(0, windows.len()).map(|i| {
+    (0..windows.len()).map(|i| {
       if i < self.num_masters {
         let yoff = area.height / min(self.num_masters, windows.len()) as u32;
 

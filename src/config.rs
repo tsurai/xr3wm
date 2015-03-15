@@ -1,7 +1,6 @@
 use layout::*;
 use keycode::*;
 use std::default::Default;
-use std::iter::range;
 use workspaces::WorkspaceConfig;
 use commands::{Cmd, ManageHook, CmdManage, LogHook, LogInfo, CmdLogHook};
 
@@ -29,7 +28,7 @@ pub struct Config<'a> {
 impl<'a> Default for Config<'a> {
   fn default() -> Config<'a> {
     let mut config = Config {
-      workspaces: range(1usize, 10).map(|idx| WorkspaceConfig { tag: idx.to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }).collect(),
+      workspaces: (1usize..10).map(|idx| WorkspaceConfig { tag: idx.to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }).collect(),
       mod_key: MOD_4,
       border_width: 2,
       border_color: 0x002e2e2e,
@@ -117,7 +116,7 @@ impl<'a> Default for Config<'a> {
       log_hook: None
     };
 
-    for i in range(1usize, 10) {
+    for i in (1..10) {
       config.keybindings.push(
         Keybinding {
           mods: 0,

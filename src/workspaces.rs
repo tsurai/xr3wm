@@ -5,7 +5,9 @@ use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
-use std::old_io::{fs, BufferedReader, File};
+use std::fs;
+use std::old_io::{BufferedReader, File};
+use std::old_path::Path;
 use std::old_io::fs::PathExtensions;
 use std::cmp;
 
@@ -113,12 +115,12 @@ impl<'a> Workspace<'a> {
   }
 
   pub fn serialize(&self) -> String {
-    format!("{}:{}:{}:{}:{}", self.screen, self.visible, self.managed.focused_window, self.unmanaged.focused_window, vec![
+    format!("{}:{}:{}:{}:{}", self.screen, self.visible, self.managed.focused_window, self.unmanaged.focused_window, &(vec![
       self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
       self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
       self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
       self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
-    ].connect(":").as_slice())
+    ].connect(":"))[..])
   }
 
   fn all(&self) -> Vec<Window> {
@@ -438,7 +440,7 @@ impl<'a> Workspaces<'a> {
         cur: 0,
       };
 
-      for screen in range(0usize, screens) {
+      for screen in (0..screens) {
         if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
           match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
             Some(ws) => {
@@ -449,7 +451,7 @@ impl<'a> Workspaces<'a> {
         }
       }
 
-      for screen in range(0usize, screens) {
+      for screen in (0..screens) {
         let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
         ws.visible = true;
       }
@@ -463,12 +465,12 @@ impl<'a> Workspaces<'a> {
     let mut file = BufferedReader::new(File::open(&path));
     let cur = file.read_line().unwrap();
     let lines : Vec<String> = file.lines().map(|x| x.unwrap()).collect();
-    fs::unlink(&path);
+    fs::remove_file(&path);
 
     Workspaces {
       list: config.workspaces.iter().enumerate().map(|(i,c)| {
         if i < lines.len() {
-          let data : Vec<&str> = lines.get(i).unwrap().as_slice().split(':').collect();
+          let data : Vec<&str> = lines.get(i).unwrap()[..].split(':').collect();
 
           let mut managed = Stack::new();
           let mut unmanaged = Stack::new();
@@ -500,7 +502,7 @@ impl<'a> Workspaces<'a> {
           }
         }
       }).collect(),
-    cur: cur.slice_to(cur.len()-1).parse::<usize>().unwrap()
+    cur: cur[..cur.len()-1].parse::<usize>().unwrap()
     }
   }
 
@@ -640,7 +642,7 @@ impl<'a> Workspaces<'a> {
     }
 
     // assign the first hidden workspace to the new screen
-    for screen in range(prev_screens + 1, new_screens) {
+    for screen in (prev_screens + 1..new_screens) {
       match self.list.iter_mut().find(|ws| !ws.visible) {
         Some(workspace) => {
           workspace.screen = screen;

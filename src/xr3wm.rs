@@ -1,3 +1,7 @@
+#![feature(collections)]
+#![feature(libc)]
+#![feature(rustc_private)]
+#![feature(box_syntax)]
 #![feature(plugin)]
 #[macro_use]
 

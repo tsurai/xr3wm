@@ -3,13 +3,14 @@
 extern crate libc;
 
 use self::libc::funcs::posix88::unistd::execvp;
-use std::thread::Thread;
+use std::thread;
 use std::ptr::null;
 use std::os;
 use std::ffi::CString;
-use std::old_io::process::Command;
+use std::process::Command;
 use std::old_io::fs::PathExtensions;
-use std::old_io::{fs, File, Open, Write};
+use std::old_io::{File, Open, Write};
+use std::fs;
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
@@ -71,8 +72,8 @@ impl Cmd {
         println!("recompiling...");
         debug!("Cmd::Reload: compiling...");
 
-        let mut cmd = Command::new(String::from_str("cargo"));
-        cmd.cwd(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
+        let mut cmd = Command::new(&String::from_str("cargo"));
+        cmd.current_dir(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
 
         match cmd.output() {
           Ok(output) => {
@@ -81,20 +82,20 @@ impl Cmd {
 
               unsafe {
                 let mut slice : &mut [*const i8; 2] = &mut [
-                  CString::from_slice(filename.as_bytes()).as_bytes_with_nul().as_ptr() as *const i8,
+                  CString::new(filename.as_bytes()).unwrap().as_bytes_with_nul().as_ptr() as *const i8,
                   null()
                 ];
 
                 let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
                 if path.exists() {
-                  fs::unlink(&path);
+                  fs::remove_file(&path);
                 }
 
                 let mut file = File::open_mode(&path, Open, Write).unwrap();
-                file.write_str(workspaces.serialize().as_slice());
+                file.write_str(&workspaces.serialize()[..]);
                 file.flush();
 
-                execvp(CString::from_slice(absolute.as_bytes()).as_bytes_with_nul().as_ptr() as *const i8, slice.as_mut_ptr());
+                execvp(CString::new(absolute.as_bytes()).unwrap().as_bytes_with_nul().as_ptr() as *const i8, slice.as_mut_ptr());
               }
             } else {
               panic!("failed to recompile: '{}'", output.status);
@@ -212,7 +213,7 @@ impl CmdLogHook {
         LogInfo::Workspaces(
           workspaces.all().iter().map(|x| x.get_tag()).collect(),
           workspaces.get_index(),
-          workspaces.all().iter().enumerate().filter(|&(i,x)| x.is_visible()).map(|(i,_)| i).collect(),
+          workspaces.all().iter().enumerate().filter(|&(_,x)| x.is_visible()).map(|(i,_)| i).collect(),
           workspaces.all().iter().map(|x| x.is_urgent()).collect())
       },
       CmdLogHook::Title => {
@@ -226,20 +227,20 @@ impl CmdLogHook {
 }
 
 fn exec(cmd: String) {
-  Thread::scoped(move || {
-    let args : Vec<&str> = cmd.as_slice().split(' ').collect();
+  thread::spawn(move || {
+    let args : Vec<&str> = cmd[..].split(' ').collect();
 
     if args.len() > 0 {
       let mut cmd = Command::new(args[0]);
 
       if args.len() > 1 {
-        cmd.args(args.as_slice().slice_from(1));
+        cmd.args(&args[1..]);
       }
 
-      match cmd.detached().output() {
+      match cmd.output() {
         Ok(_) => (),
         _ => panic!("failed to start \"{:?}\"", cmd)
       }
     }
-  }).detach();
+  });
 }

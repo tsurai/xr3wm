@@ -6,13 +6,11 @@ use keycode::{MOD_2, MOD_LOCK};
 use layout::Rect;
 use std::cmp;
 use std::str;
-use std::fmt;
-use std::os::env;
-use std::str::from_c_str;
+use std::env;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
-use std::slice::from_raw_buf;
-use std::ffi::{CString, c_str_to_bytes};
+use std::slice::from_raw_parts;
+use std::ffi::{CStr, CString};
 use self::libc::{c_void, c_int, c_uint, c_char, c_uchar, c_long, c_ulong};
 use self::libc::funcs::c95::stdlib::malloc;
 use self::XlibEvent::*;
@@ -35,18 +33,6 @@ const MapRequest           : i32 = 20;
 const ConfigurationNotify  : i32 = 22;
 const ConfigurationRequest : i32 = 23;
 const PropertyNotify       : i32 = 28;
-
-const Success     : i32 = 0;
-const BadRequest  : i32 = 1;
-const BadValue    : i32 = 2;
-const BadWindow   : i32 = 3;
-const BadPixmap   : i32 = 4;
-const BadAtom     : i32 = 5;
-const BadCursor   : i32 = 6;
-const BadFont     : i32 = 7;
-const BadMatch    : i32 = 8;
-const BadDrawable : i32 = 9;
-const BadAccess   : i32 = 10;
 
 pub struct XlibWindowSystem {
   display:   *mut Display,
@@ -90,7 +76,7 @@ impl XlibWindowSystem {
     unsafe {
       let display = XOpenDisplay(null_mut());
       if display.is_null() {
-        error!("Can't open display{}", env().iter().find(|&&(ref x,_)| *x == String::from_str("DISPLAY")).map(|&(_,ref x)| x.clone()).unwrap());
+        error!("Can't open display {}", env::var("DISPLAY").unwrap_or(String::from_str("undefined")));
         panic!();
       }
 
@@ -127,9 +113,9 @@ impl XlibWindowSystem {
       let mut ret_bytes_after : c_ulong = 0;
       let mut ret_prop : *mut c_uchar = uninitialized();
 
-      if XGetWindowProperty(self.display, window, property, 0, 0xFFFFFFFF, 0, 0, &mut ret_type, &mut ret_format, &mut ret_nitems, &mut ret_bytes_after, &mut ret_prop) == Success {
+      if XGetWindowProperty(self.display, window, property, 0, 0xFFFFFFFF, 0, 0, &mut ret_type, &mut ret_format, &mut ret_nitems, &mut ret_bytes_after, &mut ret_prop) == 0 {
         if ret_format != 0 {
-          Some(from_raw_buf(&(ret_prop as *const c_ulong), ret_nitems as usize).iter().map(|&x| x as u64).collect())
+          Some(from_raw_parts(&(ret_prop as *const c_ulong), ret_nitems as usize).iter().map(|&x| x as u64).collect())
         } else {
           None
         }
@@ -141,7 +127,7 @@ impl XlibWindowSystem {
 
   pub fn get_atom(&self, s: &str) -> u64 {
     unsafe {
-      XInternAtom(self.display, CString::from_slice(s.as_bytes()).as_bytes_with_nul().as_ptr() as *mut i8, 0) as u64
+      XInternAtom(self.display, CString::new(s.as_bytes()).unwrap().as_bytes_with_nul().as_ptr() as *mut i8, 0) as u64
     }
   }
 
@@ -153,7 +139,7 @@ impl XlibWindowSystem {
       let mut ret_children : *mut c_ulong = uninitialized();
 
       XQueryTree(self.display, self.root, &mut ret_root, &mut ret_parent, &mut ret_children, &mut ret_nchildren);
-      from_raw_buf(&(ret_children as *const c_ulong), ret_nchildren as usize).iter().map(|&x| x as u64).collect()
+      from_raw_parts(&(ret_children as *const c_ulong), ret_nchildren as usize).iter().map(|&x| x as u64).collect()
     }
   }
 
@@ -161,7 +147,7 @@ impl XlibWindowSystem {
     let atom = self.get_atom("_NET_WM_STRUT_PARTIAL");
 
     self.get_windows().iter().filter_map(|&w| self.get_property(w, atom)).filter(|x| {
-      match x.as_slice() {
+      match &x[..] {
         [ls, rs, ts, bs, l1, l2, r1, r2, t1, t2, b1, b2] => {
           (ls > 0 && ((l1 >= screen.y as u64 && l1 < (screen.y + screen.height) as u64) || (l2 >= screen.y as u64 && l2 <= (screen.y + screen.height) as u64))) ||
           (rs > 0 && ((r1 >= screen.y as u64 && r1 < (screen.y + screen.height) as u64) || (r2 >= screen.y as u64 && r2 <= (screen.y + screen.height) as u64))) ||
@@ -272,7 +258,7 @@ impl XlibWindowSystem {
       let mut atoms : *mut Atom = uninitialized();
 
       XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-      from_raw_buf(&(atoms as *const c_ulong), count as usize).contains(&self.get_atom(protocol))
+      from_raw_parts(atoms as *const c_ulong, count as usize).contains(&self.get_atom(protocol))
     }
   }
 
@@ -329,7 +315,7 @@ impl XlibWindowSystem {
   pub fn keycode_to_string(&self, keycode: u32) -> String {
     unsafe {
       let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
-      String::from_str(str::from_c_str(transmute(XKeysymToString(keysym))))
+      String::from_str(str::from_utf8(CStr::from_ptr(transmute(XKeysymToString(keysym))).to_bytes()).unwrap())
     }
   }
 
@@ -400,7 +386,7 @@ impl XlibWindowSystem {
         return vec!(self.get_display_rect());
       }
 
-      from_raw_buf(&screen_ptr, num as usize).iter().map(|ref screen_info|
+      from_raw_parts(screen_ptr, num as usize).iter().map(|screen_info|
         Rect {
           x: screen_info.x_org as u32,
           y: screen_info.y_org as u32,
@@ -485,7 +471,7 @@ impl XlibWindowSystem {
       if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
         String::from_str("")
       } else {
-        String::from_str(from_c_str(hint.res_class as *const c_char))
+        String::from_str(str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()).unwrap())
       }
     }
   }
@@ -500,7 +486,7 @@ impl XlibWindowSystem {
       if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
         String::from_str("")
       } else {
-        String::from_str(from_c_str(name as *const c_char))
+        String::from_str(str::from_utf8(CStr::from_ptr(name).to_bytes()).unwrap())
       }
     }
   }
