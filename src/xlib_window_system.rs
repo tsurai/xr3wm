@@ -471,7 +471,14 @@ impl XlibWindowSystem {
       if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
         String::from_str("")
       } else {
-        String::from_str(str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()).unwrap())
+        match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
+          Ok(s) => {
+            String::from_str(s)
+          },
+          Err(_) => {
+            String::from_str("")
+          }
+        }
       }
     }
   }
@@ -486,7 +493,14 @@ impl XlibWindowSystem {
       if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
         String::from_str("")
       } else {
-        String::from_str(str::from_utf8(CStr::from_ptr(name).to_bytes()).unwrap())
+        match str::from_utf8(CStr::from_ptr(name).to_bytes()) {
+          Ok(s) => {
+            String::from_str(s)
+          },
+          Err(_) => {
+            String::from_str("")
+          }
+        }
       }
     }
   }
