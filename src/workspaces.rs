@@ -5,10 +5,10 @@ use layout::Layout;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
-use std::fs;
-use std::old_io::{BufferedReader, File};
-use std::old_path::Path;
-use std::old_io::fs::PathExtensions;
+use std::io::prelude::*;
+use std::io::BufReader;
+use std::fs::{File, remove_file};
+use std::path::Path;
 use std::cmp;
 
 struct Stack {
@@ -462,10 +462,11 @@ impl<'a> Workspaces<'a> {
 
   fn load_workspaces(config: &Config) -> Workspaces<'a>{
     let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
-    let mut file = BufferedReader::new(File::open(&path));
-    let cur = file.read_line().unwrap();
+    let mut file = BufReader::new(File::open(&path).unwrap());
+    let mut cur = String::new();
+    file.read_line(&mut cur);
     let lines : Vec<String> = file.lines().map(|x| x.unwrap()).collect();
-    fs::remove_file(&path);
+    remove_file(&path);
 
     Workspaces {
       list: config.workspaces.iter().enumerate().map(|(i,c)| {

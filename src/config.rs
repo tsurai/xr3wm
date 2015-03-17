@@ -1,6 +1,6 @@
+use std::default::Default;
 use layout::*;
 use keycode::*;
-use std::default::Default;
 use workspaces::WorkspaceConfig;
 use commands::{Cmd, ManageHook, CmdManage, LogHook, LogInfo, CmdLogHook};
 

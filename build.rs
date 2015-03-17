@@ -1,17 +1,15 @@
-#![feature(old_io)]
-#![feature(old_path)]
-
-use std::old_io::{File, USER_RWX};
-use std::old_io::fs::{PathExtensions, mkdir};
+use std::io::prelude::*;
+use std::path::Path;
+use std::fs::{File, create_dir};
 
 fn main() {
     let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/config.rs"));
     if !dst.exists() {
-      match mkdir(&dst.dir_path(), USER_RWX) {
+      match create_dir(dst) {
         Ok(_) => {
           let mut f = File::create(&dst).unwrap();
-          f.write_str(
-"pub fn get_config<'a>() -> Config<'a> {
+          f.write_all(
+b"pub fn get_config<'a>() -> Config<'a> {
   Default::default()
 }").unwrap();
         },

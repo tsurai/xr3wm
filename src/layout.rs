@@ -1,8 +1,8 @@
-use xlib_window_system::XlibWindowSystem;
-use xlib::Window;
 use std::cmp::min;
 use std::num::Float;
 use std::fmt;
+use xlib_window_system::XlibWindowSystem;
+use xlib::Window;
 
 #[derive(Copy)]
 pub struct Rect {

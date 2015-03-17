@@ -5,12 +5,12 @@ extern crate libc;
 use self::libc::funcs::posix88::unistd::execvp;
 use std::thread;
 use std::ptr::null;
-use std::os;
+use std::env;
 use std::ffi::CString;
 use std::process::Command;
-use std::old_io::fs::PathExtensions;
-use std::old_io::{File, Open, Write};
-use std::fs;
+use std::io::prelude::*;
+use std::path::Path;
+use std::fs::{OpenOptions, remove_file};
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
@@ -64,38 +64,36 @@ impl Cmd {
         workspaces.current().redraw(ws, config);
       },
       Cmd::Reload => {
-        let path = os::self_exe_name().unwrap();
-        let filename = String::from_str(path.filename_str().unwrap());
-        let absolute = String::from_str(path.as_str().unwrap());
-        let dir = String::from_str(path.dirname_str().unwrap());
+        let curr_exe = env::current_exe().unwrap();
+        let filename = String::from_str(curr_exe.file_name().unwrap().to_str().unwrap());
 
         println!("recompiling...");
         debug!("Cmd::Reload: compiling...");
 
         let mut cmd = Command::new(&String::from_str("cargo"));
-        cmd.current_dir(&Path::new(dir)).arg("build").env("RUST_LOG", "none");
+        cmd.current_dir(env::current_dir().unwrap()).arg("build").env("RUST_LOG", "none");
 
         match cmd.output() {
           Ok(output) => {
             if output.status.success() {
-              debug!("Cmd::Reload: restarting... {}", absolute);
+              debug!("Cmd::Reload: restarting xr3wm...");
 
               unsafe {
                 let mut slice : &mut [*const i8; 2] = &mut [
-                  CString::new(filename.as_bytes()).unwrap().as_bytes_with_nul().as_ptr() as *const i8,
+                  CString::new(filename.as_bytes()).unwrap().as_ptr() as *const i8,
                   null()
                 ];
 
                 let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
                 if path.exists() {
-                  fs::remove_file(&path);
+                  remove_file(&path);
                 }
 
-                let mut file = File::open_mode(&path, Open, Write).unwrap();
-                file.write_str(&workspaces.serialize()[..]);
+                let mut file = OpenOptions::new().write(true).open(&path).unwrap();
+                file.write_all(workspaces.serialize().as_bytes());
                 file.flush();
 
-                execvp(CString::new(absolute.as_bytes()).unwrap().as_bytes_with_nul().as_ptr() as *const i8, slice.as_mut_ptr());
+                execvp(CString::new(curr_exe.to_str().unwrap().as_bytes()).unwrap().as_ptr() as *const i8, slice.as_mut_ptr());
               }
             } else {
               panic!("failed to recompile: '{}'", output.status);
