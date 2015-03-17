@@ -115,7 +115,7 @@ impl XlibWindowSystem {
 
       if XGetWindowProperty(self.display, window, property, 0, 0xFFFFFFFF, 0, 0, &mut ret_type, &mut ret_format, &mut ret_nitems, &mut ret_bytes_after, &mut ret_prop) == 0 {
         if ret_format != 0 {
-          Some(from_raw_parts(&(ret_prop as *const c_ulong), ret_nitems as usize).iter().map(|&x| x as u64).collect())
+          Some(from_raw_parts(ret_prop as *const c_ulong, ret_nitems as usize).iter().map(|&x| x as u64).collect())
         } else {
           None
         }
@@ -139,7 +139,7 @@ impl XlibWindowSystem {
       let mut ret_children : *mut c_ulong = uninitialized();
 
       XQueryTree(self.display, self.root, &mut ret_root, &mut ret_parent, &mut ret_children, &mut ret_nchildren);
-      from_raw_parts(&(ret_children as *const c_ulong), ret_nchildren as usize).iter().map(|&x| x as u64).collect()
+      from_raw_parts(ret_children as *const c_ulong, ret_nchildren as usize).iter().map(|&x| x as u64).collect()
     }
   }
 
