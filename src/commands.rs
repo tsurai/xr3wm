@@ -71,7 +71,7 @@ impl Cmd {
         debug!("Cmd::Reload: compiling...");
 
         let mut cmd = Command::new(&String::from_str("cargo"));
-        cmd.current_dir(env::current_dir().unwrap()).arg("build").env("RUST_LOG", "none");
+        cmd.current_dir(&env::current_dir().unwrap()).arg("build").env("RUST_LOG", "none");
 
         match cmd.output() {
           Ok(output) => {

@@ -5,7 +5,7 @@ use std::fs::{File, create_dir};
 fn main() {
     let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/config.rs"));
     if !dst.exists() {
-      match create_dir(dst) {
+      match create_dir(dst.parent().unwrap()) {
         Ok(_) => {
           let mut f = File::create(&dst).unwrap();
           f.write_all(
