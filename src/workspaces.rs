@@ -2,6 +2,7 @@
 
 use config::Config;
 use layout::Layout;
+use layout::LayoutMsg;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
@@ -71,19 +72,19 @@ impl Stack {
   }
 }
 
-pub struct WorkspaceConfig<'a> {
+pub struct WorkspaceConfig {
   pub tag: String,
   pub screen: usize,
-  pub layout: Box<Layout + 'a>
+  pub layout: Box<Layout>
 }
 
-struct Workspace<'a> {
+struct Workspace {
   managed: Stack,
   unmanaged: Stack,
   tag: String,
   screen: usize,
   visible: bool,
-  layout: Box<Layout + 'a>
+  layout: Box<Layout>
 }
 
 pub enum MoveOp {
@@ -92,7 +93,7 @@ pub enum MoveOp {
   Swap
 }
 
-impl<'a> Workspace<'a> {
+impl Workspace {
   pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
     if !ws.is_window_floating(window) {
       debug!("Add Managed: {}", window);
@@ -135,12 +136,12 @@ impl<'a> Workspace<'a> {
     self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).map(|&x| x).collect()
   }
 
-  pub fn get_layout(&self) -> &Box<Layout + 'a> {
+  pub fn get_layout(&self) -> &Box<Layout> {
     &self.layout
   }
 
-  pub fn get_layout_mut(&mut self) -> &mut Box<Layout + 'a> {
-    &mut self.layout
+  pub fn send_layout_message(&mut self, msg: LayoutMsg) {
+      self.layout.send_msg(msg);
   }
 
   pub fn get_tag(&self) -> String {
@@ -415,13 +416,13 @@ impl<'a> Workspace<'a> {
   }
 }
 
-pub struct Workspaces<'a> {
-  list: Vec<Workspace<'a>>,
+pub struct Workspaces {
+  list: Vec<Workspace>,
   cur: usize
 }
 
-impl<'a> Workspaces<'a> {
-  pub fn new<'b>(config: &'b Config<'a>, screens: usize) -> Workspaces<'a> {
+impl Workspaces {
+  pub fn new<'b>(config: &'b Config, screens: usize) -> Workspaces {
     if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
       println!("recompiling... done");
       Workspaces::load_workspaces(config)
@@ -460,7 +461,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  fn load_workspaces(config: &Config) -> Workspaces<'a>{
+  fn load_workspaces(config: &Config) -> Workspaces{
     let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
     let mut file = BufReader::new(File::open(&path).unwrap());
     let mut cur = String::new();
@@ -511,7 +512,7 @@ impl<'a> Workspaces<'a> {
     format!("{}\n{}", self.cur, self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().connect("\n"))
   }
 
-  pub fn get(&self, index: usize) -> &Workspace<'a> {
+  pub fn get(&self, index: usize) -> &Workspace {
     if index < self.list.len() {
       self.list.get(index).unwrap()
     } else {
@@ -519,7 +520,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn get_mut(&mut self, index: usize) -> &mut Workspace<'a> {
+  pub fn get_mut(&mut self, index: usize) -> &mut Workspace {
     if index < self.list.len() {
       self.list.get_mut(index).unwrap()
     } else {
@@ -527,15 +528,15 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn current(&self) -> &Workspace<'a> {
+  pub fn current(&self) -> &Workspace {
     self.list.get(self.cur).unwrap()
   }
 
-  pub fn current_mut(&mut self) -> &mut Workspace<'a> {
+  pub fn current_mut(&mut self) -> &mut Workspace {
     self.list.get_mut(self.cur).unwrap()
   }
 
-  pub fn all(&self) -> &Vec<Workspace<'a>> {
+  pub fn all(&self) -> &Vec<Workspace> {
     &self.list
   }
 
@@ -625,7 +626,7 @@ impl<'a> Workspaces<'a> {
     }
   }
 
-  pub fn hide_window(&'a mut self, window: Window) {
+  pub fn hide_window(&mut self, window: Window) {
     if let Some(workspace) = self.find_window(window) {
       workspace.hide_window(window);
     }
@@ -658,7 +659,7 @@ impl<'a> Workspaces<'a> {
     self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(ws, config);
   }
 
-  pub fn find_window(&mut self, window: Window) -> Option<&mut Workspace<'a>> {
+  pub fn find_window(&mut self, window: Window) -> Option<&mut Workspace> {
     self.list.iter_mut().find(|workspace| workspace.contains(window))
   }
 

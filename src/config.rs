@@ -12,8 +12,8 @@ pub struct Keybinding {
   pub cmd: Cmd
 }
 
-pub struct Config<'a> {
-  pub workspaces: Vec<WorkspaceConfig<'a>>,
+pub struct Config {
+  pub workspaces: Vec<WorkspaceConfig>,
   pub mod_key: u8,
   pub border_width: u32,
   pub border_color: u32,
@@ -22,11 +22,11 @@ pub struct Config<'a> {
   pub greedy_view: bool,
   pub keybindings: Vec<Keybinding>,
   pub manage_hooks: Vec<ManageHook>,
-  pub log_hook: Option<LogHook<'a>>
+  pub log_hook: Option<LogHook>
 }
 
-impl<'a> Default for Config<'a> {
-  fn default() -> Config<'a> {
+impl Default for Config {
+  fn default() -> Config {
     let mut config = Config {
       workspaces: (1usize..10).map(|idx| WorkspaceConfig { tag: idx.to_string(), screen: 0, layout: TallLayout::new(1, 0.5, 0.05) }).collect(),
       mod_key: MOD_4,

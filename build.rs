@@ -1,3 +1,5 @@
+#![feature(path_ext)]
+
 use std::io::prelude::*;
 use std::path::Path;
 use std::fs::{File, create_dir};
@@ -9,7 +11,7 @@ fn main() {
         Ok(_) => {
           let mut f = File::create(&dst).unwrap();
           f.write_all(
-b"pub fn get_config<'a>() -> Config<'a> {
+b"pub fn get_config<'a>() -> Config {
   Default::default()
 }").unwrap();
         },

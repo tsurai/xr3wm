@@ -36,7 +36,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-  pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces<'a>, config: &Config) {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) {
     match *self {
       Cmd::Exec(ref cmd) => {
         debug!("Cmd::Exec: {}", cmd);
@@ -60,7 +60,7 @@ impl Cmd {
       },
       Cmd::SendLayoutMsg(ref msg) => {
         debug!("Cmd::SendLayoutMsg::{:?}", msg);
-        workspaces.current_mut().get_layout_mut().send_msg(msg.clone());
+        workspaces.current_mut().send_layout_message(msg.clone());
         workspaces.current().redraw(ws, config);
       },
       Cmd::Reload => {
@@ -151,7 +151,7 @@ pub enum CmdManage {
 }
 
 impl CmdManage {
-  pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces<'a>, config: &Config, window: Window) {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config, window: Window) {
     match *self {
       CmdManage::Move(index) => {
         if let Some(parent) = ws.transient_for(window) {
@@ -187,13 +187,13 @@ pub enum LogInfo {
   Layout(String)
 }
 
-pub struct LogHook<'a> {
+pub struct LogHook {
   pub logs: Vec<CmdLogHook>,
-  pub output: Box<Fn(Vec<LogInfo>) -> String + 'a>
+  pub output: Box<Fn(Vec<LogInfo>) -> String>
 }
 
-impl<'a> LogHook<'a> {
-  pub fn call<'b>(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces<'b>) {
+impl LogHook {
+  pub fn call(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) {
     println!("{}", (self.output)(self.logs.iter().map(|x| x.call(ws, workspaces)).collect()));
   }
 }
@@ -205,7 +205,7 @@ pub enum CmdLogHook {
 }
 
 impl CmdLogHook {
-  pub fn call<'a>(&self, ws: &XlibWindowSystem, workspaces: &Workspaces<'a>) -> LogInfo {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> LogInfo {
     match *self {
       CmdLogHook::Workspaces => {
         LogInfo::Workspaces(
