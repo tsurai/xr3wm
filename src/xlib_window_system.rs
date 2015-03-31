@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals, unused_variables)]
+#![allow(non_upper_case_globals, unused_variables, slice_patterns)]
 
 extern crate libc;
 
