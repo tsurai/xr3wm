@@ -4,7 +4,7 @@ use std::fmt;
 use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Rect {
   pub x: u32,
   pub y: u32,
@@ -110,7 +110,7 @@ impl Layout for TallLayout {
     }
   }
 
-  fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+  fn apply(&self, _: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
     (0..windows.len()).map(|i| {
       if i < self.num_masters {
         let yoff = area.height / min(self.num_masters, windows.len()) as u32;
