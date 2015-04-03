@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals, unused_variables, slice_patterns)]
+#![allow(non_upper_case_globals, unused_variables)]
 
 extern crate libc;
 
@@ -293,7 +293,7 @@ impl XlibWindowSystem {
       for w in windows.iter() {
         debug!("{}", w);
       }
-      XRestackWindows(self.display, windows.as_mut_slice().as_mut_ptr(), windows.len() as i32);
+      XRestackWindows(self.display, (&mut windows[..]).as_mut_ptr(), windows.len() as i32);
     }
   }
 

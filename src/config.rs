@@ -2,7 +2,7 @@ use std::default::Default;
 use layout::*;
 use keycode::*;
 use workspaces::WorkspaceConfig;
-use commands::{Cmd, ManageHook, CmdManage, LogHook, LogInfo, CmdLogHook};
+use commands::{Cmd, ManageHook, LogHook};
 
 include!(concat!(env!("HOME"), "/.xr3wm/config.rs"));
 
