@@ -38,77 +38,77 @@ impl Default for Config {
       keybindings: vec![
         Keybinding {
           mods: 0,
-          key: String::from_str("Return"),
-          cmd: Cmd::Exec(String::from_str("xterm -u8"))
+          key: "Return".to_string(),
+          cmd: Cmd::Exec("xterm -u8".to_string())
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("d"),
-          cmd: Cmd::Exec(String::from_str("dmenu_run"))
+          key: "d".to_string(),
+          cmd: Cmd::Exec("dmenu_run".to_string())
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("q"),
+          key: "q".to_string(),
           cmd: Cmd::KillClient
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("j"),
+          key: "j".to_string(),
           cmd: Cmd::FocusDown
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("k"),
+          key: "k".to_string(),
           cmd: Cmd::FocusUp
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("m"),
+          key: "m".to_string(),
           cmd: Cmd::FocusMaster
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("j"),
+          key: "j".to_string(),
           cmd: Cmd::SwapDown
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("k"),
+          key: "k".to_string(),
           cmd: Cmd::SwapUp
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("Return"),
+          key: "Return".to_string(),
           cmd: Cmd::SwapMaster
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("comma"),
+          key: "comma".to_string(),
           cmd: Cmd::SendLayoutMsg(LayoutMsg::IncreaseMaster)
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("period"),
+          key: "period".to_string(),
           cmd: Cmd::SendLayoutMsg(LayoutMsg::DecreaseMaster)
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("l"),
+          key: "l".to_string(),
           cmd: Cmd::SendLayoutMsg(LayoutMsg::Increase)
         },
         Keybinding {
           mods: 0,
-          key: String::from_str("h"),
+          key: "h".to_string(),
           cmd: Cmd::SendLayoutMsg(LayoutMsg::Decrease)
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("c"),
+          key: "c".to_string(),
           cmd: Cmd::Exit
         },
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str("x"),
+          key: "x".to_string(),
           cmd: Cmd::Reload
         }
       ],
@@ -136,14 +136,14 @@ impl Default for Config {
       config.keybindings.push(
         Keybinding {
           mods: 0,
-          key: String::from_str(key),
+          key: key.to_string(),
           cmd: Cmd::SwitchScreen(i)
         });
 
       config.keybindings.push(
         Keybinding {
           mods: MOD_SHIFT,
-          key: String::from_str(key),
+          key: key.to_string(),
           cmd: Cmd::MoveToScreen(i)
         });
     }

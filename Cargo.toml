@@ -5,6 +5,10 @@ version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 build = "build.rs"
 
+[dependencies]
+libc = "*"
+log = "*"
+
 [dependencies.xlib]
 git = "https://github.com/Kintaro/rust-xlib.git"
 branch = "wtftw"
@@ -14,4 +18,3 @@ git = "https://github.com/Kintaro/rust-xinerama.git"
 
 [[bin]]
 name = "xr3wm"
-

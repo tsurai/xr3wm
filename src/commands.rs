@@ -65,12 +65,12 @@ impl Cmd {
       },
       Cmd::Reload => {
         let curr_exe = env::current_exe().unwrap();
-        let filename = String::from_str(curr_exe.file_name().unwrap().to_str().unwrap());
+        let filename = curr_exe.file_name().unwrap().to_str().unwrap();
 
         println!("recompiling...");
         debug!("Cmd::Reload: compiling...");
 
-        let mut cmd = Command::new(&String::from_str("cargo"));
+        let mut cmd = Command::new("cargo");
         cmd.current_dir(&env::current_dir().unwrap()).arg("build").env("RUST_LOG", "none");
 
         match cmd.output() {

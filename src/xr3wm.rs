@@ -1,10 +1,4 @@
-#![feature(collections)]
-#![feature(slice_patterns)]
 #![feature(path_ext)]
-#![feature(libc)]
-#![feature(rustc_private)]
-#![feature(box_syntax)]
-#![feature(plugin)]
 #[macro_use]
 
 extern crate log;

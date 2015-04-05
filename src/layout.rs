@@ -1,5 +1,4 @@
 use std::cmp::min;
-use std::num::Float;
 use std::fmt;
 use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
@@ -83,7 +82,7 @@ impl TallLayout {
 
 impl Layout for TallLayout {
   fn name(&self) -> String {
-    String::from_str("Tall")
+    "Tall".to_string()
   }
 
   fn send_msg(&mut self, msg: LayoutMsg) {

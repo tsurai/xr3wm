@@ -76,7 +76,7 @@ impl XlibWindowSystem {
     unsafe {
       let display = XOpenDisplay(null_mut());
       if display.is_null() {
-        error!("Can't open display {}", env::var("DISPLAY").unwrap_or(String::from_str("undefined")));
+        error!("Can't open display {}", env::var("DISPLAY").unwrap_or("undefined".to_string()));
         panic!();
       }
 
@@ -147,15 +147,10 @@ impl XlibWindowSystem {
     let atom = self.get_atom("_NET_WM_STRUT_PARTIAL");
 
     self.get_windows().iter().filter_map(|&w| self.get_property(w, atom)).filter(|x| {
-      match &x[..] {
-        [ls, rs, ts, bs, l1, l2, r1, r2, t1, t2, b1, b2] => {
-          (ls > 0 && ((l1 >= screen.y as u64 && l1 < (screen.y + screen.height) as u64) || (l2 >= screen.y as u64 && l2 <= (screen.y + screen.height) as u64))) ||
-          (rs > 0 && ((r1 >= screen.y as u64 && r1 < (screen.y + screen.height) as u64) || (r2 >= screen.y as u64 && r2 <= (screen.y + screen.height) as u64))) ||
-          (ts > 0 && ((t1 >= screen.x as u64 && t1 < (screen.x + screen.width) as u64)  || (t2 >= screen.x as u64 && t2 <= (screen.x + screen.width) as u64))) ||
-          (bs > 0 && ((b1 >= screen.x as u64 && b1 < (screen.x + screen.width) as u64)  || (b2 >= screen.x as u64 && b2 <= (screen.x + screen.width) as u64)))
-        },
-        _ => { false }
-      }
+      (x[0] > 0 && ((x[4] >= screen.y as u64 && x[4] < (screen.y + screen.height) as u64) || (x[5] >= screen.y as u64 && x[5] <= (screen.y + screen.height) as u64))) ||
+      (x[1] > 0 && ((x[6] >= screen.y as u64 && x[6] < (screen.y + screen.height) as u64) || (x[7] >= screen.y as u64 && x[7] <= (screen.y + screen.height) as u64))) ||
+      (x[2] > 0 && ((x[8] >= screen.x as u64 && x[8] < (screen.x + screen.width) as u64)  || (x[9] >= screen.x as u64 && x[9] <= (screen.x + screen.width) as u64))) ||
+      (x[3] > 0 && ((x[10] >= screen.x as u64 && x[10] < (screen.x + screen.width) as u64)  || (x[11] >= screen.x as u64 && x[11] <= (screen.x + screen.width) as u64)))
     }).map(|x| Strut(x[0] as u32, x[1] as u32, x[2] as u32, x[3] as u32)).fold(Strut(0, 0, 0, 0), |a, b| Strut(cmp::max(a.0, b.0), cmp::max(a.1, b.1), cmp::max(a.2, b.2), cmp::max(a.3, b.3)))
   }
 
@@ -315,7 +310,7 @@ impl XlibWindowSystem {
   pub fn keycode_to_string(&self, keycode: u32) -> String {
     unsafe {
       let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
-      String::from_str(str::from_utf8(CStr::from_ptr(transmute(XKeysymToString(keysym))).to_bytes()).unwrap())
+      str::from_utf8(CStr::from_ptr(transmute(XKeysymToString(keysym))).to_bytes()).unwrap().to_string()
     }
   }
 
@@ -469,14 +464,14 @@ impl XlibWindowSystem {
       let mut hint : XClassHint = uninitialized();
 
       if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
-        String::from_str("")
+        String::new()
       } else {
         match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
           Ok(s) => {
-            String::from_str(s)
+            s.to_string()
           },
           Err(_) => {
-            String::from_str("")
+            String::new()
           }
         }
       }
@@ -485,20 +480,20 @@ impl XlibWindowSystem {
 
   pub fn get_window_title(&self, window: Window) -> String {
     if window == self.root {
-      return String::from_str("");
+      return String::new();
     }
 
     unsafe {
       let mut name : *mut c_char = uninitialized();
       if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
-        String::from_str("")
+        String::new()
       } else {
         match str::from_utf8(CStr::from_ptr(name).to_bytes()) {
           Ok(s) => {
-            String::from_str(s)
+            s.to_string()
           },
           Err(_) => {
-            String::from_str("")
+            String::new()
           }
         }
       }
