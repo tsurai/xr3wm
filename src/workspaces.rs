@@ -78,7 +78,7 @@ pub struct WorkspaceConfig {
   pub layout: Box<Layout>
 }
 
-struct Workspace {
+pub struct Workspace {
   managed: Stack,
   unmanaged: Stack,
   tag: String,

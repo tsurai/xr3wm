@@ -16,5 +16,10 @@ branch = "wtftw"
 [dependencies.xinerama]
 git = "https://github.com/Kintaro/rust-xinerama.git"
 
+[lib]
+name = "xr3wm"
+path = "src/core.rs"
+
 [[bin]]
 name = "xr3wm"
+path = "src/xr3wm.rs"
