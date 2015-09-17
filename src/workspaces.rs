@@ -117,11 +117,11 @@ impl Workspace {
 
   pub fn serialize(&self) -> String {
     format!("{}:{}:{}:{}:{}", self.screen, self.visible, self.managed.focused_window, self.unmanaged.focused_window, &(vec![
-      self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
-      self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
-      self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
-      self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().connect(","),
-    ].connect(":"))[..])
+      self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+      self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+      self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+      self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+    ].join(":"))[..])
   }
 
   fn all(&self) -> Vec<Window> {
@@ -509,7 +509,7 @@ impl Workspaces {
   }
 
   pub fn serialize(&self) -> String {
-    format!("{}\n{}", self.cur, self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().connect("\n"))
+    format!("{}\n{}", self.cur, self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().join("\n"))
   }
 
   pub fn get(&self, index: usize) -> &Workspace {
