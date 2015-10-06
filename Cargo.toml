@@ -1,5 +1,4 @@
 [project]
-
 name = "xr3wm"
 version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
@@ -8,6 +7,7 @@ build = "build.rs"
 [dependencies]
 libc = "*"
 log = "*"
+env_logger = "*"
 
 [dependencies.xlib]
 git = "https://github.com/Kintaro/rust-xlib.git"

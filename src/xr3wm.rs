@@ -2,6 +2,7 @@
 #[macro_use]
 
 extern crate log;
+extern crate env_logger;
 extern crate xlib;
 extern crate xinerama;
 
@@ -26,9 +27,9 @@ mod xlib_window_system;
 mod workspaces;
 mod layout;
 
-
 fn main() {
   let mut config = get_config();
+  env_logger::init().unwrap();
 
   let ws = &XlibWindowSystem::new();
   ws.grab_modifier(config.mod_key);
