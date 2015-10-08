@@ -3,10 +3,11 @@
 
 extern crate log;
 extern crate env_logger;
+extern crate dylib;
 extern crate xlib;
 extern crate xinerama;
 
-use config::get_config;
+use config::Config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::{ XMapRequest,
@@ -28,8 +29,8 @@ mod workspaces;
 mod layout;
 
 fn main() {
-  let mut config = get_config();
   env_logger::init().unwrap();
+  let config = Config::load();
 
   let ws = &XlibWindowSystem::new();
   ws.grab_modifier(config.mod_key);
@@ -108,7 +109,7 @@ fn main() {
       _ => {}
     }
 
-    if let Some(ref mut loghook) = (&mut config).log_hook {
+    if let Some(ref loghook) = (&config).log_hook {
       loghook.call(ws, &workspaces);
     }
   }

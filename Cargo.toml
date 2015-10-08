@@ -8,6 +8,7 @@ build = "build.rs"
 libc = "*"
 log = "*"
 env_logger = "*"
+dylib = "*"
 
 [dependencies.xlib]
 git = "https://github.com/Kintaro/rust-xlib.git"

@@ -2,12 +2,30 @@
 #[macro_use]
 
 extern crate log;
+extern crate dylib;
 extern crate xlib;
 extern crate xinerama;
 
-pub mod config;
-pub mod keycode;
-pub mod commands;
-pub mod xlib_window_system;
-pub mod workspaces;
-pub mod layout;
+pub mod core {
+  pub mod commands {
+    pub use ::commands::{Cmd, CmdManage, ManageHook, LogInfo, LogHook, CmdLogHook};
+  }
+
+  pub mod keycode {
+    pub use ::keycode::*;
+  }
+
+  pub mod layout {
+    pub use ::layout::*;
+  }
+
+  pub use ::config::Config;
+  pub use ::workspaces::WorkspaceConfig;
+}
+
+mod xlib_window_system;
+mod config;
+mod workspaces;
+mod commands;
+mod keycode;
+mod layout;

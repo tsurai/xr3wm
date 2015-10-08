@@ -193,7 +193,7 @@ pub struct LogHook {
 }
 
 impl LogHook {
-  pub fn call(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) {
+  pub fn call(&self, ws: &XlibWindowSystem, workspaces: &Workspaces) {
     println!("{}", (self.output)(self.logs.iter().map(|x| x.call(ws, workspaces)).collect()));
   }
 }
