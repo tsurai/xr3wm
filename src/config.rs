@@ -3,8 +3,7 @@
 use std::default::Default;
 use std::io::Write;
 use std::path::Path;
-use std::fs::PathExt;
-use std::fs::{File, create_dir};
+use std::fs::{PathExt, File, create_dir};
 use std::process::Command;
 use std::mem;
 use layout::*;
@@ -125,7 +124,7 @@ impl Default for Config {
       log_hook: None
     };
 
-    for i in (1..10) {
+    for i in 1..10 {
       config.keybindings.push(
         Keybinding {
           mods: 0,

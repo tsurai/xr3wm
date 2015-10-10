@@ -441,7 +441,7 @@ impl Workspaces {
         cur: 0,
       };
 
-      for screen in (0..screens) {
+      for screen in 0..screens {
         if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
           match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
             Some(ws) => {
@@ -452,7 +452,7 @@ impl Workspaces {
         }
       }
 
-      for screen in (0..screens) {
+      for screen in 0..screens {
         let ws = workspaces.list.iter_mut().find(|ws| ws.screen == screen).unwrap();
         ws.visible = true;
       }
@@ -644,7 +644,7 @@ impl Workspaces {
     }
 
     // assign the first hidden workspace to the new screen
-    for screen in (prev_screens + 1..new_screens) {
+    for screen in prev_screens + 1..new_screens {
       match self.list.iter_mut().find(|ws| !ws.visible) {
         Some(workspace) => {
           workspace.screen = screen;
