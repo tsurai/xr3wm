@@ -2,7 +2,7 @@
 
 extern crate libc;
 
-use self::libc::funcs::posix88::unistd::execvp;
+use self::libc::execvp;
 use std::thread;
 use std::ptr::null;
 use std::env;

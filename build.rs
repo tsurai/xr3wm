@@ -1,5 +1,3 @@
-#![feature(path_ext)]
-
 use std::io::prelude::*;
 use std::path::Path;
 use std::fs::{File, create_dir};

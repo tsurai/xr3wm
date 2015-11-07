@@ -12,7 +12,7 @@ use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
 use self::libc::{c_void, c_int, c_uint, c_char, c_uchar, c_long, c_ulong};
-use self::libc::funcs::c95::stdlib::malloc;
+use self::libc::malloc;
 use self::XlibEvent::*;
 use xinerama::XineramaQueryScreens;
 use xlib::*;

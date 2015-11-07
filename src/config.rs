@@ -3,7 +3,7 @@
 use std::default::Default;
 use std::io::Write;
 use std::path::Path;
-use std::fs::{PathExt, File, create_dir};
+use std::fs::{File, create_dir};
 use std::process::Command;
 use std::mem;
 use layout::*;

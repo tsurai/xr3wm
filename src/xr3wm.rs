@@ -1,4 +1,3 @@
-#![feature(path_ext)]
 #[macro_use]
 
 extern crate log;
