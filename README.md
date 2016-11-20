@@ -9,7 +9,7 @@ ToDo
 - [ ] i3 style manual splitting
 - [ ] improve config usability
 - [ ] user documentation
-- [ ] load config as dynamic library
+- [x] load config as dynamic library
 
 Credits
 =======

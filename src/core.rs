@@ -6,20 +6,20 @@ extern crate xlib;
 extern crate xinerama;
 
 pub mod core {
-  pub mod commands {
-    pub use ::commands::{Cmd, CmdManage, ManageHook, LogInfo, LogHook, CmdLogHook};
-  }
+    pub mod commands {
+        pub use ::commands::{Cmd, CmdManage, ManageHook};
+    }
 
-  pub mod keycode {
-    pub use ::keycode::*;
-  }
+    pub mod keycode {
+        pub use ::keycode::*;
+    }
 
-  pub mod layout {
-    pub use ::layout::*;
-  }
+    pub mod layout {
+        pub use ::layout::*;
+    }
 
-  pub use ::config::Config;
-  pub use ::workspaces::WorkspaceConfig;
+    pub use ::config::{Config, Statusbar, LogInfo};
+    pub use ::workspaces::WorkspaceConfig;
 }
 
 mod xlib_window_system;
