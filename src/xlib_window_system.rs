@@ -23,17 +23,6 @@ extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c
     return 0;
 }
 
-const KeyPress: i32 = 2;
-const ButtonPress: i32 = 4;
-const EnterNotify: i32 = 7;
-const FocusOut: i32 = 10;
-const Destroy: i32 = 17;
-const UnmapNotify: i32 = 18;
-const MapRequest: i32 = 20;
-const ConfigurationNotify: i32 = 22;
-const ConfigurationRequest: i32 = 23;
-const PropertyNotify: i32 = 28;
-
 pub struct XlibWindowSystem {
     display: *mut Display,
     root: Window,
@@ -252,7 +241,7 @@ impl XlibWindowSystem {
                 let mut attributes: XWindowAttributes = uninitialized();
                 XGetWindowAttributes(self.display, window, &mut attributes);
                 let mut event = XConfigureEvent {
-                    _type: ConfigurationRequest as i32,
+                    _type: ConfigureRequest as i32,
                     display: self.display,
                     serial: 0,
                     send_event: 1,
@@ -624,7 +613,7 @@ impl XlibWindowSystem {
 
                 XMapRequest(evt.window)
             }
-            ConfigurationNotify => {
+            ConfigureNotify => {
                 let evt: &XConfigureEvent = self.cast_event_to();
                 if evt.window == self.root {
                     XConfigurationNotify(evt.window)
@@ -632,7 +621,7 @@ impl XlibWindowSystem {
                     Ignored
                 }
             }
-            ConfigurationRequest => {
+            ConfigureRequest => {
                 let event: &XConfigureRequestEvent = self.cast_event_to();
                 let changes = WindowChanges {
                     x: event.x as u32,
@@ -645,7 +634,7 @@ impl XlibWindowSystem {
                 };
                 XConfigurationRequest(event.window, changes, event.value_mask as u32)
             }
-            Destroy => {
+            DestroyNotify => {
                 let evt: &XDestroyWindowEvent = self.cast_event_to();
                 XDestroy(evt.window)
             }

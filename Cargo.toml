@@ -11,8 +11,7 @@ env_logger = "*"
 dylib = "*"
 
 [dependencies.xlib]
-git = "https://github.com/Kintaro/rust-xlib.git"
-branch = "wtftw"
+git = "https://github.com/tsurai/rust-xlib.git"
 
 [dependencies.xinerama]
 git = "https://github.com/Kintaro/rust-xinerama.git"
