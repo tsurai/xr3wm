@@ -22,16 +22,18 @@ mod layout;
 
 fn main() {
     env_logger::init().unwrap();
-    let mut config = Config::load();
 
-    if let Some(ref mut statusbar) = (&mut config).statusbar {
-        statusbar.start();
-    }
+    let mut config = Config::default();
+    config = Config::load();
 
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
 
     let mut workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
+
+    if let Some(ref mut statusbar) = (&mut config).statusbar {
+        statusbar.start();
+    }
 
     loop {
         match ws.get_event() {

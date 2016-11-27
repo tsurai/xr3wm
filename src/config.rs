@@ -310,11 +310,17 @@ crate-type = [\"dylib\"]")
 
     pub fn load() -> Config {
         let mut cfg: Config = Default::default();
+
+        let mut xmsg = Command::new("xmessage")
+            .arg("-center")
+            .arg("Compiling config...").spawn().unwrap();
+
         match Config::compile() {
             Ok(_) => {
-                match DynamicLibrary::open(Some(&Path::new(concat!(env!("HOME"),
-                                                                   "/.xr3wm/.build/target/debug/libconfig.\
-                                                                    so")))) {
+                xmsg.kill();
+                match DynamicLibrary::open(
+                    Some(&Path::new(concat!(env!("HOME"),
+                        "/.xr3wm/.build/target/debug/libconfig.so")))) {
                     Ok(lib) => unsafe {
                         match lib.symbol("config") {
                             Ok(symbol) => {
@@ -329,7 +335,14 @@ crate-type = [\"dylib\"]")
                     Err(e) => error!("Failed to load libconfig: {}", e),
                 }
             }
-            Err(e) => error!("Failed to compile config: {}", e),
+            Err(e) => {
+                xmsg.kill();
+                Command::new("xmessage")
+                    .arg("-center")
+                    .arg(format!("Failed to compile config:\n{}\nUsing default config", e)).spawn().unwrap();
+
+                error!("Failed to compile config: {}", e);
+            },
         }
         cfg
     }
