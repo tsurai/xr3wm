@@ -317,7 +317,7 @@ crate-type = [\"dylib\"]")
 
         match Config::compile() {
             Ok(_) => {
-                xmsg.kill();
+                xmsg.kill().ok();
                 match DynamicLibrary::open(
                     Some(&Path::new(concat!(env!("HOME"),
                         "/.xr3wm/.build/target/debug/libconfig.so")))) {
@@ -336,7 +336,7 @@ crate-type = [\"dylib\"]")
                 }
             }
             Err(e) => {
-                xmsg.kill();
+                xmsg.kill().ok();
                 Command::new("xmessage")
                     .arg("-center")
                     .arg(format!("Failed to compile config:\n{}\nUsing default config", e)).spawn().unwrap();
