@@ -530,13 +530,13 @@ impl XlibWindowSystem {
             let mut tmp: c_long = 0;
             XGetWMNormalHints(self.display, window, &mut size_hint, &mut tmp);
 
-            let min = if size_hint.flags & PMinSize == PMinSize {
+            let min = if size_hint.flags.contains(XSizeHintFlags::PMinSize) {
                 Some((size_hint.min_width as u32, size_hint.min_height as u32))
             } else {
                 None
             };
 
-            let max = if size_hint.flags & PMaxSize == PMaxSize {
+            let max = if size_hint.flags.contains(XSizeHintFlags::PMaxSize) {
                 Some((size_hint.max_width as u32, size_hint.max_height as u32))
             } else {
                 None
@@ -554,7 +554,7 @@ impl XlibWindowSystem {
 
     pub fn is_urgent(&self, window: Window) -> bool {
         let hints = self.get_wm_hints(window);
-        hints.flags.contains(Urgency)
+        hints.flags.contains(XWMHintFlags::Urgency)
     }
 
     pub fn get_class_name(&self, window: Window) -> String {
