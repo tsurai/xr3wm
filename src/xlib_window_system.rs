@@ -256,7 +256,7 @@ impl XlibWindowSystem {
                     override_redirect: attributes.override_redirect,
                 };
                 let event_ptr: *mut XConfigureEvent = &mut event;
-                XSendEvent(self.display, window, 0, 0, (event_ptr as *mut c_void));
+                XSendEvent(self.display, window, 0, 0, event_ptr as *mut c_void);
             }
             XSync(self.display, 0);
         }

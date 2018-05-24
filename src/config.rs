@@ -122,7 +122,7 @@ impl Statusbar {
             window_title: ws.get_window_title(workspaces.current().focused_window()),
         });
 
-        let mut stdin = self.child.as_mut().unwrap().stdin.as_mut().unwrap();
+        let stdin = self.child.as_mut().unwrap().stdin.as_mut().unwrap();
         stdin.write_all(output.as_bytes()).ok();
     }
 }

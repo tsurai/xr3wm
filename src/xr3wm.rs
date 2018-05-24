@@ -21,7 +21,7 @@ mod workspaces;
 mod layout;
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let mut config = Config::default();
     config = Config::load();
