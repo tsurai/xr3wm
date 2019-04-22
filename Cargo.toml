@@ -5,9 +5,11 @@ authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 build = "build.rs"
 
 [dependencies]
+log = "0.4.6"
+fern = "0.5.8"
+failure = "0.1.5"
+clap = "2.33.0"
 libc = "*"
-log = "*"
-env_logger = "*"
 dylib = "*"
 
 [dependencies.xlib]

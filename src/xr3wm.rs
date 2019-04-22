@@ -1,11 +1,15 @@
 #[macro_use]
-
 extern crate log;
-extern crate env_logger;
+extern crate fern;
+extern crate failure;
+extern crate clap;
 extern crate dylib;
 extern crate xlib;
 extern crate xinerama;
 
+use clap::{Arg, App, ArgMatches};
+use clap::AppSettings::*;
+use failure::{ResultExt, Error, Fail};
 use config::Config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
@@ -20,8 +24,60 @@ mod xlib_window_system;
 mod workspaces;
 mod layout;
 
-fn main() {
-    env_logger::init();
+fn process_cli<'a>() -> ArgMatches<'a> {
+    App::new("xr3wm")
+        .version("0.0.1")
+        .author("Cristian Kubis <cristian.kubis@tsunix.de>")
+        .about("i3wm inspired tiling window manager")
+        .setting(DeriveDisplayOrder)
+        .arg(Arg::with_name("verbose")
+             .short("v")
+             .long("verbose")
+             .multiple(true)
+             .help("increrases the logging verbosity each use for up to 2 times"))
+        .get_matches()
+}
+
+// initialization of the logging system
+fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!("[{}] {}", record.level(), message))
+        })
+        // set the verbosity of the logging
+        .level(match verbosity {
+            1 => log::LevelFilter::Debug,
+            x if x > 1 => log::LevelFilter::Trace,
+            _ => log::LevelFilter::Warn
+        })
+        // output everything but errors to stdout
+        .chain(
+            fern::Dispatch::new()
+                .filter(move |metadata| metadata.level() != log::LevelFilter::Error)
+                .chain(::std::io::stdout()))
+        // ...and to a logfile with additional timestamps
+        .chain(
+            fern::Dispatch::new()
+                .level(log::LevelFilter::Error)
+                .chain(
+                    fern::Dispatch::new()
+                        .chain(::std::io::stderr())
+                .chain(fern::log_file(logfile)
+                       .context("failed to open log file")?)))
+        .apply()
+        .map_err(|e| e.into())
+}
+
+fn run() -> Result<(), Error> {
+    let matches = process_cli();
+
+    let verbosity = matches.occurrences_of("verbose");
+
+    // initialize logging system
+    if let Err(e) = init_logger(verbosity, concat!(env!("HOME"), "/.xr3wm/xr3wm.log")) {
+        println!("[ERROR] failed to initialize logging system: {}", e);
+        ::std::process::exit(1);
+    }
 
     let mut config = Config::default();
     config = Config::load();
@@ -110,5 +166,37 @@ fn main() {
         if let Some(ref mut statusbar) = (&mut config).statusbar {
             statusbar.update(ws, &workspaces);
         }
+    }
+}
+
+fn main() {
+    // failure crate boilerplate
+    if let Err(e) = run() {
+        use std::io::Write;
+        let mut stderr = std::io::stderr();
+        let got_logger = log_enabled!(log::Level::Error);
+
+        let mut fail: &dyn Fail = e.as_fail();
+        if got_logger {
+            error!("{}", fail);
+        } else {
+            writeln!(&mut stderr, "{}", fail).ok();
+        }
+
+        while let Some(cause) = fail.cause() {
+            if got_logger {
+                error!("caused by: {}", cause);
+            } else {
+                writeln!(&mut stderr, "caused by: {}", cause).ok();
+            }
+
+            if let Some(bt) = cause.backtrace() {
+                error!("backtrace: {}", bt)
+            }
+            fail = cause;
+        }
+
+        stderr.flush().ok();
+        ::std::process::exit(1);
     }
 }
