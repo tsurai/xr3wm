@@ -79,7 +79,7 @@ impl Cmd {
                             debug!("Cmd::Reload: restarting xr3wm...");
 
                             unsafe {
-                                let mut slice : &mut [*const i8; 2] = &mut [
+                                let slice : &mut [*const i8; 2] = &mut [
                   CString::new(filename.as_bytes()).unwrap().as_ptr() as *const i8,
                   null()
                 ];
@@ -191,7 +191,7 @@ fn exec(cmd: String) {
     thread::spawn(move || {
         let args: Vec<&str> = cmd[..].split(' ').collect();
 
-        if args.len() > 0 {
+        if !args.is_empty() {
             let mut cmd = Command::new(args[0]);
 
             if args.len() > 1 {

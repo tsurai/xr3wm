@@ -7,6 +7,7 @@ use layout::Rect;
 use std::cmp;
 use std::str;
 use std::env;
+use std::default::Default;
 use std::ptr::null_mut;
 use std::mem::{uninitialized, transmute};
 use std::slice::from_raw_parts;
@@ -20,7 +21,7 @@ use xlib::*;
 extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
     // TODO: proper error handling
     // HACK: fixes LeaveNotify on invalid windows
-    return 0;
+    0
 }
 
 pub struct XlibWindowSystem {
@@ -66,18 +67,18 @@ impl XlibWindowSystem {
             let display = XOpenDisplay(null_mut());
             if display.is_null() {
                 error!("Can't open display {}",
-                       env::var("DISPLAY").unwrap_or("undefined".to_string()));
+                       env::var("DISPLAY").unwrap_or_else(|_| "undefined".to_string()));
                 panic!();
             }
 
             let root = XDefaultRootWindow(display);
-            XSelectInput(display, root, 0x1A0034);
+            XSelectInput(display, root, 0x001A_0034);
             XDefineCursor(display, root, XCreateFontCursor(display, 68));
             XSetErrorHandler(error_handler as *mut u8);
 
             XlibWindowSystem {
-                display: display,
-                root: root,
+                display,
+                root,
                 event: malloc(256),
             }
         }
@@ -118,7 +119,7 @@ impl XlibWindowSystem {
                                   window,
                                   property,
                                   0,
-                                  0xFFFFFFFF,
+                                  0xFFFF_FFFF,
                                   0,
                                   0,
                                   &mut ret_type,
@@ -178,18 +179,23 @@ impl XlibWindowSystem {
             .iter()
             .filter_map(|&w| self.get_property(w, atom))
             .filter(|x| {
+                let screen_x = u64::from(screen.x);
+                let screen_y = u64::from(screen.y);
+                let screen_height = u64::from(screen.height);
+                let screen_width = u64::from(screen.width);
+
                 (x[0] > 0 &&
-                 ((x[4] >= screen.y as u64 && x[4] < (screen.y + screen.height) as u64) ||
-                  (x[5] >= screen.y as u64 && x[5] <= (screen.y + screen.height) as u64))) ||
+                 ((x[4] >= screen_y && x[4] < screen_y + screen_height) ||
+                  (x[5] >= screen_y && x[5] <= screen_y + screen_height))) ||
                 (x[1] > 0 &&
-                 ((x[6] >= screen.y as u64 && x[6] < (screen.y + screen.height) as u64) ||
-                  (x[7] >= screen.y as u64 && x[7] <= (screen.y + screen.height) as u64))) ||
+                 ((x[6] >= screen_y && x[6] < screen_y + screen_height) ||
+                  (x[7] >= screen_y && x[7] <= screen_y + screen_height))) ||
                 (x[2] > 0 &&
-                 ((x[8] >= screen.x as u64 && x[8] < (screen.x + screen.width) as u64) ||
-                  (x[9] >= screen.x as u64 && x[9] <= (screen.x + screen.width) as u64))) ||
+                 ((x[8] >= screen_x && x[8] < screen_x + screen_width) ||
+                  (x[9] >= screen_x && x[9] <= screen_x + screen_width))) ||
                 (x[3] > 0 &&
-                 ((x[10] >= screen.x as u64 && x[10] < (screen.x + screen.width) as u64) ||
-                  (x[11] >= screen.x as u64 && x[11] <= (screen.x + screen.width) as u64)))
+                 ((x[10] >= screen_x && x[10] < screen_x + screen_width) ||
+                  (x[11] >= screen_x && x[11] <= screen_x + screen_width)))
             })
             .map(|x| Strut(x[0] as u32, x[1] as u32, x[2] as u32, x[3] as u32))
             .fold(Strut(0, 0, 0, 0), |a, b| {
@@ -207,7 +213,7 @@ impl XlibWindowSystem {
                        mode: c_int,
                        dat: &mut [c_ulong]) {
         unsafe {
-            let ptr: *mut u8 = transmute(dat.as_mut_ptr());
+            let ptr: *mut u8 = dat.as_mut_ptr() as *mut u8;
             XChangeProperty(self.display,
                             window,
                             property as c_ulong,
@@ -251,7 +257,7 @@ impl XlibWindowSystem {
                     height: rect.height as i32,
                     border_width: 0,
                     event: window,
-                    window: window,
+                    window,
                     above: 0,
                     override_redirect: attributes.override_redirect,
                 };
@@ -272,9 +278,9 @@ impl XlibWindowSystem {
 
     pub fn hide_window(&self, window: Window) {
         unsafe {
-            XSelectInput(self.display, window, 0x400010);
+            XSelectInput(self.display, window, 0x0040_0010);
             XUnmapWindow(self.display, window);
-            XSelectInput(self.display, window, 0x420010);
+            XSelectInput(self.display, window, 0x0042_0010);
 
             let atom = self.get_atom("WM_STATE");
             self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
@@ -334,10 +340,10 @@ impl XlibWindowSystem {
                     _type: 33,
                     format: 32,
                     display: self.display,
-                    window: window,
+                    window,
                     message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
-                    data: [((self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF00000000) >> 32) as i32,
-                           (self.get_atom("WM_DELETE_WINDOW") & 0xFFFFFFFF) as i32,
+                    data: [((self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF_0000_0000) >> 32) as i32,
+                           (self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF) as i32,
                            0,
                            0,
                            0],
@@ -369,24 +375,24 @@ impl XlibWindowSystem {
 
     pub fn grab_modifier(&self, mod_key: u8) {
         unsafe {
-            XGrabKey(self.display, 0, mod_key as u32, self.root, 1, 0, 1);
+            XGrabKey(self.display, 0, u32::from(mod_key), self.root, 1, 0, 1);
             XGrabKey(self.display,
                      0,
-                     (mod_key | MOD_2) as u32,
+                     u32::from(mod_key | MOD_2),
                      self.root,
                      1,
                      0,
                      1);
             XGrabKey(self.display,
                      0,
-                     (mod_key | MOD_LOCK) as u32,
+                     u32::from(mod_key | MOD_LOCK),
                      self.root,
                      1,
                      0,
                      1);
             XGrabKey(self.display,
                      0,
-                     (mod_key | MOD_2 | MOD_LOCK) as u32,
+                     u32::from(mod_key | MOD_2 | MOD_LOCK),
                      self.root,
                      1,
                      0,
@@ -397,7 +403,7 @@ impl XlibWindowSystem {
     pub fn keycode_to_string(&self, keycode: u32) -> String {
         unsafe {
             let keysym = XKeycodeToKeysym(self.display, keycode as u8, 0);
-            str::from_utf8(CStr::from_ptr(transmute(XKeysymToString(keysym))).to_bytes())
+            str::from_utf8(CStr::from_ptr(XKeysymToString(keysym) as *const i8).to_bytes())
                 .unwrap()
                 .to_string()
         }
@@ -414,7 +420,7 @@ impl XlibWindowSystem {
     pub fn set_window_border_color(&self, window: Window, color: u32) {
         if window != self.root {
             unsafe {
-                XSetWindowBorder(self.display, window, color as c_ulong);
+                XSetWindowBorder(self.display, window, u64::from(color));
             }
         }
     }
@@ -459,8 +465,8 @@ impl XlibWindowSystem {
             Rect {
                 x: x as u32,
                 y: y as u32,
-                width: width,
-                height: height,
+                width,
+                height,
             }
         }
     }
@@ -542,8 +548,8 @@ impl XlibWindowSystem {
                 None
             };
             SizeHint {
-                min: min,
-                max: max,
+                min,
+                max,
             }
         }
     }
@@ -608,7 +614,7 @@ impl XlibWindowSystem {
                     let atom = self.get_atom("WM_STATE");
                     self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
                     self.grab_button(evt.window);
-                    XSelectInput(self.display, evt.window, 0x420010);
+                    XSelectInput(self.display, evt.window, 0x0042_0010);
                 }
 
                 XMapRequest(evt.window)
@@ -678,5 +684,11 @@ impl XlibWindowSystem {
             }
             _ => Ignored,
         }
+    }
+}
+
+impl Default for XlibWindowSystem {
+    fn default() -> Self {
+        Self::new()
     }
 }

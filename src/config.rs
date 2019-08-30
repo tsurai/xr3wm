@@ -38,19 +38,19 @@ pub struct Statusbar {
     child: Option<Child>,
     executable: String,
     args: Option<Vec<String>>,
-    fn_format: Box<Fn(LogInfo) -> String>,
+    fn_format: Box<dyn Fn(LogInfo) -> String>,
 }
 
 impl Statusbar {
     pub fn new(executable: String,
                args: Option<Vec<String>>,
-               fn_format: Box<Fn(LogInfo) -> String>)
+               fn_format: Box<dyn Fn(LogInfo) -> String>)
                -> Statusbar {
         Statusbar {
             child: None,
-            executable: executable,
-            args: args,
-            fn_format: fn_format,
+            executable,
+            args,
+            fn_format,
         }
     }
 
@@ -156,9 +156,9 @@ impl Default for Config {
                 .collect(),
             mod_key: MOD_4,
             border_width: 2,
-            border_color: 0x002e2e2e,
-            border_focus_color: 0x002a82e6,
-            border_urgent_color: 0x00ff0000,
+            border_color: 0x002e_2e2e,
+            border_focus_color: 0x002a_82e6,
+            border_urgent_color: 0x00ff_0000,
             greedy_view: false,
             keybindings: vec![Keybinding {
                                   mods: 0,

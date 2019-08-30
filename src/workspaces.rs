@@ -30,7 +30,7 @@ impl Stack {
     }
 
     fn all(&self) -> Vec<Window> {
-        self.hidden.iter().chain(self.visible.iter()).map(|&x| x).collect()
+        self.hidden.iter().chain(self.visible.iter()).copied().collect()
     }
 
     fn len(&self) -> usize {
@@ -83,7 +83,7 @@ pub struct WorkspaceInfo {
 pub struct WorkspaceConfig {
     pub tag: String,
     pub screen: usize,
-    pub layout: Box<Layout>,
+    pub layout: Box<dyn Layout>,
 }
 
 pub struct Workspace {
@@ -92,7 +92,7 @@ pub struct Workspace {
     tag: String,
     screen: usize,
     visible: bool,
-    layout: Box<Layout>,
+    layout: Box<dyn Layout>,
 }
 
 pub enum MoveOp {
@@ -139,18 +139,18 @@ impl Workspace {
     }
 
     fn all(&self) -> Vec<Window> {
-        self.unmanaged.all().iter().chain(self.managed.all().iter()).map(|&x| x).collect()
+        self.unmanaged.all().iter().chain(self.managed.all().iter()).copied().collect()
     }
 
     fn all_visible(&self) -> Vec<Window> {
-        self.unmanaged.visible.iter().chain(self.managed.visible.iter()).map(|&x| x).collect()
+        self.unmanaged.visible.iter().chain(self.managed.visible.iter()).copied().collect()
     }
 
     fn all_urgent(&self) -> Vec<Window> {
-        self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).map(|&x| x).collect()
+        self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
 
-    pub fn get_layout(&self) -> &Box<Layout> {
+    pub fn get_layout(&self) -> &Box<dyn Layout> {
         &self.layout
     }
 
@@ -256,12 +256,10 @@ impl Workspace {
             } else {
                 index - 1
             }]
+        } else if !self.managed.visible.is_empty() {
+            self.managed.visible[self.managed.len() - 1]
         } else {
-            if !self.managed.visible.is_empty() {
-                self.managed.visible[self.managed.len() - 1]
-            } else {
                 0
-            }
         };
 
         if self.visible {
@@ -274,11 +272,9 @@ impl Workspace {
         if self.managed.contains(window) {
             debug!("Remove Managed: {}", window);
             self.remove_managed(ws, config, window);
-        } else {
-            if self.unmanaged.contains(window) {
-                debug!("Remove Unmanaged: {}", window);
-                self.remove_unmanaged(ws, config, window);
-            }
+        } else if self.unmanaged.contains(window) {
+            debug!("Remove Unmanaged: {}", window);
+            self.remove_unmanaged(ws, config, window);
         }
     }
 
@@ -437,8 +433,8 @@ impl Workspace {
 
         for &window in self.unmanaged.visible.iter() {
             let mut rect = ws.get_geometry(window);
-            rect.width = rect.width + (2 * config.border_width);
-            rect.height = rect.height + (2 * config.border_width);
+            rect.width += 2 * config.border_width;
+            rect.height += 2 * config.border_width;
 
             ws.setup_window((screen.width - rect.width) / 2,
                             (screen.height - rect.height) / 2,
@@ -463,7 +459,7 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new<'b>(config: &'b Config, screens: usize) -> Workspaces {
+    pub fn new(config: &Config, screens: usize) -> Workspaces {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
             println!("recompiling... done");
             Workspaces::load_workspaces(config)
@@ -487,11 +483,8 @@ impl Workspaces {
 
             for screen in 0..screens {
                 if workspaces.list.iter().find(|ws| ws.screen == screen).is_none() {
-                    match workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
-                        Some(ws) => {
-                            ws.screen = screen;
-                        }
-                        None => {}
+                    if let Some(ws) = workspaces.list.iter_mut().filter(|ws| ws.screen == 0).nth(1) {
+                        ws.screen = screen;
                     }
                 }
             }
@@ -537,8 +530,8 @@ impl Workspaces {
                         debug!("loading workspace {}", i + 1);
 
                         Workspace {
-                            managed: managed,
-                            unmanaged: unmanaged,
+                            managed,
+                            unmanaged,
                             tag: c.tag.clone(),
                             screen: data[0].parse::<usize>().unwrap(),
                             visible: data[1].parse::<bool>().unwrap(),
@@ -607,20 +600,17 @@ impl Workspaces {
     }
 
     pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-        match self.list
+        if let Some(index) = self.list
             .iter()
             .enumerate()
             .find(|&(_, workspace)| workspace.contains(window))
             .map(|(i, _)| i) {
-            Some(index) => {
                 if self.cur != index {
                     self.list[index].focus_window(ws, config, window);
                     self.switch_to(ws, config, index);
                 } else {
                     self.current_mut().focus_window(ws, config, window);
                 }
-            }
-            None => {}
         }
     }
 
@@ -645,18 +635,15 @@ impl Workspaces {
     }
 
     pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
-        match self.list
+        if let Some(index) =  self.list
             .iter()
             .enumerate()
             .filter(|&(i, ws)| ws.screen == screen && ws.visible && i != self.cur)
             .map(|(i, _)| i)
             .last() {
-            Some(index) => {
                 self.list[self.cur].unfocus(ws, config);
                 self.list[index].focus(ws, config);
                 self.cur = index;
-            }
-            None => {}
         }
     }
 
@@ -675,20 +662,14 @@ impl Workspaces {
                                  ws: &XlibWindowSystem,
                                  config: &Config,
                                  screen: usize) {
-        match self.list.iter().enumerate().find(|&(_, ws)| ws.screen == screen) {
-            Some((index, _)) => {
-                self.move_window_to(ws, config, index);
-            }
-            None => {}
+        if let Some((index, _)) = self.list.iter().enumerate().find(|&(_, ws)| ws.screen == screen) {
+            self.move_window_to(ws, config, index);
         }
     }
 
     pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-        match self.find_window(window) {
-            Some(workspace) => {
-                workspace.remove_window(ws, config, window);
-            }
-            None => {}
+        if let Some(workspace) = self.find_window(window) {
+            workspace.remove_window(ws, config, window);
         }
     }
 
