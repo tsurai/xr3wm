@@ -1,9 +1,9 @@
 #[macro_use]
-
 extern crate log;
 extern crate libloading;
 extern crate xlib;
 extern crate xinerama;
+extern crate failure;
 
 pub mod core {
     pub mod commands {

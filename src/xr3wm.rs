@@ -23,6 +23,7 @@ mod commands;
 mod xlib_window_system;
 mod workspaces;
 mod layout;
+mod utils;
 
 fn process_cli<'a>() -> ArgMatches<'a> {
     App::new("xr3wm")
@@ -79,8 +80,15 @@ fn run() -> Result<(), Error> {
         ::std::process::exit(1);
     }
 
-    let mut config = Config::default();
-    config = Config::load();
+    let mut config = Config::load()
+        .map_err(|e| {
+            let error = utils::concat_error_chain(&e);
+            utils::xmessage(&format!("failed to load config:\n{}", error))
+                .map_err(|e| warn!("failed to run xmessage: {}", e))
+                .ok();
+            e
+        })
+        .context("failed to load config")?;
 
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
@@ -88,7 +96,8 @@ fn run() -> Result<(), Error> {
     let mut workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
 
     if let Some(ref mut statusbar) = (&mut config).statusbar {
-        statusbar.start();
+        statusbar.start()
+            .context("failed to start statusbar")?;
     }
 
     loop {
@@ -164,7 +173,9 @@ fn run() -> Result<(), Error> {
         }
 
         if let Some(ref mut statusbar) = (&mut config).statusbar {
-            statusbar.update(ws, &workspaces);
+            if let Err(e) = statusbar.update(ws, &workspaces) {
+                error!("{}", e.context("failed to update statusbar"));
+            }
         }
     }
 }

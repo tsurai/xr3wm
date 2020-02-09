@@ -1,10 +1,11 @@
-#![allow(dead_code)]
+#![allow(unused)]
 
 use std::default::Default;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
 use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
+use failure::*;
 use layout::*;
 use keycode::*;
 use workspaces::{Workspaces, WorkspaceConfig};
@@ -81,25 +82,26 @@ impl Statusbar {
         }))
     }
 
-    pub fn start(&mut self) {
-        match self.child {
-            Some(_) => warn!("'{}' is already running", self.executable),
-            None => {
-                let mut cmd = Command::new(self.executable.clone());
-                if self.args.is_some() {
-                    cmd.args(self.args.clone().unwrap().as_slice());
-                }
-                match cmd.stdin(Stdio::piped()).spawn() {
-                    Ok(child) => self.child = Some(child),
-                    Err(err) => error!("failed to execute '{}': {}", self.executable, err),
-                }
-            }
+    pub fn start(&mut self) -> Result<(), Error> {
+        if self.child.is_some() {
+            bail!(format!("'{}' is already running", self.executable));
         }
+
+        let mut cmd = Command::new(self.executable.clone());
+
+        if self.args.is_some() {
+            cmd.args(self.args.clone().unwrap().as_slice());
+        }
+
+        self.child = Some(cmd.stdin(Stdio::piped()).spawn()
+            .context(format!("failed to execute '{}'", self.executable))?);
+
+        Ok(())
     }
 
-    pub fn update(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) {
+    pub fn update(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> Result<(), Error> {
         if self.child.is_none() {
-            return;
+            return Ok(());
         }
 
         let output = (self.fn_format)(LogInfo {
@@ -121,8 +123,16 @@ impl Statusbar {
             window_title: ws.get_window_title(workspaces.current().focused_window()),
         });
 
-        let stdin = self.child.as_mut().unwrap().stdin.as_mut().unwrap();
-        stdin.write_all(output.as_bytes()).ok();
+        let stdin = self.child.as_mut()
+            .ok_or(format_err!("failed to get statusbar process"))?
+            .stdin
+            .as_mut()
+            .ok_or(format_err!("failed to get statusbar stdin"))?;
+
+        stdin.write_all(output.as_bytes())
+            .context("failed to write to statusbar stdin")?;
+
+        Ok(())
     }
 }
 
@@ -269,15 +279,17 @@ impl Default for Config {
 }
 
 impl Config {
-    fn compile() -> Result<(), String> {
+    fn compile() -> Result<(), Error> {
         let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/.build"));
         if !dst.exists() {
             create_dir(dst)
-                .unwrap_or_else(|e| panic!("Failed to create config build directory: {}", e));
+                .context("failed to create config build directory")?
         }
 
         if !dst.join("Cargo.toml").exists() {
-            let mut f = File::create(dst.join("Cargo.toml")).unwrap();
+            let mut f = File::create(dst.join("Cargo.toml"))
+                .context("failed to create Cargo.toml")?;
+
             f.write_all(b"[project]
 name = \"config\"
 version = \"0.0.1\"
@@ -290,55 +302,36 @@ git = \"https://github.com/tsurai/xr3wm.git\"
 name = \"config\"
 path = \"../config.rs\"
 crate-type = [\"dylib\"]")
-                .unwrap();
+                .context("failed to write Cargo.toml")?;
         }
 
         let output = Command::new("cargo")
             .arg("build")
             .current_dir(dst)
             .output()
-            .unwrap_or_else(|e| panic!("Failed to run cargo: {}", e));
-        if output.status.success() {
-            Ok(())
-        } else {
-            unsafe { Err(String::from_utf8_unchecked(output.stderr)) }
+            .context("failed to execute cargo")?;
+
+        if !output.status.success() {
+            bail!(format_err!("{}", String::from_utf8(output.stderr)?))
         }
+
+        Ok(())
     }
 
-    pub fn load() -> Config {
+    pub fn load() -> Result<Config, Error> {
         let mut cfg: Config = Default::default();
 
-        let mut xmsg = Command::new("xmessage")
-            .arg("-center")
-            .arg("Compiling config...").spawn().unwrap();
+        Config::compile()
+            .context("failed to compile config")?;
 
-        match Config::compile() {
-            Ok(_) => {
-                xmsg.kill().ok();
-                match Library::new(
-                    concat!(env!("HOME"),
-                        "/.xr3wm/.build/target/debug/libconfig.so")) {
-                    Ok(lib) => unsafe {
-                        let symbol: std::io::Result<Symbol::<unsafe extern fn(&mut Config) -> ()>, > = lib.get(b"configure");
-                        match symbol {
-                            Ok(func) => {
-                                func(&mut cfg);
-                            }
-                            Err(e) => error!("Failed to load symbol: {}", e),
-                        }
-                    },
-                    Err(e) => error!("Failed to load libconfig: {}", e),
-                }
-            }
-            Err(e) => {
-                xmsg.kill().ok();
-                Command::new("xmessage")
-                    .arg("-center")
-                    .arg(format!("Failed to compile config:\n{}\nUsing default config", e)).spawn().unwrap();
+        let lib = Library::new(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so"))
+            .context("failed to load libconfig")?;
 
-                error!("Failed to compile config: {}", e);
-            },
-        }
-        cfg
+        let func: Symbol<extern fn(&mut Config)> = unsafe { lib.get(b"configure") }
+            .context("failed to get symbol")?;
+
+        func(&mut cfg);
+
+        Ok(cfg)
     }
 }
