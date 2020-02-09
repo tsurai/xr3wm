@@ -1,7 +1,7 @@
 #[macro_use]
 
 extern crate log;
-extern crate dylib;
+extern crate libloading;
 extern crate xlib;
 extern crate xinerama;
 

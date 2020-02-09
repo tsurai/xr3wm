@@ -4,6 +4,7 @@
 *.rlib
 *.dll
 *.swp
+tags
 
 # Executables
 *.exe

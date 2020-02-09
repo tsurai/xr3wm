@@ -3,7 +3,7 @@ extern crate log;
 extern crate fern;
 extern crate failure;
 extern crate clap;
-extern crate dylib;
+extern crate libloading;
 extern crate xlib;
 extern crate xinerama;
 

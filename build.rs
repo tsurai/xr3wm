@@ -9,19 +9,13 @@ fn main() {
             Ok(_) => {
                 let mut f = File::create(&dst).unwrap();
                 f.write_all(b"#![allow(unused_imports)]
-#![allow(alloc_jemalloc)]
-extern crate alloc_jemalloc;
-
 extern crate xr3wm;
 
 use std::default::Default;
-use xr3wm::layout::*;
-use xr3wm::keycode::*;
-use xr3wm::commands::*;
-use xr3wm::config::*;
-use xr3wm::workspaces::WorkspaceConfig;
+use xr3wm::core::*;
 
-pub extern fn configure(&mut cfg: Config) {
+#[no_mangle]
+pub extern fn configure(cfg: &mut Config) {
 
 }").unwrap();
             }

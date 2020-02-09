@@ -5,13 +5,12 @@ use std::io::Write;
 use std::path::Path;
 use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
-use std::mem;
 use layout::*;
 use keycode::*;
 use workspaces::{Workspaces, WorkspaceConfig};
 use xlib_window_system::XlibWindowSystem;
 use commands::{Cmd, ManageHook};
-use dylib::DynamicLibrary;
+use libloading::{Library, Symbol};
 
 pub struct Keybinding {
     pub mods: u8,
@@ -128,7 +127,6 @@ impl Statusbar {
 }
 
 pub struct Config {
-    lib: Option<DynamicLibrary>,
     pub workspaces: Vec<WorkspaceConfig>,
     pub mod_key: u8,
     pub border_width: u32,
@@ -144,7 +142,6 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         let mut config = Config {
-            lib: None,
             workspaces: (1usize..10)
                 .map(|idx| {
                     WorkspaceConfig {
@@ -318,16 +315,14 @@ crate-type = [\"dylib\"]")
         match Config::compile() {
             Ok(_) => {
                 xmsg.kill().ok();
-                match DynamicLibrary::open(
-                    Some(&Path::new(concat!(env!("HOME"),
-                        "/.xr3wm/.build/target/debug/libconfig.so")))) {
+                match Library::new(
+                    concat!(env!("HOME"),
+                        "/.xr3wm/.build/target/debug/libconfig.so")) {
                     Ok(lib) => unsafe {
-                        match lib.symbol("config") {
-                            Ok(symbol) => {
-                                let f = mem::transmute::<*mut u8,
-                                                         extern "C" fn(&mut Config)>(symbol);
-                                cfg.lib = Some(lib);
-                                f(&mut cfg);
+                        let symbol: std::io::Result<Symbol::<unsafe extern fn(&mut Config) -> ()>, > = lib.get(b"configure");
+                        match symbol {
+                            Ok(func) => {
+                                func(&mut cfg);
                             }
                             Err(e) => error!("Failed to load symbol: {}", e),
                         }

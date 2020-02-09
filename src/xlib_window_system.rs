@@ -9,7 +9,7 @@ use std::str;
 use std::env;
 use std::default::Default;
 use std::ptr::null_mut;
-use std::mem::{uninitialized, transmute};
+use std::mem::{MaybeUninit, transmute};
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
 use self::libc::{c_void, c_int, c_uint, c_char, c_uchar, c_long, c_ulong};
@@ -113,7 +113,7 @@ impl XlibWindowSystem {
             let mut ret_format: c_int = 0;
             let mut ret_nitems: c_ulong = 0;
             let mut ret_bytes_after: c_ulong = 0;
-            let mut ret_prop: *mut c_uchar = uninitialized();
+            let mut ret_prop = MaybeUninit::uninit();
 
             if XGetWindowProperty(self.display,
                                   window,
@@ -126,9 +126,9 @@ impl XlibWindowSystem {
                                   &mut ret_format,
                                   &mut ret_nitems,
                                   &mut ret_bytes_after,
-                                  &mut ret_prop) == 0 {
+                                  ret_prop.as_mut_ptr()) == 0 {
                 if ret_format != 0 {
-                    Some(from_raw_parts(ret_prop as *const c_ulong, ret_nitems as usize)
+                    Some(from_raw_parts(ret_prop.assume_init(), ret_nitems as usize)
                         .iter()
                         .map(|&x| x as u64)
                         .collect())
@@ -157,15 +157,16 @@ impl XlibWindowSystem {
             let mut ret_root: c_ulong = 0;
             let mut ret_parent: c_ulong = 0;
             let mut ret_nchildren: c_uint = 0;
-            let mut ret_children: *mut c_ulong = uninitialized();
+            let mut ret_children = MaybeUninit::uninit();
 
             XQueryTree(self.display,
                        self.root,
                        &mut ret_root,
                        &mut ret_parent,
-                       &mut ret_children,
+                       ret_children.as_mut_ptr(),
                        &mut ret_nchildren);
-            from_raw_parts(ret_children as *const c_ulong, ret_nchildren as usize)
+
+            from_raw_parts(ret_children.assume_init(), ret_nchildren as usize)
                 .iter()
                 .map(|&x| x as u64)
                 .collect()
@@ -244,8 +245,10 @@ impl XlibWindowSystem {
                 XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
             } else {
                 let rect = self.get_geometry(window);
-                let mut attributes: XWindowAttributes = uninitialized();
-                XGetWindowAttributes(self.display, window, &mut attributes);
+                let mut attributes = MaybeUninit::uninit();
+
+                XGetWindowAttributes(self.display, window, attributes.as_mut_ptr());
+
                 let mut event = XConfigureEvent {
                     _type: ConfigureRequest as i32,
                     display: self.display,
@@ -259,7 +262,7 @@ impl XlibWindowSystem {
                     event: window,
                     window,
                     above: 0,
-                    override_redirect: attributes.override_redirect,
+                    override_redirect: attributes.assume_init().override_redirect,
                 };
                 let event_ptr: *mut XConfigureEvent = &mut event;
                 XSendEvent(self.display, window, 0, 0, event_ptr as *mut c_void);
@@ -318,11 +321,11 @@ impl XlibWindowSystem {
 
     fn has_protocol(&self, window: Window, protocol: &str) -> bool {
         unsafe {
-            let mut count: c_int = uninitialized();
-            let mut atoms: *mut Atom = uninitialized();
+            let mut count = MaybeUninit::uninit();
+            let mut atoms = MaybeUninit::uninit();
 
-            XGetWMProtocols(self.display, window, &mut atoms, &mut count);
-            from_raw_parts(atoms as *const c_ulong, count as usize)
+            XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr());
+            from_raw_parts(atoms.assume_init() as *const c_ulong, count.assume_init() as usize)
                 .contains(&self.get_atom(protocol))
         }
     }
@@ -444,29 +447,29 @@ impl XlibWindowSystem {
 
     pub fn get_geometry(&self, window: Window) -> Rect {
         unsafe {
-            let mut root: Window = uninitialized();
-            let mut x: c_int = uninitialized();
-            let mut y: c_int = uninitialized();
-            let mut width: c_uint = uninitialized();
-            let mut height: c_uint = uninitialized();
-            let mut depth: c_uint = uninitialized();
-            let mut border: c_uint = uninitialized();
+            let mut root = MaybeUninit::uninit();
+            let mut x = MaybeUninit::uninit();
+            let mut y = MaybeUninit::uninit();
+            let mut width = MaybeUninit::uninit();
+            let mut height = MaybeUninit::uninit();
+            let mut depth = MaybeUninit::uninit();
+            let mut border = MaybeUninit::uninit();
 
             XGetGeometry(self.display,
                          window,
-                         &mut root,
-                         &mut x,
-                         &mut y,
-                         &mut width,
-                         &mut height,
-                         &mut border,
-                         &mut depth);
+                         root.as_mut_ptr(),
+                         x.as_mut_ptr(),
+                         y.as_mut_ptr(),
+                         width.as_mut_ptr(),
+                         height.as_mut_ptr(),
+                         border.as_mut_ptr(),
+                         depth.as_mut_ptr());
 
             Rect {
-                x: x as u32,
-                y: y as u32,
-                width,
-                height,
+                x: x.assume_init() as u32,
+                y: y.assume_init() as u32,
+                width: width.assume_init(),
+                height: height.assume_init(),
             }
         }
     }
@@ -520,10 +523,10 @@ impl XlibWindowSystem {
 
     pub fn transient_for(&self, window: Window) -> Option<Window> {
         unsafe {
-            let mut w: Window = uninitialized();
+            let mut w = MaybeUninit::uninit();
 
-            if XGetTransientForHint(self.display, window, &mut w) != 0 {
-                Some(w)
+            if XGetTransientForHint(self.display, window, w.as_mut_ptr()) != 0 {
+                Some(w.assume_init())
             } else {
                 None
             }
@@ -532,10 +535,11 @@ impl XlibWindowSystem {
 
     pub fn get_size_hints(&self, window: Window) -> SizeHint {
         unsafe {
-            let mut size_hint: XSizeHints = uninitialized();
+            let mut size_hint = MaybeUninit::uninit();
             let mut tmp: c_long = 0;
-            XGetWMNormalHints(self.display, window, &mut size_hint, &mut tmp);
+            XGetWMNormalHints(self.display, window, size_hint.as_mut_ptr(), &mut tmp);
 
+            let size_hint = size_hint.assume_init();
             let min = if size_hint.flags.contains(XSizeHintFlags::PMinSize) {
                 Some((size_hint.min_width as u32, size_hint.min_height as u32))
             } else {
@@ -565,16 +569,18 @@ impl XlibWindowSystem {
 
     pub fn get_class_name(&self, window: Window) -> String {
         unsafe {
-            let mut hint: XClassHint = uninitialized();
+            let mut hint = MaybeUninit::uninit();
 
-            if XGetClassHint(self.display, window, &mut hint) == 0 || hint.res_class.is_null() {
-                String::new()
-            } else {
-                match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
-                    Ok(s) => s.to_string(),
-                    Err(_) => String::new(),
+            if XGetClassHint(self.display, window, hint.as_mut_ptr()) != 0 {
+                let hint = hint.assume_init();
+                if !hint.res_class.is_null() {
+                    return match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
+                        Ok(s) => s.to_string(),
+                        Err(_) => String::new(),
+                    }
                 }
             }
+            String::new()
         }
     }
 
@@ -584,15 +590,17 @@ impl XlibWindowSystem {
         }
 
         unsafe {
-            let mut name: *mut c_char = uninitialized();
-            if XFetchName(self.display, window, &mut name) == 0 || name.is_null() {
-                String::new()
-            } else {
-                match str::from_utf8(CStr::from_ptr(name).to_bytes()) {
-                    Ok(s) => s.to_string(),
-                    Err(_) => String::new(),
+            let mut name = MaybeUninit::uninit();
+            if XFetchName(self.display, window, name.as_mut_ptr()) != 0 {
+                let name = name.assume_init();
+                if !name.is_null() {
+                    return match str::from_utf8(CStr::from_ptr(name).to_bytes()) {
+                        Ok(s) => s.to_string(),
+                        Err(_) => String::new(),
+                    }
                 }
             }
+            String::new()
         }
     }
 
