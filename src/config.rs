@@ -124,10 +124,10 @@ impl Statusbar {
         });
 
         let stdin = self.child.as_mut()
-            .ok_or(format_err!("failed to get statusbar process"))?
+            .ok_or_else(|| err_msg("failed to get statusbar process"))?
             .stdin
             .as_mut()
-            .ok_or(format_err!("failed to get statusbar stdin"))?;
+            .ok_or_else(|| err_msg("failed to get statusbar stdin"))?;
 
         stdin.write_all(output.as_bytes())
             .context("failed to write to statusbar stdin")?;

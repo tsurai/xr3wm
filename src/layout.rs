@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(clippy::new_ret_no_self)]
 use std::cmp::min;
 use std::fmt;
 use xlib_window_system::XlibWindowSystem;
@@ -50,7 +52,7 @@ impl fmt::Debug for LayoutMsg {
 pub trait Layout {
     fn name(&self) -> String;
     fn send_msg(&mut self, LayoutMsg);
-    fn apply(&self, &XlibWindowSystem, Rect, &Vec<Window>) -> Vec<Rect>;
+    fn apply(&self, &XlibWindowSystem, Rect, &[Window]) -> Vec<Rect>;
     fn copy<'a>(&self) -> Box<dyn Layout + 'a> {
         panic!("")
     }
@@ -100,7 +102,7 @@ impl Layout for TallLayout {
         }
     }
 
-    fn apply(&self, _: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    fn apply(&self, _: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
         (0..windows.len())
             .map(|i| {
                 if i < self.num_masters {
@@ -154,7 +156,7 @@ impl<'a> Layout for StrutLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
         let mut new_area = Rect {
             x: 0,
             y: 0,
@@ -199,7 +201,7 @@ impl<'a> Layout for GapLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
         let mut rects = self.layout.apply(ws, area, windows);
 
         for rect in rects.iter_mut() {
@@ -236,7 +238,7 @@ impl<'a> Layout for MirrorLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
         let mut rects = self.layout.apply(ws, area, windows);
 
         for rect in rects.iter_mut() {

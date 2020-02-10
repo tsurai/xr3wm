@@ -9,10 +9,10 @@ use std::str;
 use std::env;
 use std::default::Default;
 use std::ptr::null_mut;
-use std::mem::{MaybeUninit, transmute};
+use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
-use self::libc::{c_void, c_int, c_uint, c_char, c_uchar, c_long, c_ulong};
+use self::libc::{c_void, c_int, c_uint, c_long, c_ulong};
 use self::libc::malloc;
 use self::XlibEvent::*;
 use xinerama::XineramaQueryScreens;
@@ -352,7 +352,7 @@ impl XlibWindowSystem {
                            0],
                 };
 
-                XSendEvent(self.display, window, 0, 0, transmute(&event));
+                XSendEvent(self.display, window, 0, 0, &event as *const _ as *mut c_void);
             } else {
                 XKillClient(self.display, window);
             }

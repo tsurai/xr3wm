@@ -94,14 +94,18 @@ fn run() -> Result<(), Error> {
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
 
-    let mut workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
+    let workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
 
-    if let Some(ref mut statusbar) = (&mut config).statusbar {
+    if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
             .context("failed to start statusbar")?;
     }
 
     info!("entering event loop");
+    run_event_loop(config, &ws, workspaces)
+}
+
+fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<(), Error> {
     loop {
         match ws.get_event() {
             XMapRequest(window) => {
@@ -167,19 +171,22 @@ fn run() -> Result<(), Error> {
 
                 for binding in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        binding.cmd.call(ws, &mut workspaces, &config);
+                        binding.cmd.call(ws, &mut workspaces, &config)
+                            .map_err(|e| error!("failed to execute binding call: {}", e))
+                            .ok();
                     }
                 }
             }
             _ => {}
         }
 
-        if let Some(ref mut statusbar) = (&mut config).statusbar {
+        if let Some(ref mut statusbar) = config.statusbar {
             if let Err(e) = statusbar.update(ws, &workspaces) {
                 error!("{}", e.context("failed to update statusbar"));
             }
         }
     }
+
 }
 
 fn main() {

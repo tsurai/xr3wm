@@ -9,7 +9,7 @@ use std::ffi::CString;
 use std::process::Command;
 use std::io::prelude::*;
 use std::path::Path;
-use std::fs::{OpenOptions, remove_file};
+use std::fs::OpenOptions;
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
