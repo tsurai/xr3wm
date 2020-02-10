@@ -1,11 +1,10 @@
-#![allow(dead_code, unused_must_use)]
+#![allow(dead_code)]
 
 extern crate libc;
 
 use self::libc::execvp;
-use std::thread;
+use std::{env, thread};
 use std::ptr::null;
-use std::env;
 use std::ffi::CString;
 use std::process::Command;
 use std::io::prelude::*;
@@ -16,6 +15,7 @@ use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
 use workspaces::{Workspaces, MoveOp};
 use xlib::Window;
+use failure::*;
 
 pub enum Cmd {
     Exec(String),
@@ -36,7 +36,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) {
+    pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) -> Result<(), Error> {
         match *self {
             Cmd::Exec(ref cmd) => {
                 debug!("Cmd::Exec: {}", cmd);
@@ -64,43 +64,9 @@ impl Cmd {
                 workspaces.current().redraw(ws, config);
             }
             Cmd::Reload => {
-                let curr_exe = env::current_exe().unwrap();
-                let filename = curr_exe.file_name().unwrap().to_str().unwrap();
-
-                println!("recompiling...");
-                debug!("Cmd::Reload: compiling...");
-
-                let mut cmd = Command::new("cargo");
-                cmd.current_dir(&env::current_dir().unwrap()).arg("build").env("RUST_LOG", "none");
-
-                match cmd.output() {
-                    Ok(output) => {
-                        if output.status.success() {
-                            debug!("Cmd::Reload: restarting xr3wm...");
-
-                            unsafe {
-                                let slice : &mut [*const i8; 2] = &mut [
-                  CString::new(filename.as_bytes()).unwrap().as_ptr() as *const i8,
-                  null()
-                ];
-
-                                let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
-                                if path.exists() {
-                                    remove_file(&path);
-                                }
-
-                                let mut file = OpenOptions::new().write(true).open(&path).unwrap();
-                                file.write_all(workspaces.serialize().as_bytes());
-                                file.flush();
-
-                                execvp(CString::new(curr_exe.to_str().unwrap().as_bytes()).unwrap().as_ptr() as *const i8, slice.as_mut_ptr());
-                            }
-                        } else {
-                            panic!("failed to recompile: '{}'", output.status);
-                        }
-                    }
-                    _ => panic!("failed to start \"{:?}\"", cmd),
-                }
+                debug!("Cmd::Reload");
+                reload(workspaces)
+                    .context("failed to reload xr3wm")?;
             }
             Cmd::Exit => {
                 debug!("Cmd::Exit");
@@ -137,7 +103,69 @@ impl Cmd {
                 workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
             }
         }
+        Ok(())
     }
+}
+
+fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
+    let curr_exe = env::current_exe()
+        .context("failed to get executable path")?;
+    let filename = curr_exe.file_name()
+        .ok_or_else(|| err_msg("failed to get executable filename"))?
+        .to_str()
+        .ok_or_else(|| err_msg("failed to convert filename to UTF-8"))?;
+
+    info!("recompiling...");
+    debug!("Cmd::Reload: compiling...");
+
+    let dir = env::current_dir()
+        .context("failed to get current dir")?;
+    let mut cmd = Command::new("cargo");
+
+    let output = cmd.current_dir(&dir)
+        .arg("build")
+        .env("RUST_LOG", "none")
+        .output()
+        .context("failed to run cargo")?;
+
+    if !output.status.success() {
+        let stderr_msg = String::from_utf8(output.stderr)
+            .context("failed to convert cargo stderr to UTF-8")?;
+        bail!(format_err!("failed to recompile: {}", stderr_msg))
+    }
+
+    debug!("Cmd::Reload: restarting xr3wm...");
+
+    let filename = CString::new(filename.as_bytes())
+        .context("failed to convert filename to CString")?;
+    let args : &mut [*const i8; 2] = &mut [
+        filename.as_ptr() as *const i8,
+        null()
+    ];
+
+    let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+
+    // save current workspace state to load on restart
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&path)
+        .context("failed to open workspace state tmp file")?;
+    file.write_all(workspaces.serialize().as_bytes())
+        .context("failed to save workspace state")?;
+    file.flush()
+        .context("failed to flush workspace tmp file")?;
+
+    let curr_exe_str = CString::new(curr_exe.to_str()
+        .ok_or_else(|| err_msg("failed to convert executable path to UTF-8"))?
+        .as_bytes())
+        .context("failed to convert executable path to CString")?;
+
+    unsafe {
+        execvp(curr_exe_str.as_ptr() as *const i8, args.as_mut_ptr());
+    }
+    Ok(())
 }
 
 pub struct ManageHook {

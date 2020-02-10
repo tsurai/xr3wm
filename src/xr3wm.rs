@@ -49,7 +49,7 @@ fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
         .level(match verbosity {
             1 => log::LevelFilter::Debug,
             x if x > 1 => log::LevelFilter::Trace,
-            _ => log::LevelFilter::Warn
+            _ => log::LevelFilter::Info
         })
         // output everything but errors to stdout
         .chain(
@@ -80,6 +80,7 @@ fn run() -> Result<(), Error> {
         ::std::process::exit(1);
     }
 
+    info!("loading config");
     let mut config = Config::load()
         .map_err(|e| {
             let error = utils::concat_error_chain(&e);
@@ -100,6 +101,7 @@ fn run() -> Result<(), Error> {
             .context("failed to start statusbar")?;
     }
 
+    info!("entering event loop");
     loop {
         match ws.get_event() {
             XMapRequest(window) => {

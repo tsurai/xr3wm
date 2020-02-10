@@ -461,7 +461,7 @@ pub struct Workspaces {
 impl Workspaces {
     pub fn new(config: &Config, screens: usize) -> Workspaces {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
-            println!("recompiling... done");
+            debug!("loading previous workspace state");
             Workspaces::load_workspaces(config)
         } else {
             let mut workspaces = Workspaces {

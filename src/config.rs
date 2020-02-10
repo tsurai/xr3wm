@@ -90,7 +90,7 @@ impl Statusbar {
         let mut cmd = Command::new(self.executable.clone());
 
         if self.args.is_some() {
-            cmd.args(self.args.clone().unwrap().as_slice());
+            cmd.args(self.args.clone().expect("args missing").as_slice());
         }
 
         self.child = Some(cmd.stdin(Stdio::piped()).spawn()
@@ -312,7 +312,9 @@ crate-type = [\"dylib\"]")
             .context("failed to execute cargo")?;
 
         if !output.status.success() {
-            bail!(format_err!("{}", String::from_utf8(output.stderr)?))
+            let stderr_msg = String::from_utf8(output.stderr)
+                .context("failed to convert cargo stderr to UTF-8")?;
+            bail!(stderr_msg)
         }
 
         Ok(())
