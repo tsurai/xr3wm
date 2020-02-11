@@ -150,8 +150,8 @@ impl Workspace {
         self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
 
-    pub fn get_layout(&self) -> &Box<dyn Layout> {
-        &self.layout
+    pub fn get_layout(&self) -> &dyn Layout {
+        &*self.layout
     }
 
     pub fn send_layout_message(&mut self, msg: LayoutMsg) {

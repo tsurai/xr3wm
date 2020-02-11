@@ -1,6 +1,0 @@
-language: rust
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y libxinerama1 libxinerama-dev
-rust:
-  - nightly

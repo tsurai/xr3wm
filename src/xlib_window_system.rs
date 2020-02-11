@@ -1,4 +1,5 @@
 #![allow(non_upper_case_globals, unused_variables, dead_code)]
+#![allow(clippy::too_many_arguments)]
 
 extern crate libc;
 
