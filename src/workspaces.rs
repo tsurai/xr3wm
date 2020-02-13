@@ -186,20 +186,20 @@ impl Workspace {
         }
     }
 
-    pub fn set_urgency(&mut self,
-                       urgent: bool,
-                       ws: &XlibWindowSystem,
-                       config: &Config,
-                       window: Window) {
-        if self.all_urgent().contains(&window) && !urgent {
-            debug!("unset urgent {}", window);
-            self.remove_urgent_window(window)
+    pub fn set_urgency(&mut self, urgent: bool, ws: &XlibWindowSystem,  config: &Config, window: Window) {
+        if self.all_urgent().contains(&window) {
+            if !urgent {
+                debug!("unset urgent {}", window);
+                self.remove_urgent_window(window)
+            }
         } else {
-            debug!("set urgent {}", window);
-            if self.is_managed(window) {
-                self.managed.urgent.push(window);
-            } else {
-                self.unmanaged.urgent.push(window);
+            if urgent {
+                debug!("set urgent {}", window);
+                if self.is_managed(window) {
+                    self.managed.urgent.push(window);
+                } else {
+                    self.unmanaged.urgent.push(window);
+                }
             }
         }
 
