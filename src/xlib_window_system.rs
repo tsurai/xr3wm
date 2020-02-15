@@ -13,7 +13,7 @@ use std::ptr::null_mut;
 use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
-use self::libc::{c_void, c_int, c_uint, c_long, c_ulong};
+use self::libc::{c_void, c_uchar, c_int, c_uint, c_long, c_ulong};
 use self::libc::malloc;
 use self::XlibEvent::*;
 use xinerama::XineramaQueryScreens;
@@ -114,7 +114,7 @@ impl XlibWindowSystem {
             let mut ret_format: c_int = 0;
             let mut ret_nitems: c_ulong = 0;
             let mut ret_bytes_after: c_ulong = 0;
-            let mut ret_prop = MaybeUninit::uninit();
+            let mut ret_prop = MaybeUninit::<*mut c_uchar>::uninit();
 
             if XGetWindowProperty(self.display,
                                   window,
@@ -129,7 +129,7 @@ impl XlibWindowSystem {
                                   &mut ret_bytes_after,
                                   ret_prop.as_mut_ptr()) == 0 {
                 if ret_format != 0 {
-                    Some(from_raw_parts(ret_prop.assume_init(), ret_nitems as usize)
+                    Some(from_raw_parts(ret_prop.assume_init() as *const c_ulong, ret_nitems as usize)
                         .iter()
                         .map(|&x| x as u64)
                         .collect())
@@ -158,7 +158,7 @@ impl XlibWindowSystem {
             let mut ret_root: c_ulong = 0;
             let mut ret_parent: c_ulong = 0;
             let mut ret_nchildren: c_uint = 0;
-            let mut ret_children = MaybeUninit::uninit();
+            let mut ret_children = MaybeUninit::<*mut c_ulong>::uninit();
 
             XQueryTree(self.display,
                        self.root,
@@ -179,8 +179,12 @@ impl XlibWindowSystem {
 
         self.get_windows()
             .iter()
-            .filter_map(|&w| self.get_property(w, atom))
+            .filter_map(|&w| {
+                debug!("get strut of {}", w);
+                self.get_property(w, atom)
+            })
             .filter(|x| {
+                debug!("found strut: {} {} {} {}", x[0], x[1], x[2], x[3]);
                 let screen_x = u64::from(screen.x);
                 let screen_y = u64::from(screen.y);
                 let screen_height = u64::from(screen.height);
