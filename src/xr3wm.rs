@@ -76,7 +76,7 @@ fn run() -> Result<(), Error> {
 
     // initialize logging system
     if let Err(e) = init_logger(verbosity, concat!(env!("HOME"), "/.xr3wm/xr3wm.log")) {
-        println!("[ERROR] failed to initialize logging system: {}", e);
+        eprintln!("[ERROR] failed to initialize logging system: {}", e);
         ::std::process::exit(1);
     }
 
@@ -172,7 +172,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 for binding in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
                         binding.cmd.call(ws, &mut workspaces, &config)
-                            .map_err(|e| error!("failed to execute binding call: {}", e))
+                            .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }
                 }
