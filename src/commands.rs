@@ -116,13 +116,11 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
         .ok_or_else(|| err_msg("failed to convert filename to UTF-8"))?;
 
     info!("recompiling...");
-    debug!("Cmd::Reload: compiling...");
 
-    let dir = env::current_dir()
-        .context("failed to get current dir")?;
+    let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
     let mut cmd = Command::new("cargo");
 
-    let output = cmd.current_dir(&dir)
+    let output = cmd.current_dir(&config_build_dir)
         .arg("build")
         .env("RUST_LOG", "none")
         .output()
