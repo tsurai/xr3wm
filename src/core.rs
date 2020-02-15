@@ -3,6 +3,7 @@ extern crate log;
 extern crate libloading;
 extern crate xlib;
 extern crate xinerama;
+extern crate libc;
 extern crate failure;
 
 pub mod core {

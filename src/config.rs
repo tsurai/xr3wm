@@ -87,6 +87,7 @@ impl Statusbar {
             bail!(format!("'{}' is already running", self.executable));
         }
 
+        debug!("starting statusbar {}", self.executable);
         let mut cmd = Command::new(self.executable.clone());
 
         if self.args.is_some() {
@@ -326,8 +327,8 @@ crate-type = [\"dylib\"]")
         Config::compile()
             .context("failed to compile config")?;
 
-        let lib = Library::new(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so"))
-            .context("failed to load libconfig")?;
+        let lib: Library = ::libloading::os::unix::Library::open(Some(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so")), libc::RTLD_NOW | libc::RTLD_NODELETE)
+            .context("failed to load libconfig")?.into();
 
         let func: Symbol<extern fn(&mut Config)> = unsafe { lib.get(b"configure") }
             .context("failed to get symbol")?;
