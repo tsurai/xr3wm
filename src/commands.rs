@@ -110,10 +110,6 @@ impl Cmd {
 fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
     let curr_exe = env::current_exe()
         .context("failed to get executable path")?;
-    let filename = curr_exe.file_name()
-        .ok_or_else(|| err_msg("failed to get executable filename"))?
-        .to_str()
-        .ok_or_else(|| err_msg("failed to convert filename to UTF-8"))?;
 
     info!("recompiling...");
 
@@ -134,13 +130,6 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
 
     debug!("Cmd::Reload: restarting xr3wm...");
 
-    let filename = CString::new(filename.as_bytes())
-        .context("failed to convert filename to CString")?;
-    let args : &mut [*const i8; 2] = &mut [
-        filename.as_ptr() as *const i8,
-        null()
-    ];
-
     let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
 
     // save current workspace state to load on restart
@@ -155,13 +144,19 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
     file.flush()
         .context("failed to flush workspace tmp file")?;
 
+    let mut args: Vec<*const libc::c_char> = env::args()
+        .filter_map(|x| CString::new(x).ok())
+        .map(|x| x.into_raw() as *const libc::c_char)
+        .collect();
+    args.push(null());
+
     let curr_exe_str = CString::new(curr_exe.to_str()
         .ok_or_else(|| err_msg("failed to convert executable path to UTF-8"))?
         .as_bytes())
         .context("failed to convert executable path to CString")?;
 
     unsafe {
-        execvp(curr_exe_str.as_ptr() as *const i8, args.as_mut_ptr());
+        execvp(curr_exe_str.as_ptr() as *const libc::c_char, args.as_ptr());
     }
     Ok(())
 }
