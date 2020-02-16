@@ -170,6 +170,7 @@ impl XlibWindowSystem {
             from_raw_parts(ret_children.assume_init(), ret_nchildren as usize)
                 .iter()
                 .map(|&x| x as u64)
+                .inspect(|x| trace!("window: {}", x))
                 .collect()
         }
     }
@@ -180,11 +181,9 @@ impl XlibWindowSystem {
         self.get_windows()
             .iter()
             .filter_map(|&w| {
-                debug!("get strut of {}", w);
                 self.get_property(w, atom)
             })
             .filter(|x| {
-                debug!("found strut: {} {} {} {}", x[0], x[1], x[2], x[3]);
                 let screen_x = u64::from(screen.x);
                 let screen_y = u64::from(screen.y);
                 let screen_height = u64::from(screen.height);

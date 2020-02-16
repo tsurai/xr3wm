@@ -154,19 +154,19 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 ws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window) => {
-                debug!("XEnterNotify: {}", window);
+                trace!("XEnterNotify: {}", window);
                 workspaces.focus_window(ws, &config, window);
             }
             XFocusOut(_) => {
-                debug!("XFocusOut");
+                trace!("XFocusOut");
                 workspaces.current_mut().unfocus_window(ws, &config);
             }
             XButtonPress(window) => {
-                debug!("XButtonPress: {}", window);
+                trace!("XButtonPress: {}", window);
                 workspaces.focus_window(ws, &config, window);
             }
             XKeyPress(_, mods, key) => {
-                debug!("XKeyPress: {}, {}", mods, key);
+                trace!("XKeyPress: {}, {}", mods, key);
                 let mods = mods & !(config.mod_key | 0b10010);
 
                 for binding in config.keybindings.iter() {
