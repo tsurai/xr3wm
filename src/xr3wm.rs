@@ -56,15 +56,14 @@ fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
             fern::Dispatch::new()
                 .filter(move |metadata| metadata.level() != log::LevelFilter::Error)
                 .chain(::std::io::stdout()))
-        // ...and to a logfile with additional timestamps
+        // output errors to stderr
         .chain(
             fern::Dispatch::new()
                 .level(log::LevelFilter::Error)
-                .chain(
-                    fern::Dispatch::new()
-                        .chain(::std::io::stderr())
-                .chain(fern::log_file(logfile)
-                       .context("failed to open log file")?)))
+                .chain(::std::io::stderr()))
+        // duplicate all logs in a log file
+        .chain(fern::log_file(logfile)
+            .context("failed to open log file")?)
         .apply()
         .map_err(|e| e.into())
 }
