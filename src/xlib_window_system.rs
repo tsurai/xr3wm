@@ -114,7 +114,7 @@ impl XlibWindowSystem {
             let mut ret_format: c_int = 0;
             let mut ret_nitems: c_ulong = 0;
             let mut ret_bytes_after: c_ulong = 0;
-            let mut ret_prop = MaybeUninit::<*mut c_uchar>::uninit();
+            let mut ret_prop = MaybeUninit::<*mut c_ulong>::uninit();
 
             if XGetWindowProperty(self.display,
                                   window,
@@ -127,7 +127,7 @@ impl XlibWindowSystem {
                                   &mut ret_format,
                                   &mut ret_nitems,
                                   &mut ret_bytes_after,
-                                  ret_prop.as_mut_ptr()) == 0 {
+                                  ret_prop.as_mut_ptr() as *mut *mut c_uchar) == 0 {
                 if ret_format != 0 {
                     Some(from_raw_parts(ret_prop.assume_init() as *const c_ulong, ret_nitems as usize)
                         .iter()
@@ -153,7 +153,7 @@ impl XlibWindowSystem {
         }
     }
 
-    fn get_windows(&self) -> Vec<Window> {
+    pub fn get_windows(&self) -> Vec<Window> {
         unsafe {
             let mut ret_root: c_ulong = 0;
             let mut ret_parent: c_ulong = 0;

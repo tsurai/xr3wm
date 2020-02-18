@@ -11,6 +11,7 @@ use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::cmp;
+use failure::*;
 
 struct Stack {
     hidden: Vec<Window>,
@@ -192,14 +193,12 @@ impl Workspace {
                 debug!("unset urgent {}", window);
                 self.remove_urgent_window(window)
             }
-        } else {
-            if urgent {
-                debug!("set urgent {}", window);
-                if self.is_managed(window) {
-                    self.managed.urgent.push(window);
-                } else {
-                    self.unmanaged.urgent.push(window);
-                }
+        } else if urgent {
+            debug!("set urgent {}", window);
+            if self.is_managed(window) {
+                self.managed.urgent.push(window);
+            } else {
+                self.unmanaged.urgent.push(window);
             }
         }
 
@@ -436,8 +435,8 @@ impl Workspace {
             rect.width += 2 * config.border_width;
             rect.height += 2 * config.border_width;
 
-            ws.setup_window((screen.width - rect.width) / 2,
-                            (screen.height - rect.height) / 2,
+            ws.setup_window(screen.x + (screen.width - rect.width) / 2,
+                            screen.y + (screen.height - rect.height) / 2,
                             rect.width,
                             rect.height,
                             config.border_width,
