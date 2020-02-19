@@ -19,7 +19,7 @@ pub mod core {
         pub use ::layout::*;
     }
 
-    pub use ::config::{Config, Statusbar, LogInfo};
+    pub use ::config::{Config, Statusbar, Keybinding, LogInfo};
     pub use ::workspaces::WorkspaceConfig;
 }
 

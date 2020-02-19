@@ -170,7 +170,6 @@ impl XlibWindowSystem {
             from_raw_parts(ret_children.assume_init(), ret_nchildren as usize)
                 .iter()
                 .map(|&x| x as u64)
-                .inspect(|x| trace!("window: {}", x))
                 .collect()
         }
     }
@@ -605,6 +604,33 @@ impl XlibWindowSystem {
                 }
             }
             String::new()
+        }
+    }
+
+    pub fn move_pointer(&self, x: i32, y: i32) {
+        unsafe {
+            let mut root_w = MaybeUninit::uninit();
+            let mut child_w = MaybeUninit::uninit();
+            let mut root_x = MaybeUninit::uninit();
+            let mut root_y = MaybeUninit::uninit();
+            let mut win_x = MaybeUninit::uninit();
+            let mut win_y = MaybeUninit::uninit();
+            let mut mask = MaybeUninit::uninit();
+
+            let ret = XQueryPointer(
+                self.display,
+                self.root,
+                root_w.as_mut_ptr() as *mut Window,
+                child_w.as_mut_ptr() as *mut Window,
+                root_x.as_mut_ptr() as *mut i32,
+                root_y.as_mut_ptr() as *mut i32,
+                win_x.as_mut_ptr() as *mut i32,
+                win_y.as_mut_ptr() as *mut i32,
+                mask.as_mut_ptr() as *mut u32);
+
+            if ret == 1 {
+                XWarpPointer(self.display, 0, 0, 0, 0, 0, 0, x - root_x.assume_init(), y - root_y.assume_init());
+            }
         }
     }
 

@@ -396,6 +396,11 @@ impl Workspace {
         }
     }
 
+    pub fn center_pointer(&self, ws: &XlibWindowSystem) {
+        let screen = ws.get_screen_infos()[self.screen];
+        ws.move_pointer((screen.x + (screen.width / 2)) as i32, (screen.y + (screen.height / 2)) as i32);
+    }
+
     pub fn hide(&mut self, ws: &XlibWindowSystem) {
         self.visible = false;
 
@@ -623,10 +628,13 @@ impl Workspaces {
 
     pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
         if self.cur != index && index < self.list.len() {
+            // implies that the target workspace is on another screen
             if self.list[index].visible {
                 if config.greedy_view {
                     self.switch_screens(index);
                     self.list[self.cur].show(ws, config);
+                } else {
+                    self.list[index].center_pointer(ws);
                 }
             } else {
                 self.list[index].screen = self.list[self.cur].screen;
@@ -635,22 +643,24 @@ impl Workspaces {
             }
 
             self.list[self.cur].unfocus(ws, config);
-            // self.list[index].show(ws, config);
             self.list[index].focus(ws, config);
             self.cur = index;
         }
     }
 
     pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
-        if let Some(index) =  self.list
-            .iter()
+        let idx_workspace = self.list.iter()
             .enumerate()
-            .filter(|&(i, ws)| ws.screen == screen && ws.visible && i != self.cur)
+            .filter(|&(i, workspace)| workspace.screen == screen && workspace.visible && i != self.cur)
             .map(|(i, _)| i)
-            .last() {
-                self.list[self.cur].unfocus(ws, config);
-                self.list[index].focus(ws, config);
-                self.cur = index;
+            .last();
+
+        println!("{:?} {}", idx_workspace, self.cur);
+        if let Some(idx) = idx_workspace {
+            self.list[self.cur].unfocus(ws, config);
+            self.list[idx].focus(ws, config);
+            self.list[idx].center_pointer(ws);
+            self.cur = idx;
         }
     }
 
