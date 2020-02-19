@@ -11,7 +11,6 @@ use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::cmp;
-use failure::*;
 
 struct Stack {
     hidden: Vec<Window>,
@@ -191,18 +190,21 @@ impl Workspace {
         if self.all_urgent().contains(&window) {
             if !urgent {
                 debug!("unset urgent {}", window);
-                self.remove_urgent_window(window)
+                self.remove_urgent_window(window);
+                self.redraw(ws, config);
             }
-        } else if urgent {
-            debug!("set urgent {}", window);
-            if self.is_managed(window) {
-                self.managed.urgent.push(window);
-            } else {
-                self.unmanaged.urgent.push(window);
+        } else {
+            if urgent {
+                debug!("set urgent {}", window);
+                if self.is_managed(window) {
+                    self.managed.urgent.push(window);
+                } else {
+                    self.unmanaged.urgent.push(window);
+                }
+                self.redraw(ws, config);
             }
         }
 
-        self.redraw(ws, config);
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
@@ -220,6 +222,7 @@ impl Workspace {
     }
 
     fn remove_managed(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+        trace!("remove managed window: {}", window);
         let index = self.managed.index_of_visible(window);
 
         self.managed.focused_window = 0;
@@ -243,6 +246,7 @@ impl Workspace {
     }
 
     fn remove_unmanaged(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+        trace!("remove unmanaged window: {}", window);
         let index = self.unmanaged.index_of_visible(window);
 
         self.unmanaged.focused_window = 0;
@@ -345,6 +349,7 @@ impl Workspace {
 
     pub fn move_window(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
         let focused_window = self.focused_window();
+        trace!("move window: {}", focused_window);
 
         if focused_window == 0 || self.unmanaged.focused_window != 0 {
             return;
@@ -379,11 +384,13 @@ impl Workspace {
     }
 
     pub fn unfocus(&mut self, ws: &XlibWindowSystem, config: &Config) {
+        trace!("unfocus window: {}", self.focused_window());
         ws.set_window_border_color(self.focused_window(), config.border_color);
     }
 
     pub fn focus(&self, ws: &XlibWindowSystem, config: &Config) {
         if self.focused_window() != 0 {
+            trace!("focus window: {}", self.focused_window());
             ws.focus_window(self.focused_window(), config.border_focus_color);
             ws.skip_enter_events();
         }
@@ -402,6 +409,7 @@ impl Workspace {
     }
 
     pub fn show(&mut self, ws: &XlibWindowSystem, config: &Config) {
+        trace!("show workspace: {}", self.tag);
         self.visible = true;
 
         self.redraw(ws, config);
@@ -415,12 +423,12 @@ impl Workspace {
     }
 
     pub fn redraw(&self, ws: &XlibWindowSystem, config: &Config) {
-        debug!("Redraw...");
+        trace!("Redraw...");
 
         let screen = ws.get_screen_infos()[self.screen];
 
         for (i, rect) in self.layout.apply(ws, screen, &self.managed.visible).iter().enumerate() {
-            debug!("  {}, {:?}", self.managed.visible[i], rect);
+            trace!("  {}, {:?}", self.managed.visible[i], rect);
             ws.setup_window(rect.x,
                             rect.y,
                             rect.width,
