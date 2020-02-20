@@ -1,4 +1,4 @@
-xr3wm [![Build Status](https://travis-ci.org/tsurai/xr3wm.svg?branch=master)](https://travis-ci.org/tsurai/xr3wm)
+xr3wm ![](https://github.com/tsurai/xr3wm/workflows/build/badge.svg)
 ====
 
 i3 and xmonad inspiered tiling window manager written in Rust.
