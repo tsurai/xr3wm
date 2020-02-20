@@ -193,18 +193,15 @@ impl Workspace {
                 self.remove_urgent_window(window);
                 self.redraw(ws, config);
             }
-        } else {
-            if urgent {
-                debug!("set urgent {}", window);
-                if self.is_managed(window) {
-                    self.managed.urgent.push(window);
-                } else {
-                    self.unmanaged.urgent.push(window);
-                }
-                self.redraw(ws, config);
+        } else if urgent {
+            debug!("set urgent {}", window);
+            if self.is_managed(window) {
+                self.managed.urgent.push(window);
+            } else {
+                self.unmanaged.urgent.push(window);
             }
+            self.redraw(ws, config);
         }
-
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
