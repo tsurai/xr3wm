@@ -44,7 +44,7 @@ impl Cmd {
             }
             Cmd::SwitchWorkspace(index) => {
                 debug!("Cmd::SwitchWorkspace: {}", index);
-                workspaces.switch_to(ws, config, index - 1);
+                workspaces.switch_to(ws, config, index - 1, true);
             }
             Cmd::SwitchScreen(screen) => {
                 debug!("Cmd::SwitchScreen: {}", screen);

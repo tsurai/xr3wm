@@ -619,21 +619,21 @@ impl Workspaces {
             .map(|(i, _)| i) {
                 if self.cur != index {
                     self.list[index].focus_window(ws, config, window);
-                    self.switch_to(ws, config, index);
+                    self.switch_to(ws, config, index, false);
                 } else {
                     self.current_mut().focus_window(ws, config, window);
                 }
         }
     }
 
-    pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
+    pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize, center_pointer: bool) {
         if self.cur != index && index < self.list.len() {
             // implies that the target workspace is on another screen
             if self.list[index].visible {
                 if config.greedy_view {
                     self.switch_screens(index);
                     self.list[self.cur].show(ws, config);
-                } else {
+                } else if center_pointer {
                     self.list[index].center_pointer(ws);
                 }
             } else {
@@ -655,7 +655,6 @@ impl Workspaces {
             .map(|(i, _)| i)
             .last();
 
-        println!("{:?} {}", idx_workspace, self.cur);
         if let Some(idx) = idx_workspace {
             self.list[self.cur].unfocus(ws, config);
             self.list[idx].focus(ws, config);
