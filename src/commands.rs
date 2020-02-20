@@ -87,7 +87,7 @@ impl Cmd {
             }
             Cmd::FocusMaster => {
                 debug!("Cmd::FocusMaster: {}",
-                       workspaces.current().focused_window());
+                workspaces.current().focused_window());
                 workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
             }
             Cmd::SwapUp => {
@@ -108,9 +108,6 @@ impl Cmd {
 }
 
 fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
-    let curr_exe = env::current_exe()
-        .context("failed to get executable path")?;
-
     info!("recompiling...");
 
     let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
@@ -150,14 +147,10 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
         .collect();
     args.push(null());
 
-    let curr_exe_str = CString::new(curr_exe.to_str()
-        .ok_or_else(|| err_msg("failed to convert executable path to UTF-8"))?
-        .as_bytes())
-        .context("failed to convert executable path to CString")?;
-
     unsafe {
-        execvp(curr_exe_str.as_ptr() as *const libc::c_char, args.as_ptr());
+        execvp(args[0] as *const libc::c_char, args.as_ptr());
     }
+
     Ok(())
 }
 

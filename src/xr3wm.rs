@@ -161,7 +161,6 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 workspaces.current_mut().unfocus_window(ws, &config);
             }
             XButtonPress(window) => {
-                trace!("XButtonPress: {}", window);
                 workspaces.focus_window(ws, &config, window);
             }
             XKeyPress(_, mods, key) => {
