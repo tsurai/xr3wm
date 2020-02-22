@@ -93,7 +93,7 @@ fn run() -> Result<(), Error> {
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
 
-    let workspaces = Workspaces::new(&config, ws.get_screen_infos().len());
+    let workspaces = Workspaces::new(&config, ws.get_screen_infos().len(), &ws.get_windows());
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()

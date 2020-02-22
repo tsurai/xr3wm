@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_must_use)]
 
 use config::Config;
-use layout::Layout;
+use layout::{Layout, TallLayout};
 use layout::LayoutMsg;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
@@ -10,25 +10,19 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
+use std::default::Default;
 use std::cmp;
+use failure::*;
 
+#[derive(Default)]
 struct Stack {
+    focused_window: Window,
     hidden: Vec<Window>,
     visible: Vec<Window>,
     urgent: Vec<Window>,
-    focused_window: Window,
 }
 
 impl Stack {
-    fn new() -> Stack {
-        Stack {
-            hidden: Vec::new(),
-            visible: Vec::new(),
-            urgent: Vec::new(),
-            focused_window: 0,
-        }
-    }
-
     fn all(&self) -> Vec<Window> {
         self.hidden.iter().chain(self.visible.iter()).copied().collect()
     }
@@ -95,6 +89,19 @@ pub struct Workspace {
     layout: Box<dyn Layout>,
 }
 
+impl Default for Workspace {
+    fn default() -> Self {
+        Self {
+            managed: Stack::default(),
+            unmanaged: Stack::default(),
+            tag: String::new(),
+            screen: 0,
+            visible: false,
+            layout: TallLayout::new(1, 0.5, 0.05),
+        }
+    }
+}
+
 pub enum MoveOp {
     Up,
     Down,
@@ -123,19 +130,66 @@ impl Workspace {
         }
     }
 
+    pub fn new(tag: &str, layout: Box<dyn Layout>, windows: &[Window], data: &str) -> Result<Workspace, Error> {
+        let data: Vec<&str> = data.split(':').collect();
+
+        if data.len() != 8 {
+            bail!("Invalid workspace data fragment count: {}", data.len());
+        }
+
+        let screen = data[0].parse::<usize>()
+                .context("failed to parse screen number value")?;
+        let visible = data[1].parse::<bool>()
+                .context("failed to parse visible boolean value")?;
+
+        let data: Vec<Vec<u64>> = data.iter()
+            .skip(2)
+            .map(|x| {
+                x.split(',')
+                    .filter_map(|w| w.parse::<u64>().ok())
+                    .filter(|w| windows.contains(w))
+                    .collect()
+            })
+            .collect();
+
+        let managed = Stack {
+            focused_window: *data[0].get(0).unwrap_or(&0),
+            visible: data[2].clone(),
+            hidden: data[3].clone(),
+            ..Default::default()
+        };
+
+        let unmanaged = Stack {
+            focused_window: *data[1].get(0).unwrap_or(&0),
+            visible: data[4].clone(),
+            hidden: data[5].clone(),
+            ..Default::default()
+        };
+
+        Ok(Workspace {
+            managed,
+            unmanaged,
+            tag: tag.to_string(),
+            screen,
+            visible,
+            layout,
+        })
+    }
+
     pub fn serialize(&self) -> String {
+        let windows = vec![
+            self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+            self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+            self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+            self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
+        ];
+
         format!("{}:{}:{}:{}:{}",
                 self.screen,
                 self.visible,
                 self.managed.focused_window,
                 self.unmanaged.focused_window,
-                &(vec![
-      self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-      self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-      self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-      self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-    ]
-                    .join(":"))[..])
+                windows.join(":"))
     }
 
     fn all(&self) -> Vec<Window> {
@@ -468,22 +522,20 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(config: &Config, screens: usize) -> Workspaces {
+    pub fn new(config: &Config, screens: usize, windows: &[Window]) -> Workspaces {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
             debug!("loading previous workspace state");
-            Workspaces::load_workspaces(config)
+            Workspaces::load_workspaces(config, windows)
         } else {
             let mut workspaces = Workspaces {
                 list: config.workspaces
                     .iter()
                     .map(|c| {
                         Workspace {
-                            managed: Stack::new(),
-                            unmanaged: Stack::new(),
                             tag: c.tag.clone(),
                             screen: c.screen,
-                            visible: false,
                             layout: c.layout.copy(),
+                            ..Default::default()
                         }
                     })
                     .collect(),
@@ -507,13 +559,15 @@ impl Workspaces {
         }
     }
 
-    fn load_workspaces(config: &Config) -> Workspaces {
+    fn load_workspaces(config: &Config, windows: &[Window]) -> Workspaces {
         let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+
         let mut file = BufReader::new(File::open(&path).unwrap());
         let mut cur = String::new();
         file.read_line(&mut cur);
         let lines: Vec<String> = file.lines().map(|x| x.unwrap()).collect();
-        remove_file(&path);
+
+        remove_file(&path).ok();
 
         Workspaces {
             list: config.workspaces
@@ -521,39 +575,15 @@ impl Workspaces {
                 .enumerate()
                 .map(|(i, c)| {
                     if i < lines.len() {
-                        let data: Vec<&str> = lines.get(i).unwrap()[..].split(':').collect();
-
-                        let mut managed = Stack::new();
-                        let mut unmanaged = Stack::new();
-
-                        managed.focused_window = data[2].parse::<u64>().unwrap();
-                        unmanaged.focused_window = data[3].parse::<u64>().unwrap();
-                        managed.visible =
-                            data[4].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
-                        managed.hidden =
-                            data[5].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
-                        unmanaged.visible =
-                            data[6].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
-                        unmanaged.hidden =
-                            data[7].split(',').filter_map(|x| x.parse::<u64>().ok()).collect();
                         debug!("loading workspace {}", i + 1);
 
-                        Workspace {
-                            managed,
-                            unmanaged,
-                            tag: c.tag.clone(),
-                            screen: data[0].parse::<usize>().unwrap(),
-                            visible: data[1].parse::<bool>().unwrap(),
-                            layout: c.layout.copy(),
-                        }
+                        Workspace::new(&c.tag, c.layout.copy(), windows, lines.get(i).unwrap()).unwrap()
                     } else {
                         Workspace {
-                            managed: Stack::new(),
-                            unmanaged: Stack::new(),
                             tag: c.tag.clone(),
                             screen: c.screen,
-                            visible: false,
                             layout: c.layout.copy(),
+                            ..Default::default()
                         }
                     }
                 })
