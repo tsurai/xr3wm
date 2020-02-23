@@ -149,6 +149,8 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
 
     unsafe {
         execvp(args[0] as *const libc::c_char, args.as_ptr());
+        // execvp returns only if an error has occurred
+        error!("failed to reload: {}", ::std::io::Error::last_os_error());
     }
 
     Ok(())
