@@ -32,6 +32,10 @@ pub enum LayoutMsg {
     DecreaseMaster,
     SplitHorizontal,
     SplitVertical,
+    NextLayout,
+    PrevLayout,
+    FirstLayout,
+    LastLayout,
     Custom(String),
 }
 
@@ -44,6 +48,10 @@ impl fmt::Debug for LayoutMsg {
             LayoutMsg::DecreaseMaster => write!(f, "DecreaseMaster"),
             LayoutMsg::SplitHorizontal => write!(f, "SplitHorizontal"),
             LayoutMsg::SplitVertical => write!(f, "SplitVertical"),
+            LayoutMsg::NextLayout => write!(f, "NextLayout"),
+            LayoutMsg::PrevLayout => write!(f, "PrevLayout"),
+            LayoutMsg::FirstLayout => write!(f, "FirstLayout"),
+            LayoutMsg::LastLayout => write!(f, "LastLayout"),
             LayoutMsg::Custom(ref val) => write!(f, "Custom({})", val.clone()),
         }
     }
@@ -55,6 +63,61 @@ pub trait Layout {
     fn apply(&self, &XlibWindowSystem, Rect, &[Window]) -> Vec<Rect>;
     fn copy<'a>(&self) -> Box<dyn Layout + 'a> {
         panic!("")
+    }
+}
+
+pub struct ChooseLayout<'a> {
+    layouts: Vec<Box<dyn Layout + 'a>>,
+    current: usize,
+}
+
+impl<'a> ChooseLayout<'a> {
+    pub fn new(layouts: Vec<Box<dyn Layout + 'a>>) -> Box<dyn Layout + 'a> {
+        // add proper error handling
+        if layouts.is_empty() {
+            panic!("ChooseLayout needs at least one layout");
+        }
+
+        Box::new(ChooseLayout {
+            layouts,
+            current: 0,
+        })
+    }
+}
+
+impl<'a> Layout for ChooseLayout<'a> {
+    fn name(&self) -> String {
+        self.layouts[self.current].name()
+    }
+
+    fn send_msg(&mut self, msg: LayoutMsg) {
+        let len = self.layouts.len();
+
+        match msg {
+            LayoutMsg::NextLayout => {
+                self.current = (self.current + 1) % len;
+            }
+            LayoutMsg::PrevLayout => {
+                self.current = (self.current + len - 1) % len;
+            }
+            LayoutMsg::FirstLayout => {
+                self.current = 0;
+            }
+            LayoutMsg::LastLayout => {
+                self.current = len - 1;
+            }
+            x => {
+                self.layouts[self.current].send_msg(x);
+            }
+        }
+    }
+
+    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
+        self.layouts[self.current].apply(ws, area, windows)
+    }
+
+    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
+        ChooseLayout::new(self.layouts.iter().map(|x| x.copy()).collect())
     }
 }
 

@@ -234,6 +234,11 @@ impl Default for Config {
                                   cmd: Cmd::SendLayoutMsg(LayoutMsg::Decrease),
                               },
                               Keybinding {
+                                  mods: 0,
+                                  key: "space".to_string(),
+                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::NextLayout),
+                              },
+                              Keybinding {
                                   mods: MOD_SHIFT,
                                   key: "c".to_string(),
                                   cmd: Cmd::Exit,
