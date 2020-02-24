@@ -123,7 +123,6 @@ impl Workspace {
             debug!("Add Unmanaged: {}", window);
         }
 
-        self.focus_window(ws, config, window);
         if self.visible {
             self.redraw(ws, config);
             ws.show_window(window);
@@ -638,18 +637,41 @@ impl Workspaces {
         self.list.iter().any(|ws| ws.is_unmanaged(window))
     }
 
+    pub fn get_parent_ws(&mut self, ws: &XlibWindowSystem, window: Window) -> Option<&mut Workspace> {
+        ws.transient_for(window)
+            .and_then(move |x| self.find_window(x))
+    }
+
+    pub fn add_window(&mut self, index: Option<usize>, ws: &XlibWindowSystem, config: &Config, window: Window) {
+        if !self.contains(window) {
+            let (workspace, focus) = if let Some(parent_ws) = self.get_parent_ws(ws, window) {
+                (parent_ws, false)
+            } else {
+                (self.get_mut(index.unwrap_or_else(|| self.get_index())), true)
+            };
+
+            workspace.add_window(ws, config, window);
+
+            if focus {
+                workspace.focus_window(ws, config, window);
+            }
+        }
+    }
+
     pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-        if let Some(index) = self.list
+        let index = self.list
             .iter()
             .enumerate()
             .find(|&(_, workspace)| workspace.contains(window))
-            .map(|(i, _)| i) {
-                if self.cur != index {
-                    self.list[index].focus_window(ws, config, window);
-                    self.switch_to(ws, config, index, false);
-                } else {
-                    self.current_mut().focus_window(ws, config, window);
-                }
+            .map(|(i, _)| i);
+
+        if let Some(index) = index {
+            if self.cur != index {
+                self.list[index].focus_window(ws, config, window);
+                self.switch_to(ws, config, index, false);
+            } else {
+                self.current_mut().focus_window(ws, config, window);
+            }
         }
     }
 

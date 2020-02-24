@@ -121,8 +121,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                     }
 
                     if !is_hooked {
-                        workspaces.current_mut().add_window(ws, &config, window);
-                        workspaces.current_mut().focus_window(ws, &config, window);
+                        workspaces.add_window(None, ws, &config, window);
                     }
                 }
             }

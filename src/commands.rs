@@ -176,16 +176,8 @@ impl CmdManage {
                 window: Window) {
         match *self {
             CmdManage::Move(index) => {
-                if let Some(parent) = ws.transient_for(window) {
-                    if let Some(workspace) = workspaces.find_window(parent) {
-                        workspace.add_window(ws, config, window);
-                        workspace.focus_window(ws, config, window);
-                    }
-                } else {
-                    debug!("CmdManage::Move: {}, {}", window, index);
-                    workspaces.get_mut(index - 1).add_window(ws, config, window);
-                    workspaces.get_mut(index - 1).focus_window(ws, config, window);
-                }
+                debug!("CmdManage::Move: {}, {}", window, index);
+                workspaces.add_window(Some(index - 1), ws, config, window);
             }
             CmdManage::Float => {
                 debug!("CmdManage::Float");
