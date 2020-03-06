@@ -15,11 +15,11 @@ use std::cmp;
 use failure::*;
 
 #[derive(Default)]
-struct Stack {
-    focused_window: Window,
-    hidden: Vec<Window>,
-    visible: Vec<Window>,
-    urgent: Vec<Window>,
+pub struct Stack {
+    pub focused_window: Window,
+    pub hidden: Vec<Window>,
+    pub visible: Vec<Window>,
+    pub urgent: Vec<Window>,
 }
 
 impl Stack {
@@ -340,7 +340,7 @@ impl Workspace {
     }
 
     pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-        if window == 0 {
+        if window == 0 || self.unmanaged.focused_window == window || self.managed.focused_window == window {
             return;
         }
 
@@ -353,6 +353,7 @@ impl Workspace {
         }
 
         ws.focus_window(window, config.border_focus_color);
+        self.redraw(ws, config);
     }
 
     pub fn unfocus_window(&mut self, ws: &XlibWindowSystem, config: &Config) {
@@ -382,6 +383,7 @@ impl Workspace {
             .find(|&(_, &w)| w == self.focused_window())
             .map(|(i, _)| i)
             .unwrap();
+
         let new_focused_window = match op {
             Up => {
                 if index == 0 {
@@ -448,7 +450,7 @@ impl Workspace {
 
     pub fn center_pointer(&self, ws: &XlibWindowSystem) {
         let screen = ws.get_screen_infos()[self.screen];
-        ws.move_pointer((screen.x + (screen.width / 2)) as i32, (screen.y + (screen.height / 2)) as i32);
+        ws.move_pointer((screen.x + (screen.width / 2)) as i32 - 1, (screen.y + (screen.height / 2)) as i32);
     }
 
     pub fn hide(&mut self, ws: &XlibWindowSystem) {
@@ -482,7 +484,7 @@ impl Workspace {
 
         let screen = ws.get_screen_infos()[self.screen];
 
-        for (i, rect) in self.layout.apply(ws, screen, &self.managed.visible).iter().enumerate() {
+        for (i, rect) in self.layout.apply(screen, ws, &self.managed).iter().enumerate() {
             trace!("  {}, {:?}", self.managed.visible[i], rect);
             ws.setup_window(rect.x,
                             rect.y,
@@ -495,8 +497,8 @@ impl Workspace {
 
         for &window in self.unmanaged.visible.iter() {
             let mut rect = ws.get_geometry(window);
-            rect.width += 2 * config.border_width;
-            rect.height += 2 * config.border_width;
+            rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
+            rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
 
             ws.setup_window(screen.x + (screen.width - rect.width) / 2,
                             screen.y + (screen.height - rect.height) / 2,
