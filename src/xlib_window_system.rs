@@ -104,8 +104,8 @@ impl XlibWindowSystem {
         self.move_resize_window(window,
                                 x,
                                 y,
-                                width - (2 * border_width),
-                                height - (2 * border_width));
+                                cmp::max(width as i32 - (2 * border_width as i32), 0) as u32,
+                                cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
     }
 
     fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
@@ -290,6 +290,18 @@ impl XlibWindowSystem {
 
             let atom = self.get_atom("WM_STATE");
             self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
+        }
+    }
+
+    pub fn lower_window(&self, window: Window) {
+        unsafe {
+            XLowerWindow(self.display, window);
+        }
+    }
+
+    pub fn raise_window(&self, window: Window) {
+        unsafe {
+            XRaiseWindow(self.display, window);
         }
     }
 
