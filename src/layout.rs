@@ -2,6 +2,7 @@
 #![allow(clippy::new_ret_no_self)]
 use std::cmp::min;
 use std::fmt;
+use workspaces::Stack;
 use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
 
@@ -60,7 +61,15 @@ impl fmt::Debug for LayoutMsg {
 pub trait Layout {
     fn name(&self) -> String;
     fn send_msg(&mut self, LayoutMsg);
-    fn apply(&self, &XlibWindowSystem, Rect, &[Window]) -> Vec<Rect>;
+
+    fn apply(&self, area: Rect, _: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        self.simple_apply(area, &stack.visible)
+    }
+
+    fn simple_apply(&self, Rect, &[Window]) -> Vec<Rect> {
+        Vec::new()
+    }
+
     fn copy<'a>(&self) -> Box<dyn Layout + 'a> {
         panic!("")
     }
@@ -112,8 +121,8 @@ impl<'a> Layout for ChooseLayout<'a> {
         }
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
-        self.layouts[self.current].apply(ws, area, windows)
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        self.layouts[self.current].apply(area, ws, stack)
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
@@ -165,24 +174,26 @@ impl Layout for TallLayout {
         }
     }
 
-    fn apply(&self, _: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
-        (0..windows.len())
+    fn simple_apply(&self, area: Rect, windows: &[Window]) -> Vec<Rect> {
+        let nwindows = windows.len();
+
+        (0..nwindows)
             .map(|i| {
                 if i < self.num_masters {
-                    let yoff = area.height / min(self.num_masters, windows.len()) as u32;
+                    let yoff = area.height / min(self.num_masters, nwindows) as u32;
 
                     Rect {
                         x: area.x,
                         y: area.y + (yoff * i as u32),
                         width: (area.width as f32 *
                                 (1.0 -
-                                 (windows.len() > self.num_masters) as u32 as f32 *
+                                 (nwindows > self.num_masters) as u32 as f32 *
                                  (1.0 - self.ratio)))
                             .floor() as u32,
                         height: yoff,
                     }
                 } else {
-                    let yoff = area.height / (windows.len() - self.num_masters) as u32;
+                    let yoff = area.height / (nwindows - self.num_masters) as u32;
 
                     Rect {
                         x: area.x + (area.width as f32 * self.ratio).floor() as u32,
@@ -219,7 +230,7 @@ impl<'a> Layout for StrutLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         let mut new_area = Rect {
             x: 0,
             y: 0,
@@ -233,7 +244,7 @@ impl<'a> Layout for StrutLayout<'a> {
         new_area.y = area.y + strut.2;
         new_area.height = area.height - (strut.2 + strut.3);
 
-        self.layout.apply(ws, new_area, windows)
+        self.layout.apply(new_area, ws, stack)
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
@@ -241,15 +252,60 @@ impl<'a> Layout for StrutLayout<'a> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct FullLayout {
+    focus: Option<Window>
+}
+
+impl FullLayout {
+    pub fn new<'a>() -> Box<dyn Layout + 'a> {
+        Box::new(FullLayout{
+            focus: None
+        })
+    }
+}
+
+impl Layout for FullLayout {
+    fn name(&self) -> String {
+        "Full".to_string()
+    }
+
+    fn send_msg(&mut self, _msg: LayoutMsg) {}
+
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        stack.visible.iter()
+            .map(|&window| {
+                if window == stack.focused_window {
+                    ws.raise_window(window);
+                } else {
+                    ws.lower_window(window);
+                }
+
+                Rect {
+                    x: area.x,
+                    y: area.y,
+                    width: area.width,
+                    height: area.height,
+                }
+            }).collect()
+    }
+
+    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
+        Box::new(*self)
+    }
+}
+
 pub struct GapLayout<'a> {
-    gap: u32,
+    screen_gap: u32,
+    window_gap: u32,
     layout: Box<dyn Layout + 'a>,
 }
 
 impl<'a> GapLayout<'a> {
-    pub fn new(gap: u32, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
+    pub fn new(screen_gap: u32, window_gap: u32, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
         Box::new(GapLayout {
-            gap,
+            screen_gap,
+            window_gap,
             layout: layout.copy(),
         })
     }
@@ -264,21 +320,28 @@ impl<'a> Layout for GapLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
-        let mut rects = self.layout.apply(ws, area, windows);
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        let area = Rect {
+            x: area.x + self.screen_gap,
+            y: area.y + self.screen_gap,
+            width: area.width - (2 * self.screen_gap),
+            height: area.height - (2 * self.screen_gap),
+        };
+
+        let mut rects = self.layout.apply(area, ws, stack);
 
         for rect in rects.iter_mut() {
-            rect.x += self.gap;
-            rect.y += self.gap;
-            rect.width -= 2 * self.gap;
-            rect.height -= 2 * self.gap;
+            rect.x += self.window_gap;
+            rect.y += self.window_gap;
+            rect.width -= 2 * self.window_gap;
+            rect.height -= 2 * self.window_gap;
         }
 
         rects
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        GapLayout::new(self.gap, self.layout.copy())
+        GapLayout::new(self.screen_gap, self.window_gap, self.layout.copy())
     }
 }
 
@@ -301,8 +364,8 @@ impl<'a> Layout for MirrorLayout<'a> {
         self.layout.send_msg(msg);
     }
 
-    fn apply(&self, ws: &XlibWindowSystem, area: Rect, windows: &[Window]) -> Vec<Rect> {
-        let mut rects = self.layout.apply(ws, area, windows);
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        let mut rects = self.layout.apply(area, ws, stack);
 
         for rect in rects.iter_mut() {
             rect.x = area.width - (rect.x + rect.width);
