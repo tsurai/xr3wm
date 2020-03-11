@@ -275,9 +275,7 @@ impl Layout for FullLayout {
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         stack.visible.iter()
             .map(|&window| {
-                if window == stack.focused_window {
-                    ws.raise_window(window);
-                } else {
+                if window != stack.focused_window {
                     ws.lower_window(window);
                 }
 
