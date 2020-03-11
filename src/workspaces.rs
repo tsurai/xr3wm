@@ -267,7 +267,7 @@ impl Workspace {
         if index < self.unmanaged.urgent.len() {
             self.unmanaged.urgent.remove(index - 1);
         } else {
-            self.managed.urgent.remove(self.unmanaged.urgent.len() - index);
+            self.managed.urgent.remove(index - self.unmanaged.urgent.len());
         }
     }
 
