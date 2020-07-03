@@ -520,13 +520,14 @@ impl Workspace {
 pub struct Workspaces {
     list: Vec<Workspace>,
     cur: usize,
+    screens: usize
 }
 
 impl Workspaces {
     pub fn new(config: &Config, screens: usize, windows: &[Window]) -> Workspaces {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
             debug!("loading previous workspace state");
-            Workspaces::load_workspaces(config, windows)
+            Workspaces::load_workspaces(config, screens, windows)
         } else {
             let mut workspaces = Workspaces {
                 list: config.workspaces
@@ -541,6 +542,7 @@ impl Workspaces {
                     })
                     .collect(),
                 cur: 0,
+                screens
             };
 
             for screen in 0..screens {
@@ -560,7 +562,7 @@ impl Workspaces {
         }
     }
 
-    fn load_workspaces(config: &Config, windows: &[Window]) -> Workspaces {
+    fn load_workspaces(config: &Config, screens: usize, windows: &[Window]) -> Workspaces {
         let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
 
         let mut file = BufReader::new(File::open(&path).unwrap());
@@ -590,6 +592,7 @@ impl Workspaces {
                 })
                 .collect(),
             cur: cur[..cur.len() - 1].parse::<usize>().unwrap(),
+            screens
         }
     }
 
@@ -700,6 +703,10 @@ impl Workspaces {
     }
 
     pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
+        if screen > self.screens - 1 {
+            return;
+        }
+
         let idx_workspace = self.list.iter()
             .enumerate()
             .filter(|&(i, workspace)| workspace.screen == screen && workspace.visible && i != self.cur)
@@ -749,6 +756,7 @@ impl Workspaces {
     pub fn rescreen(&mut self, ws: &XlibWindowSystem, config: &Config) {
         let new_screens = ws.get_screen_infos().len();
         let prev_screens = self.list.iter().fold(0, |acc, x| cmp::max(acc, x.screen));
+        self.screens = new_screens;
         debug!("rescreen {}", new_screens);
 
         // move and hide workspaces if their screens got removed
