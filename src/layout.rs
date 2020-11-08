@@ -350,13 +350,20 @@ impl<'a> Layout for Gap<'a> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum MirrorStyle {
+    Horizontal,
+    Vertical,
+}
+
 pub struct Mirror<'a> {
+    style: MirrorStyle,
     layout: Box<dyn Layout + 'a>,
 }
 
 impl<'a> Mirror<'a> {
-    pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(Mirror { layout: layout.copy() })
+    pub fn new(style: MirrorStyle, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
+        Box::new(Mirror { layout: layout.copy(), style })
     }
 }
 
@@ -372,15 +379,20 @@ impl<'a> Layout for Mirror<'a> {
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         let mut rects = self.layout.apply(area, ws, stack);
 
-        for rect in rects.iter_mut() {
-            rect.x = area.width - (rect.x + rect.width);
+        match self.style {
+            MirrorStyle::Horizontal => {
+                rects.iter_mut().for_each(|r| r.y = area.y + area.height - min(r.y + r.height - area.y, area.height))
+            }
+            MirrorStyle::Vertical => {
+                rects.iter_mut().for_each(|r| r.x = area.width - min(r.x + r.width, area.width))
+            }
         }
 
         rects
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Mirror::new(self.layout.copy())
+        Mirror::new(self.style, self.layout.copy())
     }
 }
 

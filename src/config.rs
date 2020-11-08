@@ -158,7 +158,7 @@ impl Default for Config {
                     WorkspaceConfig {
                         tag: idx.to_string(),
                         screen: 0,
-                        layout: StrutLayout::new(TallLayout::new(1, 0.5, 0.05)),
+                        layout: Strut::new(Tall::new(1, 0.5, 0.05)),
                     }
                 })
                 .collect(),
