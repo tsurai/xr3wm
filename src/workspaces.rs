@@ -456,17 +456,18 @@ impl Workspace {
     pub fn hide(&mut self, ws: &XlibWindowSystem) {
         self.visible = false;
 
-        for &w in self.managed.visible.iter() {
+        for &w in self.managed.visible.iter().filter(|&w| *w != self.focused_window()) {
             ws.hide_window(w);
         }
 
-        for &w in self.unmanaged.visible.iter() {
+        for &w in self.unmanaged.visible.iter().filter(|&w| *w != self.focused_window()) {
             ws.hide_window(w);
         }
+
+        ws.hide_window(self.focused_window());
     }
 
     pub fn show(&mut self, ws: &XlibWindowSystem, config: &Config) {
-        trace!("show workspace: {}", self.tag);
         self.visible = true;
 
         self.redraw(ws, config);
@@ -692,8 +693,8 @@ impl Workspaces {
                 }
             } else {
                 self.list[index].screen = self.list[self.cur].screen;
-                self.list[index].show(ws, config);
                 self.list[self.cur].hide(ws);
+                self.list[index].show(ws, config);
             }
 
             self.list[self.cur].unfocus(ws, config);
