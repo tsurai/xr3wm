@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_must_use)]
 
 use config::Config;
-use layout::{Layout, TallLayout};
+use layout::{Layout, Tall};
 use layout::LayoutMsg;
 use xlib::Window;
 use xlib_window_system::XlibWindowSystem;
@@ -97,7 +97,7 @@ impl Default for Workspace {
             tag: String::new(),
             screen: 0,
             visible: false,
-            layout: TallLayout::new(1, 0.5, 0.05),
+            layout: Tall::new(1, 0.5, 0.05),
         }
     }
 }

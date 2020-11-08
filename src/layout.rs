@@ -77,26 +77,26 @@ pub trait Layout {
     }
 }
 
-pub struct ChooseLayout<'a> {
+pub struct Choose<'a> {
     layouts: Vec<Box<dyn Layout + 'a>>,
     current: usize,
 }
 
-impl<'a> ChooseLayout<'a> {
+impl<'a> Choose<'a> {
     pub fn new(layouts: Vec<Box<dyn Layout + 'a>>) -> Box<dyn Layout + 'a> {
         // add proper error handling
         if layouts.is_empty() {
-            panic!("ChooseLayout needs at least one layout");
+            panic!("Choose layout needs at least one layout");
         }
 
-        Box::new(ChooseLayout {
+        Box::new(Choose {
             layouts,
             current: 0,
         })
     }
 }
 
-impl<'a> Layout for ChooseLayout<'a> {
+impl<'a> Layout for Choose<'a> {
     fn name(&self) -> String {
         self.layouts[self.current].name()
     }
@@ -133,20 +133,20 @@ impl<'a> Layout for ChooseLayout<'a> {
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        ChooseLayout::new(self.layouts.iter().map(|x| x.copy()).collect())
+        Choose::new(self.layouts.iter().map(|x| x.copy()).collect())
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct TallLayout {
+pub struct Tall {
     num_masters: usize,
     ratio: f32,
     ratio_increment: f32,
 }
 
-impl TallLayout {
+impl Tall {
     pub fn new<'a>(num_masters: usize, ratio: f32, ratio_increment: f32) -> Box<dyn Layout + 'a> {
-        Box::new(TallLayout {
+        Box::new(Tall {
             num_masters,
             ratio,
             ratio_increment,
@@ -154,7 +154,7 @@ impl TallLayout {
     }
 }
 
-impl Layout for TallLayout {
+impl Layout for Tall {
     fn name(&self) -> String {
         "Tall".to_string()
     }
@@ -218,17 +218,17 @@ impl Layout for TallLayout {
     }
 }
 
-pub struct StrutLayout<'a> {
+pub struct Strut<'a> {
     layout: Box<dyn Layout + 'a>,
 }
 
-impl<'a> StrutLayout<'a> {
+impl<'a> Strut<'a> {
     pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(StrutLayout { layout: layout.copy() })
+        Box::new(Strut { layout: layout.copy() })
     }
 }
 
-impl<'a> Layout for StrutLayout<'a> {
+impl<'a> Layout for Strut<'a> {
     fn name(&self) -> String {
         self.layout.name()
     }
@@ -255,24 +255,24 @@ impl<'a> Layout for StrutLayout<'a> {
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        StrutLayout::new(self.layout.copy())
+        Strut::new(self.layout.copy())
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct FullLayout {
+pub struct Full {
     focus: Option<Window>
 }
 
-impl FullLayout {
+impl Full {
     pub fn new<'a>() -> Box<dyn Layout + 'a> {
-        Box::new(FullLayout{
+        Box::new(Full{
             focus: None
         })
     }
 }
 
-impl Layout for FullLayout {
+impl Layout for Full {
     fn name(&self) -> String {
         "Full".to_string()
     }
@@ -300,15 +300,15 @@ impl Layout for FullLayout {
     }
 }
 
-pub struct GapLayout<'a> {
+pub struct Gap<'a> {
     screen_gap: u32,
     window_gap: u32,
     layout: Box<dyn Layout + 'a>,
 }
 
-impl<'a> GapLayout<'a> {
+impl<'a> Gap<'a> {
     pub fn new(screen_gap: u32, window_gap: u32, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(GapLayout {
+        Box::new(Gap {
             screen_gap,
             window_gap,
             layout: layout.copy(),
@@ -316,7 +316,7 @@ impl<'a> GapLayout<'a> {
     }
 }
 
-impl<'a> Layout for GapLayout<'a> {
+impl<'a> Layout for Gap<'a> {
     fn name(&self) -> String {
         self.layout.name()
     }
@@ -346,21 +346,21 @@ impl<'a> Layout for GapLayout<'a> {
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        GapLayout::new(self.screen_gap, self.window_gap, self.layout.copy())
+        Gap::new(self.screen_gap, self.window_gap, self.layout.copy())
     }
 }
 
-pub struct MirrorLayout<'a> {
+pub struct Mirror<'a> {
     layout: Box<dyn Layout + 'a>,
 }
 
-impl<'a> MirrorLayout<'a> {
+impl<'a> Mirror<'a> {
     pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(MirrorLayout { layout: layout.copy() })
+        Box::new(Mirror { layout: layout.copy() })
     }
 }
 
-impl<'a> Layout for MirrorLayout<'a> {
+impl<'a> Layout for Mirror<'a> {
     fn name(&self) -> String {
         format!("Mirror({})", self.layout.name())
     }
@@ -380,17 +380,17 @@ impl<'a> Layout for MirrorLayout<'a> {
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        MirrorLayout::new(self.layout.copy())
+        Mirror::new(self.layout.copy())
     }
 }
 
-pub struct RotateLayout<'a> {
+pub struct Rotate<'a> {
     layout: Box<dyn Layout + 'a>,
 }
 
-impl<'a> RotateLayout<'a> {
+impl<'a> Rotate<'a> {
     pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(RotateLayout { layout: layout.copy() })
+        Box::new(Rotate { layout: layout.copy() })
     }
 
     fn rotate_rect(rect: Rect) -> Rect {
@@ -403,7 +403,7 @@ impl<'a> RotateLayout<'a> {
     }
 }
 
-impl<'a> Layout for RotateLayout<'a> {
+impl<'a> Layout for Rotate<'a> {
     fn name(&self) -> String {
         format!("Rotate({})", self.layout.name())
     }
@@ -423,6 +423,6 @@ impl<'a> Layout for RotateLayout<'a> {
     }
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        RotateLayout::new(self.layout.copy())
+        Rotate::new(self.layout.copy())
     }
 }
