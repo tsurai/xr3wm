@@ -37,6 +37,7 @@ pub enum LayoutMsg {
     PrevLayout,
     FirstLayout,
     LastLayout,
+    NthLayout(usize),
     Custom(String),
 }
 
@@ -52,6 +53,7 @@ impl fmt::Debug for LayoutMsg {
             LayoutMsg::NextLayout => write!(f, "NextLayout"),
             LayoutMsg::PrevLayout => write!(f, "PrevLayout"),
             LayoutMsg::FirstLayout => write!(f, "FirstLayout"),
+            LayoutMsg::NthLayout(n) => write!(f, "NthLayout: {}", n),
             LayoutMsg::LastLayout => write!(f, "LastLayout"),
             LayoutMsg::Custom(ref val) => write!(f, "Custom({})", val.clone()),
         }
@@ -114,6 +116,11 @@ impl<'a> Layout for ChooseLayout<'a> {
             }
             LayoutMsg::LastLayout => {
                 self.current = len - 1;
+            }
+            LayoutMsg::NthLayout(n) => {
+                if n < self.layouts.len() {
+                    self.current = n
+                }
             }
             x => {
                 self.layouts[self.current].send_msg(x);
@@ -275,8 +282,8 @@ impl Layout for FullLayout {
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         stack.visible.iter()
             .map(|&window| {
-                if window != stack.focused_window {
-                    ws.lower_window(window);
+                if window == stack.focused_window {
+                    ws.raise_window(window);
                 }
 
                 Rect {
@@ -374,5 +381,48 @@ impl<'a> Layout for MirrorLayout<'a> {
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
         MirrorLayout::new(self.layout.copy())
+    }
+}
+
+pub struct RotateLayout<'a> {
+    layout: Box<dyn Layout + 'a>,
+}
+
+impl<'a> RotateLayout<'a> {
+    pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
+        Box::new(RotateLayout { layout: layout.copy() })
+    }
+
+    fn rotate_rect(rect: Rect) -> Rect {
+        Rect {
+            x: rect.y,
+            y: rect.x,
+            width: rect.height,
+            height: rect.width,
+        }
+    }
+}
+
+impl<'a> Layout for RotateLayout<'a> {
+    fn name(&self) -> String {
+        format!("Rotate({})", self.layout.name())
+    }
+
+    fn send_msg(&mut self, msg: LayoutMsg) {
+        self.layout.send_msg(msg);
+    }
+
+    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        self.layout
+            .apply(Self::rotate_rect(area), ws, stack)
+            .iter()
+            .map(|&r| {
+                Self::rotate_rect(r)
+            })
+            .collect()
+    }
+
+    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
+        RotateLayout::new(self.layout.copy())
     }
 }
