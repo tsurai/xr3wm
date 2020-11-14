@@ -693,8 +693,8 @@ impl Workspaces {
                 }
             } else {
                 self.list[index].screen = self.list[self.cur].screen;
-                self.list[self.cur].hide(ws);
                 self.list[index].show(ws, config);
+                self.list[self.cur].hide(ws);
             }
 
             self.list[self.cur].unfocus(ws, config);

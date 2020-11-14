@@ -240,6 +240,11 @@ impl Default for Config {
                               },
                               Keybinding {
                                   mods: MOD_SHIFT,
+                                  key: "space".to_string(),
+                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::PrevLayout),
+                              },
+                              Keybinding {
+                                  mods: MOD_SHIFT,
                                   key: "c".to_string(),
                                   cmd: Cmd::Exit,
                               },
