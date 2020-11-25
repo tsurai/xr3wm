@@ -606,16 +606,30 @@ impl XlibWindowSystem {
 
         unsafe {
             let mut name = MaybeUninit::uninit();
-            if XFetchName(self.display, window, name.as_mut_ptr()) != 0 {
+
+            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME")) != 0 {
                 let name = name.assume_init();
-                if !name.is_null() {
-                    return match str::from_utf8(CStr::from_ptr(name).to_bytes()) {
-                        Ok(s) => s.to_string(),
-                        Err(_) => String::new(),
+                if !name.value.is_null() {
+                    return Self::ptr_to_string(name.value as *mut i8)
+                }
+            } else {
+                let mut name = MaybeUninit::uninit();
+
+                if XFetchName(self.display, window, name.as_mut_ptr()) != 0 {
+                    let name = name.assume_init();
+                    if !name.is_null() {
+                        return Self::ptr_to_string(name)
                     }
                 }
             }
             String::new()
+        }
+    }
+
+    unsafe fn ptr_to_string(ptr: *const i8) -> String {
+        match str::from_utf8(CStr::from_ptr(ptr).to_bytes()) {
+            Ok(s) => s.to_string(),
+            Err(_) => String::new(),
         }
     }
 
