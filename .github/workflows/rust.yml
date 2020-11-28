@@ -8,7 +8,6 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         rust: [stable, nightly]
-
     steps:
     - uses: hecrj/setup-rust-action@v1
       with:

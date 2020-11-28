@@ -22,6 +22,8 @@ mod keycode;
 mod commands;
 mod xlib_window_system;
 mod workspaces;
+mod workspace;
+mod stack;
 mod layout;
 mod utils;
 
@@ -139,8 +141,9 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
             }
             XPropertyNotify(window, atom, _) => {
                 if atom == ws.get_atom("WM_HINTS") {
-                    if let Some(workspace) = workspaces.find_window(window) {
-                        workspace.set_urgency(ws.is_urgent(window), ws, &config, window);
+                    if let Some(idx) = workspaces.find_window(window) {
+                        workspaces.get_mut(idx)
+                            .set_urgency(ws.is_urgent(window), ws, &config, window);
                     }
                 }
             }

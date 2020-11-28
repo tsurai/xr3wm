@@ -26,6 +26,8 @@ pub mod core {
 mod xlib_window_system;
 mod config;
 mod workspaces;
+mod workspace;
 mod commands;
 mod keycode;
+mod stack;
 mod layout;

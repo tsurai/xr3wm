@@ -2,7 +2,7 @@
 #![allow(clippy::new_ret_no_self)]
 use std::cmp::min;
 use std::fmt;
-use workspaces::Stack;
+use crate::stack::Stack;
 use xlib_window_system::XlibWindowSystem;
 use xlib::Window;
 

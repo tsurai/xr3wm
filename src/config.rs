@@ -112,7 +112,7 @@ impl Statusbar {
                 .map(|(i, x)| {
                     WorkspaceInfo {
                         id: i,
-                        tag: x.get_tag(),
+                        tag: x.get_tag().to_string(),
                         screen: 0,
                         current: i == workspaces.get_index(),
                         visible: x.is_visible(),

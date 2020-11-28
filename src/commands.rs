@@ -13,7 +13,8 @@ use std::fs::OpenOptions;
 use config::Config;
 use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
-use workspaces::{Workspaces, MoveOp};
+use workspaces::Workspaces;
+use workspace::MoveOp;
 use xlib::Window;
 use failure::*;
 
