@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use config::Config;
 use layout::{Layout, Tall};
 use layout::LayoutMsg;
@@ -159,14 +161,14 @@ impl Workspace {
         }
     }
 
-    pub fn add_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
-        if !ws.is_window_floating(window) {
+    pub fn add_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
+        if !xws.is_window_floating(window) {
             debug!("Add Managed: {}", window);
             self.managed.visible.push(window);
 
             if self.unmanaged.len() > 0 {
                 debug!("Restacking");
-                ws.restack_windows(self.all());
+                xws.restack_windows(self.all());
             }
         } else {
             self.unmanaged.visible.push(window);
@@ -174,17 +176,17 @@ impl Workspace {
         }
 
         if self.visible {
-            self.redraw(ws, config);
-            ws.show_window(window);
+            self.redraw(xws, config);
+            xws.show_window(window);
         }
     }
 
-    pub fn set_urgency(&mut self, urgent: bool, ws: &XlibWindowSystem,  config: &Config, window: Window) {
+    pub fn set_urgency(&mut self, urgent: bool, xws: &XlibWindowSystem,  config: &Config, window: Window) {
         if self.all_urgent().contains(&window) {
             if !urgent {
                 debug!("unset urgent {}", window);
                 self.remove_urgent_window(window);
-                self.redraw(ws, config);
+                self.redraw(xws, config);
             }
         } else if urgent {
             debug!("set urgent {}", window);
@@ -193,7 +195,7 @@ impl Workspace {
             } else {
                 self.unmanaged.urgent.push(window);
             }
-            self.redraw(ws, config);
+            self.redraw(xws, config);
         }
     }
 
@@ -211,12 +213,12 @@ impl Workspace {
         }
     }
 
-    fn remove_managed(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    fn remove_managed(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         trace!("remove managed window: {}", window);
         let index = self.managed.index_of_visible(window);
 
         self.managed.focused_window = 0;
-        ws.unmap_window(window);
+        xws.unmap_window(window);
         self.managed.remove(index);
 
         let new_focused_window = if !self.managed.visible.is_empty() {
@@ -230,17 +232,17 @@ impl Workspace {
         };
 
         if self.visible {
-            self.redraw(ws, config);
-            self.focus_window(ws, config, new_focused_window);
+            self.redraw(xws, config);
+            self.focus_window(xws, config, new_focused_window);
         }
     }
 
-    fn remove_unmanaged(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    fn remove_unmanaged(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         trace!("remove unmanaged window: {}", window);
         let index = self.unmanaged.index_of_visible(window);
 
         self.unmanaged.focused_window = 0;
-        ws.unmap_window(window);
+        xws.unmap_window(window);
         self.unmanaged.remove(index);
 
         let new_focused_window = if !self.unmanaged.visible.is_empty() {
@@ -256,18 +258,18 @@ impl Workspace {
         };
 
         if self.visible {
-            self.redraw(ws, config);
-            self.focus_window(ws, config, new_focused_window);
+            self.redraw(xws, config);
+            self.focus_window(xws, config, new_focused_window);
         }
     }
 
-    pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn remove_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if self.managed.contains(window) {
             debug!("Remove Managed: {}", window);
-            self.remove_managed(ws, config, window);
+            self.remove_managed(xws, config, window);
         } else if self.unmanaged.contains(window) {
             debug!("Remove Unmanaged: {}", window);
-            self.remove_unmanaged(ws, config, window);
+            self.remove_unmanaged(xws, config, window);
         }
     }
 
@@ -279,12 +281,12 @@ impl Workspace {
         }
     }
 
-    pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if window == 0 || self.unmanaged.focused_window == window || self.managed.focused_window == window {
             return;
         }
 
-        self.unfocus_window(ws, config);
+        self.unfocus_window(xws, config);
 
         if self.unmanaged.contains(window) {
             self.unmanaged.focused_window = window;
@@ -292,15 +294,15 @@ impl Workspace {
             self.managed.focused_window = window;
         }
 
-        ws.focus_window(window, config.border_focus_color);
-        self.redraw(ws, config);
+        xws.focus_window(window, config.border_focus_color);
+        self.redraw(xws, config);
     }
 
-    pub fn unfocus_window(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    pub fn unfocus_window(&mut self, xws: &XlibWindowSystem, config: &Config) {
         let focused_window = self.focused_window();
 
         if focused_window != 0 {
-            ws.set_window_border_color(focused_window, config.border_color);
+            xws.set_window_border_color(focused_window, config.border_color);
 
             if self.unmanaged.focused_window == 0 {
                 self.managed.focused_window = 0;
@@ -310,7 +312,7 @@ impl Workspace {
         }
     }
 
-    pub fn move_focus(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+    pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
         let windows: Vec<Window> = self.all_visible();
         let count = windows.len();
 
@@ -336,10 +338,10 @@ impl Workspace {
             Swap => windows[0],
         };
 
-        self.focus_window(ws, config, new_focused_window);
+        self.focus_window(xws, config, new_focused_window);
     }
 
-    pub fn move_window(&mut self, ws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+    pub fn move_window(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
         let focused_window = self.focused_window();
         trace!("move window: {}", focused_window);
 
@@ -368,66 +370,66 @@ impl Workspace {
         self.managed.visible.remove(pos);
         self.managed.visible.insert(new_pos, focused_window);
 
-        self.redraw(ws, config);
+        self.redraw(xws, config);
     }
 
     pub fn contains(&self, window: Window) -> bool {
         self.all().iter().any(|&w| w == window)
     }
 
-    pub fn unfocus(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    pub fn unfocus(&mut self, xws: &XlibWindowSystem, config: &Config) {
         trace!("unfocus window: {}", self.focused_window());
-        ws.set_window_border_color(self.focused_window(), config.border_color);
+        xws.set_window_border_color(self.focused_window(), config.border_color);
     }
 
-    pub fn focus(&self, ws: &XlibWindowSystem, config: &Config) {
+    pub fn focus(&self, xws: &XlibWindowSystem, config: &Config) {
         if self.focused_window() != 0 {
             trace!("focus window: {}", self.focused_window());
-            ws.focus_window(self.focused_window(), config.border_focus_color);
-            ws.skip_enter_events();
+            xws.focus_window(self.focused_window(), config.border_focus_color);
+            xws.skip_enter_events();
         }
     }
 
-    pub fn center_pointer(&self, ws: &XlibWindowSystem) {
-        let screen = ws.get_screen_infos()[self.screen];
-        ws.move_pointer((screen.x + (screen.width / 2)) as i32 - 1, (screen.y + (screen.height / 2)) as i32);
+    pub fn center_pointer(&self, xws: &XlibWindowSystem) {
+        let screen = xws.get_screen_infos()[self.screen];
+        xws.move_pointer((screen.x + (screen.width / 2)) as i32 - 1, (screen.y + (screen.height / 2)) as i32);
     }
 
-    pub fn hide(&mut self, ws: &XlibWindowSystem) {
+    pub fn hide(&mut self, xws: &XlibWindowSystem) {
         self.visible = false;
 
         for &w in self.managed.visible.iter().filter(|&w| *w != self.focused_window()) {
-            ws.hide_window(w);
+            xws.hide_window(w);
         }
 
         for &w in self.unmanaged.visible.iter().filter(|&w| *w != self.focused_window()) {
-            ws.hide_window(w);
+            xws.hide_window(w);
         }
 
-        ws.hide_window(self.focused_window());
+        xws.hide_window(self.focused_window());
     }
 
-    pub fn show(&mut self, ws: &XlibWindowSystem, config: &Config) {
+    pub fn show(&mut self, xws: &XlibWindowSystem, config: &Config) {
         self.visible = true;
 
-        self.redraw(ws, config);
+        self.redraw(xws, config);
         for &w in self.managed.visible.iter() {
-            ws.show_window(w);
+            xws.show_window(w);
         }
 
         for &w in self.unmanaged.visible.iter() {
-            ws.show_window(w);
+            xws.show_window(w);
         }
     }
 
-    pub fn redraw(&self, ws: &XlibWindowSystem, config: &Config) {
+    pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
         trace!("Redraw...");
 
-        let screen = ws.get_screen_infos()[self.screen];
+        let screen = xws.get_screen_infos()[self.screen];
 
-        for (i, rect) in self.layout.apply(screen, ws, &self.managed).iter().enumerate() {
+        for (i, rect) in self.layout.apply(screen, xws, &self.managed).iter().enumerate() {
             trace!("  {}, {:?}", self.managed.visible[i], rect);
-            ws.setup_window(rect.x,
+            xws.setup_window(rect.x,
                             rect.y,
                             rect.width,
                             rect.height,
@@ -437,11 +439,11 @@ impl Workspace {
         }
 
         for &window in self.unmanaged.visible.iter() {
-            let mut rect = ws.get_geometry(window);
+            let mut rect = xws.get_geometry(window);
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
 
-            ws.setup_window(screen.x + (screen.width - rect.width) / 2,
+            xws.setup_window(screen.x + (screen.width - rect.width) / 2,
                             screen.y + (screen.height - rect.height) / 2,
                             rect.width,
                             rect.height,
@@ -451,10 +453,10 @@ impl Workspace {
         }
 
         for &window in self.all_urgent().iter() {
-            ws.set_window_border_color(window, config.border_urgent_color);
+            xws.set_window_border_color(window, config.border_urgent_color);
         }
 
-        self.focus(ws, config);
+        self.focus(xws, config);
     }
 }
 

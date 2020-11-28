@@ -1,4 +1,4 @@
-//#![allow(dead_code, unused_must_use)]
+#![allow(dead_code)]
 
 use config::Config;
 use layout::{Layout};
@@ -144,14 +144,9 @@ impl Workspaces {
         self.list.iter().any(|ws| ws.is_unmanaged(window))
     }
 
-    pub fn get_parent_ws(&mut self, ws: &XlibWindowSystem, window: Window) -> Option<&mut Workspace> {
-        ws.transient_for(window)
-            .and_then(move |x| self.find_window(x).and_then(move |idx| self.list.get_mut(idx)))
-    }
-
-    pub fn add_window(&mut self, index: Option<usize>, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn add_window(&mut self, index: Option<usize>, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if !self.contains(window) {
-            let parent = ws.transient_for(window)
+            let parent = xws.transient_for(window)
                 .and_then(|x| self.find_window(x));
 
             let workspace = parent
@@ -159,50 +154,50 @@ impl Workspaces {
                 .and_then(|idx| self.list.get_mut(idx))
                 .expect("valid workspace");
 
-            workspace.add_window(ws, config, window);
+            workspace.add_window(xws, config, window);
 
             if parent.is_some() {
-                workspace.focus_window(ws, config, window);
+                workspace.focus_window(xws, config, window);
             }
         }
     }
 
-    pub fn focus_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if let Some(index) = self.find_window(window) {
             if self.cur != index {
                 self.list.get_mut(index)
                     .expect("valid workspace")
-                    .focus_window(ws, config, window);
-                self.switch_to(ws, config, index, false);
+                    .focus_window(xws, config, window);
+                self.switch_to(xws, config, index, false);
             } else {
-                self.current_mut().focus_window(ws, config, window);
+                self.current_mut().focus_window(xws, config, window);
             }
         }
     }
 
-    pub fn switch_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize, center_pointer: bool) {
+    pub fn switch_to(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize, center_pointer: bool) {
         if self.cur != index && index < self.list.len() {
             // implies that the target workspace is on another screen
             if self.list[index].visible {
                 if config.greedy_view {
                     self.switch_screens(index);
-                    self.list[self.cur].show(ws, config);
+                    self.list[self.cur].show(xws, config);
                 } else if center_pointer {
-                    self.list[index].center_pointer(ws);
+                    self.list[index].center_pointer(xws);
                 }
             } else {
                 self.list[index].screen = self.list[self.cur].screen;
-                self.list[index].show(ws, config);
-                self.list[self.cur].hide(ws);
+                self.list[index].show(xws, config);
+                self.list[self.cur].hide(xws);
             }
 
-            self.list[self.cur].unfocus(ws, config);
-            self.list[index].focus(ws, config);
+            self.list[self.cur].unfocus(xws, config);
+            self.list[index].focus(xws, config);
             self.cur = index;
         }
     }
 
-    pub fn switch_to_screen(&mut self, ws: &XlibWindowSystem, config: &Config, screen: usize) {
+    pub fn switch_to_screen(&mut self, xws: &XlibWindowSystem, config: &Config, screen: usize) {
         if screen > self.screens - 1 {
             return;
         }
@@ -214,38 +209,38 @@ impl Workspaces {
             .last();
 
         if let Some(idx) = idx_workspace {
-            self.list[self.cur].unfocus(ws, config);
-            self.list[idx].focus(ws, config);
-            self.list[idx].center_pointer(ws);
+            self.list[self.cur].unfocus(xws, config);
+            self.list[idx].focus(xws, config);
+            self.list[idx].center_pointer(xws);
             self.cur = idx;
         }
     }
 
-    pub fn move_window_to(&mut self, ws: &XlibWindowSystem, config: &Config, index: usize) {
+    pub fn move_window_to(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize) {
         let window = self.list[self.cur].focused_window();
         if window == 0 || index == self.cur {
             return;
         }
 
-        self.remove_window(ws, config, window);
-        self.list[index].add_window(ws, config, window);
-        self.list[index].unfocus(ws, config);
+        self.remove_window(xws, config, window);
+        self.list[index].add_window(xws, config, window);
+        self.list[index].unfocus(xws, config);
     }
 
     pub fn move_window_to_screen(&mut self,
-                                 ws: &XlibWindowSystem,
+                                 xws: &XlibWindowSystem,
                                  config: &Config,
                                  screen: usize) {
         if let Some((index, _)) = self.list.iter().enumerate().find(|&(_, ws)| ws.screen == screen) {
-            self.move_window_to(ws, config, index);
+            self.move_window_to(xws, config, index);
         }
     }
 
-    pub fn remove_window(&mut self, ws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn remove_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if let Some(idx) = self.find_window(window) {
             self.list.get_mut(idx)
                 .expect("valid workspace")
-                .remove_window(ws, config, window);
+                .remove_window(xws, config, window);
         }
     }
 
@@ -257,8 +252,8 @@ impl Workspaces {
         }
     }
 
-    pub fn rescreen(&mut self, ws: &XlibWindowSystem, config: &Config) {
-        let new_screens = ws.get_screen_infos().len();
+    pub fn rescreen(&mut self, xws: &XlibWindowSystem, config: &Config) {
+        let new_screens = xws.get_screen_infos().len();
         let prev_screens = self.list.iter().fold(0, |acc, x| cmp::max(acc, x.screen));
         self.screens = new_screens;
         debug!("rescreen {}", new_screens);
@@ -266,7 +261,7 @@ impl Workspaces {
         // move and hide workspaces if their screens got removed
         for workspace in self.list.iter_mut().filter(|ws| ws.screen > (new_screens - 1)) {
             workspace.screen = 0;
-            workspace.hide(ws);
+            workspace.hide(xws);
         }
 
         // assign the first hidden workspace to the new screen
@@ -274,7 +269,7 @@ impl Workspaces {
             match self.list.iter_mut().find(|ws| !ws.visible) {
                 Some(workspace) => {
                     workspace.screen = screen;
-                    workspace.show(ws, config);
+                    workspace.show(xws, config);
                 }
                 None => {
                     break;
@@ -282,7 +277,7 @@ impl Workspaces {
             }
         }
 
-        self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(ws, config);
+        self.list.iter_mut().find(|ws| ws.screen == 0).unwrap().show(xws, config);
     }
 
     pub fn find_window(&self, window: Window) -> Option<usize> {
