@@ -164,42 +164,37 @@ impl Default for Config {
             border_focus_color: 0x002a_82e6,
             border_urgent_color: 0x00ff_0000,
             greedy_view: false,
-            keybindings: HashMap::from_iter(vec![(
+            keybindings: vec![(
                             Keybinding {
                                 mods: 0,
                                 key: "Return".to_string()
                             },
                             Cmd::Exec("xterm -u8".to_string())
-                        ),
-                        (
+                        ),(
                             Keybinding {
                                 mods: 0,
                                 key: "d".to_string(),
                             },
                             Cmd::Exec("dmenu_run".to_string())
-                        ),
-                        (
+                        ),(
                             Keybinding {
                                 mods: MOD_SHIFT,
                                 key: "q".to_string(),
                             },
                             Cmd::KillClient
-                        ),
-                        (
+                        ),(
                             Keybinding {
                                 mods: 0,
                                 key: "j".to_string(),
                             },
                             Cmd::FocusDown
-                        ),
-                        (
+                        ),(
                             Keybinding {
                                 mods: 0,
                                 key: "k".to_string(),
                             },
                             Cmd::FocusUp
-                        ),
-                        (
+                        ),(
                             Keybinding {
                                 mods: 0,
                                 key: "m".to_string(),
@@ -272,7 +267,7 @@ impl Default for Config {
                             },
                             Cmd::Reload
                         )]
-                        .drain(0..)),
+                        .drain(0..).collect(),
             manage_hooks: Vec::new(),
             statusbar: None,
         };

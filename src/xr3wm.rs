@@ -102,7 +102,7 @@ fn run() -> Result<(), Error> {
     }
 
     info!("entering event loop");
-    run_event_loop(config, &ws, workspaces)
+    run_event_loop(config, ws, workspaces)
 }
 
 fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<(), Error> {

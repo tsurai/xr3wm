@@ -11,7 +11,6 @@ use std::path::Path;
 use std::default::Default;
 use std::cmp;
 use crate::workspace::{Workspace};
-use failure::*;
 
 #[allow(dead_code)]
 pub struct WorkspaceInfo {
@@ -56,7 +55,7 @@ impl Workspaces {
             };
 
             for screen in 0..screens {
-                if workspaces.list.iter().find(|ws| ws.get_screen() == screen).is_none() {
+                if !workspaces.list.iter().any(|ws| ws.get_screen() == screen) {
                     if let Some(ws) = workspaces.list.iter_mut().filter(|ws| ws.get_screen() == 0).nth(1) {
                         ws.set_screen(screen);
                     }
