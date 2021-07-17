@@ -13,6 +13,7 @@ use std::ptr::null_mut;
 use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
+use std::time::{SystemTime, UNIX_EPOCH};
 use self::libc::{c_void, c_uchar, c_int, c_uint, c_long, c_ulong};
 use self::libc::malloc;
 use self::XlibEvent::*;
@@ -142,14 +143,14 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_atom(&self, s: &str) -> u64 {
+    pub fn get_atom(&self, s: &str, create: bool) -> u64 {
         unsafe {
             XInternAtom(self.display,
                         CString::new(s.as_bytes())
                             .unwrap()
                             .as_bytes_with_nul()
                             .as_ptr() as *mut i8,
-                        0) as u64
+                        create as i32) as u64
         }
     }
 
@@ -175,7 +176,7 @@ impl XlibWindowSystem {
     }
 
     pub fn get_strut(&self, screen: Rect) -> Strut {
-        let atom = self.get_atom("_NET_WM_STRUT_PARTIAL");
+        let atom = self.get_atom("_NET_WM_STRUT_PARTIAL", true);
 
         self.get_windows()
             .iter()
@@ -276,7 +277,7 @@ impl XlibWindowSystem {
 
     pub fn show_window(&self, window: Window) {
         unsafe {
-            let atom = self.get_atom("WM_STATE");
+            let atom = self.get_atom("WM_STATE", false);
             self.change_property(window, atom, atom, 0, &mut [1, 0]);
             XMapWindow(self.display, window);
         }
@@ -288,7 +289,7 @@ impl XlibWindowSystem {
             XUnmapWindow(self.display, window);
             XSelectInput(self.display, window, 0x0042_0010);
 
-            let atom = self.get_atom("WM_STATE");
+            let atom = self.get_atom("WM_STATE", false);
             self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
         }
     }
@@ -340,8 +341,11 @@ impl XlibWindowSystem {
             let mut atoms = MaybeUninit::uninit();
 
             XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr());
-            from_raw_parts(atoms.assume_init() as *const c_ulong, count.assume_init() as usize)
-                .contains(&self.get_atom(protocol))
+            let ret = from_raw_parts(atoms.assume_init() as *const c_ulong, count.assume_init() as usize)
+                .contains(&self.get_atom(protocol, false));
+
+            XFree(atoms.assume_init() as *mut c_void);
+            ret
         }
     }
 
@@ -352,22 +356,28 @@ impl XlibWindowSystem {
 
         unsafe {
             if self.has_protocol(window, "WM_DELETE_WINDOW") {
-                let event = XClientMessageEvent {
+                let time = SystemTime::now().duration_since(UNIX_EPOCH)
+                    .map(|x| x.as_secs() as i32)
+                    .unwrap_or(0);
+                let delete_atom = self.get_atom("WM_DELETE_WINDOW", true);
+
+                let mut event = XClientMessageEvent {
+                    type_: ClientMessage,
                     serial: 0,
                     send_event: 0,
-                    type_: 33,
-                    format: 32,
-                    display: self.display,
+                    display: std::ptr::null_mut(),
                     window,
-                    message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
-                    data: ClientMessageData::from([((self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF_0000_0000) >> 32) as i64,
-                           (self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF) as i64,
+                    message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
+                    format: 32,
+                    data: ClientMessageData::from([delete_atom as i64,
+                           time as i64,
                            0,
                            0,
                            0]),
                 };
 
-                XSendEvent(self.display, window, 0, 0, &event as *const _ as *mut XEvent);
+                let event_ptr: *mut XClientMessageEvent = &mut event;
+                let ret = XSendEvent(self.display, window, 0, 0, event_ptr as *mut XEvent);
             } else {
                 XKillClient(self.display, window);
             }
@@ -526,9 +536,9 @@ impl XlibWindowSystem {
             return true;
         }
 
-        if let Some(property) = self.get_property(window, self.get_atom("_NET_WM_WINDOW_TYPE")) {
-            let dialog = self.get_atom("_NET_WM_WINDOW_TYPE_DIALOG");
-            let splash = self.get_atom("_NET_WM_WINDOW_TYPE_SPLASH");
+        if let Some(property) = self.get_property(window, self.get_atom("_NET_WM_WINDOW_TYPE", true)) {
+            let dialog = self.get_atom("_NET_WM_WINDOW_TYPE_DIALOG", true);
+            let splash = self.get_atom("_NET_WM_WINDOW_TYPE_SPLASH", true);
 
             property.iter().any(|&x| x == dialog || x == splash)
         } else {
@@ -607,7 +617,7 @@ impl XlibWindowSystem {
         unsafe {
             let mut name = MaybeUninit::uninit();
 
-            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME")) != 0 {
+            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME", true)) != 0 {
                 let name = name.assume_init();
                 if !name.value.is_null() {
                     return Self::ptr_to_string(name.value as *mut i8)
@@ -675,7 +685,7 @@ impl XlibWindowSystem {
                 let evt: &XMapRequestEvent = self.cast_event_to();
 
                 unsafe {
-                    let atom = self.get_atom("WM_STATE");
+                    let atom = self.get_atom("WM_STATE", false);
                     self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
                     self.grab_button(evt.window);
                     XSelectInput(self.display, evt.window, 0x0042_0010);
