@@ -168,9 +168,9 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 trace!("XKeyPress: {}, {}", mods, key);
                 let mods = mods & !(config.mod_key | 0b10010);
 
-                for binding in config.keybindings.iter() {
+                for (binding, cmd) in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        binding.cmd.call(ws, &mut workspaces, &config)
+                        cmd.call(ws, &mut workspaces, &config)
                             .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }

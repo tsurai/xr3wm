@@ -13,12 +13,13 @@ pub mod core {
     pub mod keycode {
         pub use ::keycode::*;
     }
+    pub use ::keycode::Keybinding;
 
     pub mod layout {
         pub use ::layout::*;
     }
 
-    pub use ::config::{Config, Statusbar, Keybinding, LogInfo};
+    pub use ::config::{Config, Statusbar, LogInfo};
     pub use ::workspaces::WorkspaceConfig;
 }
 

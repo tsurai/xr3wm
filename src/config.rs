@@ -1,10 +1,12 @@
 #![allow(unused)]
 
+use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
 use std::path::Path;
 use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
+use std::collections::HashMap;
 use failure::*;
 use layout::*;
 use keycode::*;
@@ -12,12 +14,6 @@ use workspaces::{Workspaces, WorkspaceConfig};
 use xlib_window_system::XlibWindowSystem;
 use commands::{Cmd, ManageHook};
 use libloading::{Library, Symbol};
-
-pub struct Keybinding {
-    pub mods: u8,
-    pub key: String,
-    pub cmd: Cmd,
-}
 
 pub struct WorkspaceInfo {
     pub id: usize,
@@ -145,7 +141,7 @@ pub struct Config {
     pub border_focus_color: u32,
     pub border_urgent_color: u32,
     pub greedy_view: bool,
-    pub keybindings: Vec<Keybinding>,
+    pub keybindings: HashMap<Keybinding, Cmd>,
     pub manage_hooks: Vec<ManageHook>,
     pub statusbar: Option<Statusbar>,
 }
@@ -168,121 +164,149 @@ impl Default for Config {
             border_focus_color: 0x002a_82e6,
             border_urgent_color: 0x00ff_0000,
             greedy_view: false,
-            keybindings: vec![Keybinding {
-                                  mods: 0,
-                                  key: "Return".to_string(),
-                                  cmd: Cmd::Exec("xterm -u8".to_string()),
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "d".to_string(),
-                                  cmd: Cmd::Exec("dmenu_run".to_string()),
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "q".to_string(),
-                                  cmd: Cmd::KillClient,
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "j".to_string(),
-                                  cmd: Cmd::FocusDown,
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "k".to_string(),
-                                  cmd: Cmd::FocusUp,
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "m".to_string(),
-                                  cmd: Cmd::FocusMaster,
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "j".to_string(),
-                                  cmd: Cmd::SwapDown,
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "k".to_string(),
-                                  cmd: Cmd::SwapUp,
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "Return".to_string(),
-                                  cmd: Cmd::SwapMaster,
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "comma".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::IncreaseMaster),
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "period".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::DecreaseMaster),
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "l".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::Increase),
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "h".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::Decrease),
-                              },
-                              Keybinding {
-                                  mods: 0,
-                                  key: "space".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::NextLayout),
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "space".to_string(),
-                                  cmd: Cmd::SendLayoutMsg(LayoutMsg::PrevLayout),
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "c".to_string(),
-                                  cmd: Cmd::Exit,
-                              },
-                              Keybinding {
-                                  mods: MOD_SHIFT,
-                                  key: "x".to_string(),
-                                  cmd: Cmd::Reload,
-                              }],
+            keybindings: HashMap::from_iter(vec![(
+                            Keybinding {
+                                mods: 0,
+                                key: "Return".to_string()
+                            },
+                            Cmd::Exec("xterm -u8".to_string())
+                        ),
+                        (
+                            Keybinding {
+                                mods: 0,
+                                key: "d".to_string(),
+                            },
+                            Cmd::Exec("dmenu_run".to_string())
+                        ),
+                        (
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "q".to_string(),
+                            },
+                            Cmd::KillClient
+                        ),
+                        (
+                            Keybinding {
+                                mods: 0,
+                                key: "j".to_string(),
+                            },
+                            Cmd::FocusDown
+                        ),
+                        (
+                            Keybinding {
+                                mods: 0,
+                                key: "k".to_string(),
+                            },
+                            Cmd::FocusUp
+                        ),
+                        (
+                            Keybinding {
+                                mods: 0,
+                                key: "m".to_string(),
+                            },
+                            Cmd::FocusMaster
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "j".to_string(),
+                            },
+                            Cmd::SwapDown
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "k".to_string(),
+                            },
+                            Cmd::SwapUp
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "Return".to_string(),
+                            },
+                            Cmd::SwapMaster
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "comma".to_string(),
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::IncreaseMaster)
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "period".to_string()
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::DecreaseMaster)
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "l".to_string()
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::Increase)
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "h".to_string()
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::Decrease)
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "space".to_string()
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::NextLayout)
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "space".to_string()
+                            },
+                            Cmd::SendLayoutMsg(LayoutMsg::PrevLayout)
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "c".to_string(),
+                            },
+                            Cmd::Exit
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "x".to_string(),
+                            },
+                            Cmd::Reload
+                        )]
+                        .drain(0..)),
             manage_hooks: Vec::new(),
             statusbar: None,
         };
 
         for i in 1..10 {
-            config.keybindings.push(Keybinding {
-                mods: 0,
-                key: i.to_string(),
-                cmd: Cmd::SwitchWorkspace(i),
-            });
+            config.keybindings.insert(Keybinding {
+                    mods: 0,
+                    key: i.to_string(),
+                },
+                Cmd::SwitchWorkspace(i)
+            );
 
-            config.keybindings.push(Keybinding {
-                mods: MOD_SHIFT,
-                key: i.to_string(),
-                cmd: Cmd::MoveToWorkspace(i),
-            });
+            config.keybindings.insert(Keybinding {
+                    mods: MOD_SHIFT,
+                    key: i.to_string()
+                },
+                Cmd::MoveToWorkspace(i)
+            );
         }
 
         for &(i, key) in vec![(1, "w"), (2, "e"), (3, "r")].iter() {
-            config.keybindings.push(Keybinding {
-                mods: 0,
-                key: key.to_string(),
-                cmd: Cmd::SwitchScreen(i),
-            });
+            config.keybindings.insert(Keybinding {
+                    mods: 0,
+                    key: key.to_string()
+                },
+                Cmd::SwitchScreen(i)
+            );
 
-            config.keybindings.push(Keybinding {
-                mods: MOD_SHIFT,
-                key: key.to_string(),
-                cmd: Cmd::MoveToScreen(i),
-            });
+            config.keybindings.insert(Keybinding {
+                    mods: MOD_SHIFT,
+                    key: key.to_string()
+                },
+                Cmd::MoveToScreen(i)
+            );
         }
 
         config
