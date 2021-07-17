@@ -62,13 +62,13 @@ impl fmt::Debug for LayoutMsg {
 
 pub trait Layout {
     fn name(&self) -> String;
-    fn send_msg(&mut self, LayoutMsg);
+    fn send_msg(&mut self, msg: LayoutMsg);
 
     fn apply(&self, area: Rect, _: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         self.simple_apply(area, &stack.visible)
     }
 
-    fn simple_apply(&self, Rect, &[Window]) -> Vec<Rect> {
+    fn simple_apply(&self, _: Rect, _: &[Window]) -> Vec<Rect> {
         Vec::new()
     }
 
