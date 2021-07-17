@@ -4,7 +4,7 @@ use std::cmp::min;
 use std::fmt;
 use crate::stack::Stack;
 use xlib_window_system::XlibWindowSystem;
-use xlib::Window;
+use x11::xlib::Window;
 
 #[derive(Clone, Copy)]
 pub struct Rect {

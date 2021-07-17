@@ -7,16 +7,11 @@ build = "build.rs"
 [dependencies]
 log = "0.4.8"
 fern = "0.5.9"
-failure = "0.1.6"
+failure = "0.1.8"
 clap = "2.33.0"
 libloading = "0.5.2"
 libc = "*"
-
-[dependencies.xlib]
-git = "https://github.com/tsurai/rust-xlib.git"
-
-[dependencies.xinerama]
-git = "https://github.com/Kintaro/rust-xinerama.git"
+x11 = { version = "*", features = ["xlib", "xinerama"] }
 
 [lib]
 name = "xr3wm"

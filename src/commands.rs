@@ -15,7 +15,7 @@ use layout::LayoutMsg;
 use xlib_window_system::XlibWindowSystem;
 use workspaces::Workspaces;
 use workspace::MoveOp;
-use xlib::Window;
+use x11::xlib::Window;
 use failure::*;
 
 pub enum Cmd {

@@ -16,8 +16,8 @@ use std::ffi::{CStr, CString};
 use self::libc::{c_void, c_uchar, c_int, c_uint, c_long, c_ulong};
 use self::libc::malloc;
 use self::XlibEvent::*;
-use xinerama::XineramaQueryScreens;
-use xlib::*;
+use x11::xinerama::XineramaQueryScreens;
+use x11::xlib::*;
 
 extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c_int {
     // TODO: proper error handling
@@ -75,7 +75,7 @@ impl XlibWindowSystem {
             let root = XDefaultRootWindow(display);
             XSelectInput(display, root, 0x001A_0034);
             XDefineCursor(display, root, XCreateFontCursor(display, 68));
-            XSetErrorHandler(error_handler as *mut u8);
+            XSetErrorHandler(Some(error_handler));
 
             XlibWindowSystem {
                 display,
@@ -253,7 +253,7 @@ impl XlibWindowSystem {
                 XGetWindowAttributes(self.display, window, attributes.as_mut_ptr());
 
                 let mut event = XConfigureEvent {
-                    _type: ConfigureRequest as i32,
+                    type_: ConfigureRequest as i32,
                     display: self.display,
                     serial: 0,
                     send_event: 1,
@@ -268,7 +268,7 @@ impl XlibWindowSystem {
                     override_redirect: attributes.assume_init().override_redirect,
                 };
                 let event_ptr: *mut XConfigureEvent = &mut event;
-                XSendEvent(self.display, window, 0, 0, event_ptr as *mut c_void);
+                XSendEvent(self.display, window, 0, 0, event_ptr as *mut XEvent);
             }
             XSync(self.display, 0);
         }
@@ -329,7 +329,7 @@ impl XlibWindowSystem {
         unsafe {
             let event: *mut c_void = malloc(256);
             XSync(self.display, 0);
-            while XCheckMaskEvent(self.display, 16, event) != 0 {
+            while XCheckMaskEvent(self.display, 16, event as *mut XEvent) != 0 {
             }
         }
     }
@@ -355,19 +355,19 @@ impl XlibWindowSystem {
                 let event = XClientMessageEvent {
                     serial: 0,
                     send_event: 0,
-                    _type: 33,
+                    type_: 33,
                     format: 32,
                     display: self.display,
                     window,
                     message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
-                    data: [((self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF_0000_0000) >> 32) as i32,
-                           (self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF) as i32,
+                    data: ClientMessageData::from([((self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF_0000_0000) >> 32) as i64,
+                           (self.get_atom("WM_DELETE_WINDOW") & 0xFFFF_FFFF) as i64,
                            0,
                            0,
-                           0],
+                           0]),
                 };
 
-                XSendEvent(self.display, window, 0, 0, &event as *const _ as *mut c_void);
+                XSendEvent(self.display, window, 0, 0, &event as *const _ as *mut XEvent);
             } else {
                 XKillClient(self.display, window);
             }
@@ -555,13 +555,13 @@ impl XlibWindowSystem {
             XGetWMNormalHints(self.display, window, size_hint.as_mut_ptr(), &mut tmp);
 
             let size_hint = size_hint.assume_init();
-            let min = if size_hint.flags.contains(XSizeHintFlags::PMinSize) {
+            let min = if (size_hint.flags & PMinSize) != 0 {
                 Some((size_hint.min_width as u32, size_hint.min_height as u32))
             } else {
                 None
             };
 
-            let max = if size_hint.flags.contains(XSizeHintFlags::PMaxSize) {
+            let max = if (size_hint.flags & PMaxSize) != 0 {
                 Some((size_hint.max_width as u32, size_hint.max_height as u32))
             } else {
                 None
@@ -579,7 +579,7 @@ impl XlibWindowSystem {
 
     pub fn is_urgent(&self, window: Window) -> bool {
         let hints = self.get_wm_hints(window);
-        hints.flags.contains(XWMHintFlags::Urgency)
+        hints.flags & XUrgencyHint != 0
     }
 
     pub fn get_class_name(&self, window: Window) -> String {
@@ -666,7 +666,7 @@ impl XlibWindowSystem {
 
     pub fn get_event(&self) -> XlibEvent {
         unsafe {
-            XNextEvent(self.display, self.event);
+            XNextEvent(self.display, self.event as *mut XEvent);
         }
 
         let evt_type: c_int = *self.cast_event_to();

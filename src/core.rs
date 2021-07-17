@@ -1,8 +1,7 @@
 #[macro_use]
 extern crate log;
 extern crate libloading;
-extern crate xlib;
-extern crate xinerama;
+extern crate x11;
 extern crate libc;
 extern crate failure;
 

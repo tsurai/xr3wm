@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use xlib::Window;
+use x11::xlib::Window;
 
 #[derive(Default)]
 pub struct Stack {

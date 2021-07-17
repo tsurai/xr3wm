@@ -2,7 +2,7 @@
 
 use config::Config;
 use layout::{Layout};
-use xlib::Window;
+use x11::xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -11,6 +11,7 @@ use std::path::Path;
 use std::default::Default;
 use std::cmp;
 use crate::workspace::{Workspace};
+use failure::*;
 
 #[allow(dead_code)]
 pub struct WorkspaceInfo {

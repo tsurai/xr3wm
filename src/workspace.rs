@@ -3,7 +3,7 @@
 use config::Config;
 use layout::{Layout, Tall};
 use layout::LayoutMsg;
-use xlib::Window;
+use x11::xlib::Window;
 use xlib_window_system::XlibWindowSystem;
 use self::MoveOp::*;
 use crate::stack::Stack;
@@ -459,5 +459,3 @@ impl Workspace {
         self.focus(xws, config);
     }
 }
-
-
