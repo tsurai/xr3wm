@@ -1,5 +1,10 @@
 #![allow(unused)]
 
+use crate::keycode::*;
+use crate::workspaces::{Workspaces, WorkspaceConfig};
+use crate::xlib_window_system::XlibWindowSystem;
+use crate::commands::{Cmd, ManageHook};
+use crate::layout::*;
 use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
@@ -8,11 +13,6 @@ use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
 use failure::*;
-use layout::*;
-use keycode::*;
-use workspaces::{Workspaces, WorkspaceConfig};
-use xlib_window_system::XlibWindowSystem;
-use commands::{Cmd, ManageHook};
 use libloading::{Library, Symbol};
 
 pub struct WorkspaceInfo {

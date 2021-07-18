@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-use config::Config;
-use layout::{Layout, Tall};
-use layout::LayoutMsg;
-use x11::xlib::Window;
-use xlib_window_system::XlibWindowSystem;
-use self::MoveOp::*;
+use crate::config::Config;
+use crate::layout::{Layout, Tall};
+use crate::layout::LayoutMsg;
+use crate::xlib_window_system::XlibWindowSystem;
 use crate::stack::Stack;
+use self::MoveOp::*;
 use std::cmp;
+use x11::xlib::Window;
 use failure::*;
 
 pub struct Workspace {

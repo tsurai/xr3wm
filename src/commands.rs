@@ -2,6 +2,11 @@
 
 extern crate libc;
 
+use crate::config::Config;
+use crate::layout::LayoutMsg;
+use crate::xlib_window_system::XlibWindowSystem;
+use crate::workspaces::Workspaces;
+use crate::workspace::MoveOp;
 use self::libc::execvp;
 use std::{env, thread};
 use std::ptr::null;
@@ -10,11 +15,6 @@ use std::process::Command;
 use std::io::prelude::*;
 use std::path::Path;
 use std::fs::OpenOptions;
-use config::Config;
-use layout::LayoutMsg;
-use xlib_window_system::XlibWindowSystem;
-use workspaces::Workspaces;
-use workspace::MoveOp;
 use x11::xlib::Window;
 use failure::*;
 

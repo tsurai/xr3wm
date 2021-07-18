@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 #![allow(clippy::new_ret_no_self)]
+
+use crate::stack::Stack;
+use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp::min;
 use std::fmt;
-use crate::stack::Stack;
-use xlib_window_system::XlibWindowSystem;
 use x11::xlib::Window;
 
 #[derive(Clone, Copy)]

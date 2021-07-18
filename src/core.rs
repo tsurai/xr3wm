@@ -7,20 +7,20 @@ extern crate failure;
 
 pub mod core {
     pub mod commands {
-        pub use ::commands::{Cmd, CmdManage, ManageHook};
+        pub use crate::commands::{Cmd, CmdManage, ManageHook};
     }
 
     pub mod keycode {
-        pub use ::keycode::*;
+        pub use crate::keycode::*;
     }
-    pub use ::keycode::Keybinding;
+    pub use crate::keycode::Keybinding;
 
     pub mod layout {
-        pub use ::layout::*;
+        pub use crate::layout::*;
     }
 
-    pub use ::config::{Config, Statusbar, LogInfo};
-    pub use ::workspaces::WorkspaceConfig;
+    pub use crate::config::{Config, Statusbar, LogInfo};
+    pub use crate::workspaces::WorkspaceConfig;
 }
 
 mod xlib_window_system;
