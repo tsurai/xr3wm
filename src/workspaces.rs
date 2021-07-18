@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
-use config::Config;
-use layout::{Layout};
+use crate::config::Config;
+use crate::layout::Layout;
+use crate::xlib_window_system::XlibWindowSystem;
+use crate::workspace::Workspace;
 use x11::xlib::Window;
-use xlib_window_system::XlibWindowSystem;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::default::Default;
 use std::cmp;
-use crate::workspace::{Workspace};
 
 #[allow(dead_code)]
 pub struct WorkspaceInfo {

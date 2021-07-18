@@ -3,8 +3,8 @@
 
 extern crate libc;
 
-use keycode::{MOD_2, MOD_LOCK};
-use layout::Rect;
+use crate::keycode::{MOD_2, MOD_LOCK};
+use crate::layout::Rect;
 use std::cmp;
 use std::str;
 use std::env;
