@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(clippy::new_ret_no_self)]
 
-use crate::stack::Stack;
+use crate::stack::{Node, Stack};
 use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp::min;
 use std::fmt;
@@ -66,10 +66,10 @@ pub trait Layout {
     fn send_msg(&mut self, msg: LayoutMsg);
 
     fn apply(&self, area: Rect, _: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        self.simple_apply(area, &stack.visible)
+        self.simple_apply(area, &stack.nodes)
     }
 
-    fn simple_apply(&self, _: Rect, _: &[Window]) -> Vec<Rect> {
+    fn simple_apply(&self, _: Rect, _: &[Node]) -> Vec<Rect> {
         Vec::new()
     }
 
@@ -182,7 +182,7 @@ impl Layout for Tall {
         }
     }
 
-    fn simple_apply(&self, area: Rect, windows: &[Window]) -> Vec<Rect> {
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
         let nwindows = windows.len();
 
         (0..nwindows)
@@ -281,10 +281,14 @@ impl Layout for Full {
     fn send_msg(&mut self, _msg: LayoutMsg) {}
 
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        stack.visible.iter()
-            .map(|&window| {
-                if window == stack.focused_window {
-                    ws.raise_window(window);
+        stack.nodes.iter()
+            .enumerate()
+            .map(|(i,node)| {
+                if Some(i) != stack.focus {
+                    match node {
+                        Node::Window(w) => ws.lower_window(*w),
+                        Node::Container(c) => c.stack.all_windows().iter().for_each(|&w| ws.lower_window(w)),
+                    }
                 }
 
                 Rect {
@@ -437,5 +441,83 @@ impl<'a> Layout for Rotate<'a> {
 
     fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
         Rotate::new(self.layout.copy())
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Horizontal;
+
+impl Horizontal {
+    pub fn new<'a>() -> Box<dyn Layout + 'a> {
+        Box::new(Horizontal {
+        })
+    }
+}
+
+impl Layout for Horizontal {
+    fn name(&self) -> String {
+        "Horizontal".to_string()
+    }
+
+    fn send_msg(&mut self, _msg: LayoutMsg) {}
+
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
+        let nwindows = windows.len();
+
+        (0..nwindows)
+            .map(|i| {
+                   let yoff = area.height / nwindows as u32;
+
+                    Rect {
+                        x: area.x,
+                        y: area.y + (yoff * i as u32),
+                        width: area.width,
+                        height: yoff,
+                    }
+            })
+            .collect()
+    }
+
+    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
+        Box::new(*self)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Vertical;
+
+impl Vertical {
+    pub fn new<'a>() -> Box<dyn Layout + 'a> {
+        Box::new(Vertical {
+        })
+    }
+}
+
+impl Layout for Vertical {
+    fn name(&self) -> String {
+        "Vertical".to_string()
+    }
+
+    fn send_msg(&mut self, _msg: LayoutMsg) {}
+
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
+        let nwindows = windows.len();
+
+        (0..nwindows)
+            .map(|i| {
+                   let xoff = area.width / nwindows as u32;
+
+                    Rect {
+                        x: area.x + (xoff * i as u32),
+                        y: area.y,
+                        width: xoff,
+                        height: area.height,
+                    }
+            })
+            .collect()
+    }
+
+    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
+        Box::new(*self)
     }
 }

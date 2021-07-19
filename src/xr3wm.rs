@@ -14,7 +14,7 @@ use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::{XMapRequest, XConfigurationNotify, XConfigurationRequest,
                                     XDestroy, XUnmapNotify, XPropertyNotify, XEnterNotify,
-                                    XFocusOut, XKeyPress, XButtonPress};
+                                    XFocusIn, XFocusOut, XKeyPress, XButtonPress};
 
 mod config;
 mod keycode;
@@ -22,6 +22,7 @@ mod commands;
 mod xlib_window_system;
 mod workspaces;
 mod workspace;
+mod container;
 mod stack;
 mod layout;
 mod utils;
@@ -94,7 +95,8 @@ fn run() -> Result<(), Error> {
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
 
-    let workspaces = Workspaces::new(&config, ws.get_screen_infos().len(), &ws.get_windows());
+    let workspaces = Workspaces::new(&config, &ws)
+        .context("failed to create workspaces")?;
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
@@ -123,16 +125,21 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
 
                     if !is_hooked {
                         workspaces.add_window(None, ws, &config, window);
+                        workspaces.focus_window(ws, &config, window);
                     }
                 }
             }
             XDestroy(window) => {
+                debug!("XDestroy: {}", window);
+
                 if workspaces.contains(window) {
                     debug!("XDestroy: {}", window);
                     workspaces.remove_window(ws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
+                debug!("XUnmapNotify: {} {}", window, send);
+
                 if send && workspaces.contains(window) {
                     debug!("XUnmapNotify: {}", window);
                     workspaces.remove_window(ws, &config, window);
@@ -157,9 +164,15 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 trace!("XEnterNotify: {}", window);
                 workspaces.focus_window(ws, &config, window);
             }
-            XFocusOut(_) => {
-                trace!("XFocusOut");
-                workspaces.current_mut().unfocus_window(ws, &config);
+            XFocusIn(window) => {
+                trace!("XFocusIn: {}", window);
+                workspaces.focus_window(ws, &config, window);
+            }
+            XFocusOut(window) => {
+                trace!("XFocusOut: {}", window);
+                /*if workspaces.current().focused_window() == Some(window) {
+                    workspaces.current_mut().unfocus_window(ws, &config);
+                }*/
             }
             XButtonPress(window) => {
                 workspaces.focus_window(ws, &config, window);

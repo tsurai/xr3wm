@@ -116,8 +116,8 @@ impl Statusbar {
                     }
                 })
                 .collect(),
-            layout_name: workspaces.current().get_layout().name(),
-            window_title: ws.get_window_title(workspaces.current().focused_window()),
+            layout_name: workspaces.current().managed.get_layout_names(),
+            window_title: ws.get_window_title(workspaces.current().focused_window().unwrap_or(0)),
         });
 
         let stdin = self.child.as_mut()
@@ -202,6 +202,24 @@ impl Default for Config {
                             Cmd::FocusMaster
                         ),(
                             Keybinding {
+                                mods: 0,
+                                key: "u".to_string(),
+                            },
+                            Cmd::FocusParentDown
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "i".to_string(),
+                            },
+                            Cmd::FocusParentUp
+                        ),(
+                            Keybinding {
+                                mods: MOD_CONTROL,
+                                key: "m".to_string(),
+                            },
+                            Cmd::FocusParentMaster
+                        ),(
+                            Keybinding {
                                 mods: MOD_SHIFT,
                                 key: "j".to_string(),
                             },
@@ -218,6 +236,18 @@ impl Default for Config {
                                 key: "Return".to_string(),
                             },
                             Cmd::SwapMaster
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "u".to_string(),
+                            },
+                            Cmd::SwapParentDown
+                        ),(
+                            Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "i".to_string(),
+                            },
+                            Cmd::SwapParentUp
                         ),(
                             Keybinding {
                                 mods: 0,
@@ -254,6 +284,18 @@ impl Default for Config {
                                 key: "space".to_string()
                             },
                             Cmd::SendLayoutMsg(LayoutMsg::PrevLayout)
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "v".to_string(),
+                            },
+                            Cmd::NestLayout(Vertical::new())
+                        ),(
+                            Keybinding {
+                                mods: 0,
+                                key: "b".to_string(),
+                            },
+                            Cmd::NestLayout(Horizontal::new())
                         ),(
                             Keybinding {
                                 mods: MOD_SHIFT,

@@ -3,7 +3,7 @@
 extern crate libc;
 
 use crate::config::Config;
-use crate::layout::LayoutMsg;
+use crate::layout::{Layout, LayoutMsg};
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::workspaces::Workspaces;
 use crate::workspace::MoveOp;
@@ -25,20 +25,27 @@ pub enum Cmd {
     MoveToWorkspace(usize),
     MoveToScreen(usize),
     SendLayoutMsg(LayoutMsg),
+    NestLayout(Box<dyn Layout>),
     Reload,
     Exit,
     KillClient,
+    FocusParentUp,
+    FocusParentDown,
+    FocusParentMaster,
     FocusUp,
     FocusDown,
     FocusMaster,
     SwapUp,
     SwapDown,
     SwapMaster,
+    SwapParentUp,
+    SwapParentDown,
+    SwapParentMaster,
 }
 
 impl Cmd {
     pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) -> Result<(), Error> {
-        match *self {
+        match self {
             Cmd::Exec(ref cmd) => {
                 debug!("Cmd::Exec: {}", cmd);
                 exec(cmd.clone());
@@ -64,6 +71,10 @@ impl Cmd {
                 workspaces.current_mut().send_layout_message(msg.clone());
                 workspaces.current().redraw(ws, config);
             }
+            Cmd::NestLayout(layout) => {
+                debug!("Cmd::NestLayout: {}", layout.name());
+                workspaces.current_mut().add_container(layout.copy());
+            }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
                 reload(workspaces)
@@ -74,34 +85,82 @@ impl Cmd {
                 ws.close();
             }
             Cmd::KillClient => {
-                debug!("Cmd::KillClient: {}",
-                       workspaces.current_mut().focused_window());
-                ws.kill_window(workspaces.current_mut().focused_window());
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::KillClient: {}", window);
+                    ws.kill_window(window);
+                }
             }
             Cmd::FocusUp => {
-                debug!("Cmd::FocusUp: {}", workspaces.current().focused_window());
-                workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusUp: {}", window);
+                    workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
+                }
             }
             Cmd::FocusDown => {
-                debug!("Cmd::FocusDown: {}", workspaces.current().focused_window());
-                workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusDown: {}", window);
+                    workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
+                }
             }
             Cmd::FocusMaster => {
-                debug!("Cmd::FocusMaster: {}",
-                workspaces.current().focused_window());
-                workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusMaster: {}", window);
+                    workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
+                }
+            }
+            Cmd::FocusParentUp => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusParentUp: {}", window);
+                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Up);
+                }
+            }
+            Cmd::FocusParentDown => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusParentDown: {}", window);
+                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Down);
+                }
+            }
+            Cmd::FocusParentMaster => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::FocusParentMaster: {}", window);
+                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Swap);
+                }
             }
             Cmd::SwapUp => {
-                debug!("Cmd::SwapUp: {}", workspaces.current().focused_window());
-                workspaces.current_mut().move_window(ws, config, MoveOp::Up);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapUp: {}", window);
+                    workspaces.current_mut().move_window(ws, config, MoveOp::Up);
+                }
             }
             Cmd::SwapDown => {
-                debug!("Cmd::SwapDown: {}", workspaces.current().focused_window());
-                workspaces.current_mut().move_window(ws, config, MoveOp::Down);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapDown: {}", window);
+                    workspaces.current_mut().move_window(ws, config, MoveOp::Down);
+                }
             }
             Cmd::SwapMaster => {
-                debug!("Cmd::SwapMaster: {}", workspaces.current().focused_window());
-                workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapMaster: {}", window);
+                    workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
+                }
+            }
+            Cmd::SwapParentUp => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapParentUp: {}", window);
+                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Up);
+                }
+            }
+            Cmd::SwapParentDown => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapParentDown: {}", window);
+                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Down);
+                }
+            }
+            Cmd::SwapParentMaster => {
+                if let Some(window) = workspaces.current().focused_window() {
+                    debug!("Cmd::SwapParentMaster: {}", window);
+                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Swap);
+                }
             }
         }
         Ok(())

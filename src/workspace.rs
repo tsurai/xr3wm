@@ -3,34 +3,12 @@
 use crate::config::Config;
 use crate::layout::{Layout, Tall};
 use crate::layout::LayoutMsg;
-use crate::xlib_window_system::XlibWindowSystem;
 use crate::stack::Stack;
-use self::MoveOp::*;
+use crate::container::Container;
+use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp;
 use x11::xlib::Window;
 use failure::*;
-
-pub struct Workspace {
-    pub(crate) managed: Stack,
-    pub(crate) unmanaged: Stack,
-    pub(crate) tag: String,
-    pub screen: usize,
-    pub visible: bool,
-    pub(crate) layout: Box<dyn Layout>,
-}
-
-impl Default for Workspace {
-    fn default() -> Self {
-        Self {
-            managed: Stack::default(),
-            unmanaged: Stack::default(),
-            tag: String::new(),
-            screen: 0,
-            visible: false,
-            layout: Tall::new(1, 0.5, 0.05),
-        }
-    }
-}
 
 pub enum MoveOp {
     Up,
@@ -38,42 +16,48 @@ pub enum MoveOp {
     Swap,
 }
 
-impl Workspace {
-    pub fn new(tag: &str, layout: Box<dyn Layout>, windows: &[Window], data: &str) -> Result<Workspace, Error> {
-        let data: Vec<&str> = data.split(':').collect();
+pub struct Workspace {
+    pub(crate) managed: Container,
+    pub(crate) unmanaged: Stack,
+    pub(crate) tag: String,
+    pub screen: usize,
+    pub visible: bool,
+}
 
-        if data.len() != 8 {
-            bail!("Invalid workspace data fragment count: {}", data.len());
+impl Default for Workspace {
+    fn default() -> Self {
+        Self {
+            managed: Container::new(Tall::new(1, 0.5, 0.05)),
+            unmanaged: Stack::new(),
+            tag: String::new(),
+            screen: 0,
+            visible: false,
         }
+    }
+}
 
-        let screen = data[0].parse::<usize>()
-                .context("failed to parse screen number value")?;
-        let visible = data[1].parse::<bool>()
-                .context("failed to parse visible boolean value")?;
+impl Workspace {
+    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, layout: Box<dyn Layout>, data: &str) -> Result<Workspace, Error> {
+        let mut data_iter = data.split(':');
+        let windows = xws.get_windows();
+        // TODO: filter serialized windows against actual present windows
 
-        let data: Vec<Vec<u64>> = data.iter()
-            .skip(2)
-            .map(|x| {
-                x.split(',')
-                    .filter_map(|w| w.parse::<u64>().ok())
-                    .filter(|w| windows.contains(w))
-                    .collect()
-            })
-            .collect();
+        let screen = data_iter.next()
+            .ok_or_else(|| err_msg("missing workspace screen data"))?
+            .parse::<usize>()
+            .context("failed to parse workspace screen value")?;
 
-        let managed = Stack {
-            focused_window: *data[0].get(0).unwrap_or(&0),
-            visible: data[2].clone(),
-            hidden: data[3].clone(),
-            ..Default::default()
+        let visible = data_iter.next()
+            .ok_or_else(|| err_msg("missing workspace visibility data"))?
+            .parse::<bool>()
+            .context("failed to parse workspace visibility value")?;
+
+        let managed = Container {
+            stack: Stack::deserialize(&mut data_iter)?,
+            layout: layout.copy()
         };
 
-        let unmanaged = Stack {
-            focused_window: *data[1].get(0).unwrap_or(&0),
-            visible: data[4].clone(),
-            hidden: data[5].clone(),
-            ..Default::default()
-        };
+        let unmanaged = Stack::deserialize(&mut data_iter)?;
 
         Ok(Workspace {
             managed,
@@ -81,44 +65,35 @@ impl Workspace {
             tag: tag.to_string(),
             screen,
             visible,
-            layout,
         })
     }
 
     pub fn serialize(&self) -> String {
-        let windows = vec![
-            self.managed.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-            self.managed.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-            self.unmanaged.visible.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-            self.unmanaged.hidden.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-        ];
-
-        format!("{}:{}:{}:{}:{}",
+        format!("{}:{}:{}:{}",
                 self.screen,
                 self.visible,
-                self.managed.focused_window,
-                self.unmanaged.focused_window,
-                windows.join(":"))
+                self.managed.stack.serialize(),
+                self.unmanaged.serialize())
     }
 
     fn all(&self) -> Vec<Window> {
-        self.unmanaged.all().iter().chain(self.managed.all().iter()).copied().collect()
+        self.unmanaged.all_windows().iter().chain(self.managed.stack.all_windows().iter()).copied().collect()
     }
-
+/*
     fn all_visible(&self) -> Vec<Window> {
-        self.unmanaged.visible.iter().chain(self.managed.visible.iter()).copied().collect()
+        self.unmanaged.visible.iter().chain(self.managed.stack.visible.iter()).copied().collect()
     }
-
+*/
     fn all_urgent(&self) -> Vec<Window> {
-        self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
+        self.unmanaged.urgent.iter().chain(self.managed.stack.urgent.iter()).copied().collect()
     }
 
     pub fn get_layout(&self) -> &dyn Layout {
-        &*self.layout
+        &*self.managed.layout
     }
 
     pub fn send_layout_message(&mut self, msg: LayoutMsg) {
-        self.layout.send_msg(msg);
+        self.managed.send_layout_msg(msg);
     }
 
     pub fn get_tag(&self) -> &str {
@@ -138,11 +113,11 @@ impl Workspace {
     }
 
     pub fn is_managed(&self, window: Window) -> bool {
-        self.managed.contains(window)
+        self.managed.stack.contains(window)
     }
 
     pub fn is_urgent(&self) -> bool {
-        self.managed.is_urgent() || self.unmanaged.is_urgent()
+        self.managed.stack.is_urgent() || self.unmanaged.is_urgent()
     }
 
     pub fn is_visible(&self) -> bool {
@@ -153,25 +128,25 @@ impl Workspace {
         self.visible = visible
     }
 
-    pub fn focused_window(&self) -> Window {
-        if self.unmanaged.focused_window == 0 {
-            self.managed.focused_window
+    pub fn focused_window(&self) -> Option<Window> {
+        if self.unmanaged.focused_window().is_none() {
+            self.managed.stack.focused_window()
         } else {
-            self.unmanaged.focused_window
+            self.unmanaged.focused_window()
         }
     }
 
     pub fn add_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if !xws.is_window_floating(window) {
             debug!("Add Managed: {}", window);
-            self.managed.visible.push(window);
+            self.managed.stack.add_window(window);
 
             if self.unmanaged.len() > 0 {
                 debug!("Restacking");
                 xws.restack_windows(self.all());
             }
         } else {
-            self.unmanaged.visible.push(window);
+            self.unmanaged.add_window(window);
             debug!("Add Unmanaged: {}", window);
         }
 
@@ -181,17 +156,19 @@ impl Workspace {
         }
     }
 
+    pub fn add_container(&mut self, layout: Box<dyn Layout>) {
+        self.managed.stack.add_container(layout);
+    }
+
     pub fn set_urgency(&mut self, urgent: bool, xws: &XlibWindowSystem,  config: &Config, window: Window) {
-        if self.all_urgent().contains(&window) {
-            if !urgent {
-                debug!("unset urgent {}", window);
-                self.remove_urgent_window(window);
-                self.redraw(xws, config);
-            }
+        if !urgent {
+            debug!("unset urgent {}", window);
+            self.remove_urgent_window(window);
+            self.redraw(xws, config);
         } else if urgent {
             debug!("set urgent {}", window);
             if self.is_managed(window) {
-                self.managed.urgent.push(window);
+                self.managed.stack.urgent.push(window);
             } else {
                 self.unmanaged.urgent.push(window);
             }
@@ -200,71 +177,48 @@ impl Workspace {
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
-        let index = self.all_urgent()
+        let res = self.unmanaged.urgent
             .iter()
             .enumerate()
             .find(|&(_, &x)| x == window)
-            .map(|(i, _)| i)
-            .unwrap();
-        if index < self.unmanaged.urgent.len() {
-            self.unmanaged.urgent.remove(index - 1);
+            .map(|(i, _)| i);
+
+        if let Some(index) = res {
+            if index < self.unmanaged.urgent.len() {
+                self.unmanaged.urgent.remove(index - 1);
+            }
         } else {
-            self.managed.urgent.remove(index - self.unmanaged.urgent.len());
+            self.managed.stack.remove_urgent(window);
         }
     }
 
     fn remove_managed(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         trace!("remove managed window: {}", window);
-        let index = self.managed.index_of_visible(window);
-
-        self.managed.focused_window = 0;
         xws.unmap_window(window);
-        self.managed.remove(index);
-
-        let new_focused_window = if !self.managed.visible.is_empty() {
-            self.managed.visible[if index < self.managed.visible.len() {
-                index
-            } else {
-                index - 1
-            }]
-        } else {
-            0
-        };
+        self.managed.stack.remove(window);
 
         if self.visible {
             self.redraw(xws, config);
-            self.focus_window(xws, config, new_focused_window);
         }
     }
 
     fn remove_unmanaged(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         trace!("remove unmanaged window: {}", window);
-        let index = self.unmanaged.index_of_visible(window);
-
-        self.unmanaged.focused_window = 0;
         xws.unmap_window(window);
-        self.unmanaged.remove(index);
-
-        let new_focused_window = if !self.unmanaged.visible.is_empty() {
-            self.unmanaged.visible[if index < self.unmanaged.visible.len() {
-                index
-            } else {
-                index - 1
-            }]
-        } else if !self.managed.visible.is_empty() {
-            self.managed.visible[self.managed.len() - 1]
+        self.unmanaged.remove(window);
+        self.unmanaged.focus = if self.unmanaged.nodes.is_empty() {
+            None
         } else {
-                0
+            Some(self.unmanaged.nodes.len() - 1)
         };
 
         if self.visible {
             self.redraw(xws, config);
-            self.focus_window(xws, config, new_focused_window);
         }
     }
 
     pub fn remove_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if self.managed.contains(window) {
+        if self.managed.stack.contains(window) {
             debug!("Remove Managed: {}", window);
             self.remove_managed(xws, config, window);
         } else if self.unmanaged.contains(window) {
@@ -272,26 +226,26 @@ impl Workspace {
             self.remove_unmanaged(xws, config, window);
         }
     }
-
+/*
     pub fn hide_window(&mut self, window: Window) {
-        if self.managed.contains(window) {
-            self.managed.hide(window);
+        if self.managed.stack.contains(window) {
+            self.managed.stack.hide(window);
         } else {
             self.unmanaged.hide(window);
         }
     }
-
+*/
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if window == 0 || self.unmanaged.focused_window == window || self.managed.focused_window == window {
+        if window == 0 || self.unmanaged.focused_window() == Some(window) || self.managed.stack.focused_window() == Some(window) {
             return;
         }
 
         self.unfocus_window(xws, config);
 
         if self.unmanaged.contains(window) {
-            self.unmanaged.focused_window = window;
+            self.unmanaged.focus_window(window);
         } else {
-            self.managed.focused_window = window;
+            self.managed.stack.focus_window(window);
         }
 
         xws.focus_window(window, config.border_focus_color);
@@ -299,93 +253,72 @@ impl Workspace {
     }
 
     pub fn unfocus_window(&mut self, xws: &XlibWindowSystem, config: &Config) {
-        let focused_window = self.focused_window();
+        if let Some(window) = self.focused_window() {
+            xws.set_window_border_color(window, config.border_color);
 
-        if focused_window != 0 {
-            xws.set_window_border_color(focused_window, config.border_color);
-
-            if self.unmanaged.focused_window == 0 {
-                self.managed.focused_window = 0;
+            // TODO: why? investigate
+            /*
+            if self.unmanaged.focused_window().is_none() {
+                self.managed.stack.focused_window = 0;
             } else {
                 self.unmanaged.focused_window = 0;
-            }
+            }*/
         }
     }
 
-    pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        let windows: Vec<Window> = self.all_visible();
-        let count = windows.len();
-
-        if self.focused_window() == 0 || count < 2 {
-            return;
+    pub fn move_parent_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+        if let Some(window) = self.managed.stack.move_parent_focus(op) {
+            self.redraw(xws, config);
         }
+    }
 
-        let index = windows.iter()
-            .enumerate()
-            .find(|&(_, &w)| w == self.focused_window())
-            .map(|(i, _)| i)
-            .unwrap();
-
-        let new_focused_window = match op {
-            Up => {
-                if index == 0 {
-                    windows[count - 1]
-                } else {
-                    windows[index - 1]
-                }
-            }
-            Down => windows[(index + 1) % count],
-            Swap => windows[0],
-        };
-
-        self.focus_window(xws, config, new_focused_window);
+    // TODO: impl managed and unmanaged focus mode incl switching
+    pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+        if let Some(window) = self.managed.stack.move_focus(op) {
+            self.redraw(xws, config);
+        }
     }
 
     pub fn move_window(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
         let focused_window = self.focused_window();
-        trace!("move window: {}", focused_window);
+        trace!("move window: {:?}", focused_window);
 
-        if focused_window == 0 || self.unmanaged.focused_window != 0 {
+        if focused_window.is_none() {
             return;
         }
 
-        let pos = self.managed.index_of_visible(focused_window);
-        let new_pos = match op {
-            Up => {
-                if pos == 0 {
-                    self.managed.visible.len() - 1
-                } else {
-                    pos - 1
-                }
-            }
-            Down => (pos + 1) % self.managed.visible.len(),
-            Swap => {
-                let master = self.managed.visible[0];
-                self.managed.visible.insert(pos, master);
-                self.managed.visible.remove(0);
-                0
-            }
-        };
-
-        self.managed.visible.remove(pos);
-        self.managed.visible.insert(new_pos, focused_window);
-
+        let idx = self.managed.stack.move_window(op);
         self.redraw(xws, config);
     }
+
+    pub fn move_parent_window(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
+        let focused_window = self.focused_window();
+        trace!("move parent window: {:?}", focused_window);
+
+        if focused_window.is_none() {
+            return;
+        }
+
+        let idx = self.managed.stack.move_parent_window(op);
+        self.redraw(xws, config);
+    }
+
 
     pub fn contains(&self, window: Window) -> bool {
         self.all().iter().any(|&w| w == window)
     }
 
     pub fn unfocus(&mut self, xws: &XlibWindowSystem, config: &Config) {
-        trace!("unfocus window: {}", self.focused_window());
-        xws.set_window_border_color(self.focused_window(), config.border_color);
+        if let Some(window) = self.focused_window() {
+            trace!("unfocus window: {}", window);
+            xws.set_window_border_color(window, config.border_color);
+        }
     }
 
     pub fn focus(&self, xws: &XlibWindowSystem, config: &Config) {
-        if self.focused_window() != 0 {
-            trace!("focus window: {}", self.focused_window());
-            xws.focus_window(self.focused_window(), config.border_focus_color);
+        if let Some(window) = self.focused_window() {
+            trace!("focus window: {}", window);
+            xws.focus_window(window, config.border_focus_color);
             xws.skip_enter_events();
         }
     }
@@ -398,26 +331,28 @@ impl Workspace {
     pub fn hide(&mut self, xws: &XlibWindowSystem) {
         self.visible = false;
 
-        for &w in self.managed.visible.iter().filter(|&w| *w != self.focused_window()) {
+        for &w in self.managed.stack.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
             xws.hide_window(w);
         }
 
-        for &w in self.unmanaged.visible.iter().filter(|&w| *w != self.focused_window()) {
+        for &w in self.unmanaged.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
             xws.hide_window(w);
         }
 
-        xws.hide_window(self.focused_window());
+        if let Some(w) = self.focused_window() {
+            xws.hide_window(w);
+        }
     }
 
     pub fn show(&mut self, xws: &XlibWindowSystem, config: &Config) {
         self.visible = true;
 
         self.redraw(xws, config);
-        for &w in self.managed.visible.iter() {
+        for &w in self.managed.stack.all_windows().iter() {
             xws.show_window(w);
         }
 
-        for &w in self.unmanaged.visible.iter() {
+        for &w in self.unmanaged.all_windows().iter() {
             xws.show_window(w);
         }
     }
@@ -427,18 +362,17 @@ impl Workspace {
 
         let screen = xws.get_screen_infos()[self.screen];
 
-        for (i, rect) in self.layout.apply(screen, xws, &self.managed).iter().enumerate() {
-            trace!("  {}, {:?}", self.managed.visible[i], rect);
+        for (rect, window) in self.managed.apply_layout(screen, xws) {
             xws.setup_window(rect.x,
-                            rect.y,
-                            rect.width,
-                            rect.height,
-                            config.border_width,
-                            config.border_color,
-                            self.managed.visible[i]);
+                rect.y,
+                rect.width,
+                rect.height,
+                config.border_width,
+                config.border_color,
+                window);
         }
 
-        for &window in self.unmanaged.visible.iter() {
+        for &window in self.unmanaged.all_windows().iter() {
             let mut rect = xws.get_geometry(window);
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));

@@ -40,6 +40,7 @@ pub enum XlibEvent {
     XUnmapNotify(Window, bool),
     XPropertyNotify(Window, u64, bool),
     XEnterNotify(Window),
+    XFocusIn(Window),
     XFocusOut(Window),
     XKeyPress(Window, u8, String),
     XButtonPress(Window),
@@ -386,9 +387,6 @@ impl XlibWindowSystem {
 
     pub fn restack_windows(&self, mut windows: Vec<Window>) {
         unsafe {
-            for w in windows.iter() {
-                debug!("{}", w);
-            }
             XRestackWindows(self.display,
                             (&mut windows[..]).as_mut_ptr(),
                             windows.len() as i32);
@@ -730,6 +728,14 @@ impl XlibWindowSystem {
                 let evt: &XEnterWindowEvent = self.cast_event_to();
                 if evt.detail != 2 {
                     XEnterNotify(evt.window)
+                } else {
+                    Ignored
+                }
+            }
+            FocusIn => {
+                let evt: &XFocusInEvent = self.cast_event_to();
+                if evt.detail != 5 {
+                    XFocusIn(evt.window)
                 } else {
                     Ignored
                 }

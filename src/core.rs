@@ -30,4 +30,5 @@ mod workspace;
 mod commands;
 mod keycode;
 mod stack;
+mod container;
 mod layout;

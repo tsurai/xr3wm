@@ -2,15 +2,17 @@
 
 use crate::config::Config;
 use crate::layout::Layout;
-use crate::xlib_window_system::XlibWindowSystem;
+use crate::container::Container;
 use crate::workspace::Workspace;
-use x11::xlib::Window;
+use crate::xlib_window_system::XlibWindowSystem;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::default::Default;
 use std::cmp;
+use x11::xlib::Window;
+use failure::*;
 
 #[allow(dead_code)]
 pub struct WorkspaceInfo {
@@ -33,77 +35,91 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(config: &Config, screens: usize, windows: &[Window]) -> Workspaces {
+    pub fn new(config: &Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
             debug!("loading previous workspace state");
-            Workspaces::load_workspaces(config, screens, windows)
-        } else {
-            let mut workspaces = Workspaces {
-                list: config.workspaces
-                    .iter()
-                    .map(|c| {
-                        Workspace {
-                            tag: c.tag.clone(),
-                            screen: c.screen,
-                            layout: c.layout.copy(),
-                            ..Default::default()
-                        }
-                    })
-                    .collect(),
-                cur: 0,
-                screens
-            };
-
-            for screen in 0..screens {
-                if !workspaces.list.iter().any(|ws| ws.get_screen() == screen) {
-                    if let Some(ws) = workspaces.list.iter_mut().filter(|ws| ws.get_screen() == 0).nth(1) {
-                        ws.set_screen(screen);
-                    }
-                }
-            }
-
-            for screen in 0..screens {
-                let ws = workspaces.list.iter_mut().find(|ws| ws.get_screen() == screen).unwrap();
-                // TODO: set_visible and show are ambigious
-                ws.set_visible(true);
-            }
-
-            workspaces
+            return Workspaces::load_workspaces(config, xws)
         }
-    }
 
-    fn load_workspaces(config: &Config, screens: usize, windows: &[Window]) -> Workspaces {
-        let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+        let n_screens = xws.get_screen_infos().len();
 
-        let mut file = BufReader::new(File::open(&path).unwrap());
-        let mut cur = String::new();
-        file.read_line(&mut cur).ok();
-        let lines: Vec<String> = file.lines().map(|x| x.unwrap()).collect();
-
-        remove_file(&path).ok();
-
-        Workspaces {
+        let mut workspaces = Workspaces {
             list: config.workspaces
                 .iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    if i < lines.len() {
-                        debug!("loading workspace {}", i + 1);
-
-                        Workspace::new(&c.tag, c.layout.copy(), windows, lines.get(i).unwrap()).unwrap()
-                    } else {
-                        Workspace {
-                            tag: c.tag.clone(),
-                            screen: c.screen,
-                            layout: c.layout.copy(),
-                            ..Default::default()
-                        }
+                .map(|c| {
+                    Workspace {
+                        tag: c.tag.clone(),
+                        screen: c.screen,
+                        managed: Container::new(c.layout.copy()),
+                        ..Default::default()
                     }
                 })
                 .collect(),
-            cur: cur[..cur.len() - 1].parse::<usize>().unwrap(),
-            screens
+            cur: 0,
+            screens: n_screens
+        };
+
+        for screen in 0..n_screens {
+            if workspaces.list.iter().find(|ws| ws.get_screen() == screen).is_none() {
+                if let Some(ws) = workspaces.list.iter_mut().filter(|ws| ws.get_screen() == 0).nth(1) {
+                    ws.set_screen(screen);
+                }
+            }
         }
+
+        for screen in 0..n_screens {
+            let ws = workspaces.list.iter_mut().find(|ws| ws.get_screen() == screen).unwrap();
+            // TODO: set_visible and show are ambigious
+            ws.set_visible(true);
+        }
+
+        Ok(workspaces)
+    }
+
+    fn load_workspaces(config: &Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
+        let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+
+        let file = File::open(&path)
+            .context("failed to open workspace serialization file")?;
+
+        let lines: Vec<String> = BufReader::new(file).lines()
+            .collect::<Result<_,_>>()
+            .context("failed to read lines from workspace serialization file")?;
+
+        remove_file(&path).ok();
+
+        Self::deserialize(config, xws, lines)
+    }
+
+    fn deserialize(config: &Config, xws: &XlibWindowSystem, data: Vec<String>) -> Result<Workspaces, Error> {
+        let screens = xws.get_screen_infos().len();
+        let cur = data.first()
+            .ok_or_else(|| err_msg("missing current workspace index data"))?
+            .parse::<usize>()
+            .context("failed to parse current workspace index value")?;
+
+        Ok(Workspaces {
+            list: config.workspaces
+                .iter()
+                .enumerate()
+                .map(|(i, c)| if i < data.len() {
+                    debug!("loading workspace {}", i + 1);
+
+                    data.get(i + 1)
+                        .ok_or_else(|| err_msg("missing workspace data"))
+                        .and_then(|x| Workspace::deserialize(xws, &c.tag, c.layout.copy(), x))
+                } else {
+                    Ok(Workspace {
+                        tag: c.tag.clone(),
+                        screen: c.screen,
+                        ..Default::default()
+                    })
+                })
+                .collect::<Result<_,_>>()
+                .context("failed to deserialize workspace data")?,
+            cur,
+            screens,
+        })
     }
 
     pub fn serialize(&self) -> String {
@@ -217,14 +233,17 @@ impl Workspaces {
     }
 
     pub fn move_window_to(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize) {
-        let window = self.list[self.cur].focused_window();
-        if window == 0 || index == self.cur {
+        if index == self.cur {
             return;
         }
 
-        self.remove_window(xws, config, window);
-        self.list[index].add_window(xws, config, window);
-        self.list[index].unfocus(xws, config);
+        if let Some(window) = self.current().focused_window() {
+            self.remove_window(xws, config, window);
+
+            let ws = self.get_mut(index);
+            ws.add_window(xws, config, window);
+            ws.unfocus(xws, config);
+        }
     }
 
     pub fn move_window_to_screen(&mut self,
@@ -243,7 +262,7 @@ impl Workspaces {
                 .remove_window(xws, config, window);
         }
     }
-
+/*
     pub fn hide_window(&mut self, window: Window) {
         if let Some(idx) = self.find_window(window) {
             self.list.get_mut(idx)
@@ -251,7 +270,7 @@ impl Workspaces {
                 .hide_window(window);
         }
     }
-
+*/
     pub fn rescreen(&mut self, xws: &XlibWindowSystem, config: &Config) {
         let new_screens = xws.get_screen_infos().len();
         let prev_screens = self.list.iter().fold(0, |acc, x| cmp::max(acc, x.screen));
