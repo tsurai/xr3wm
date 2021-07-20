@@ -39,7 +39,7 @@ impl Default for Workspace {
 impl Workspace {
     pub fn deserialize(xws: &XlibWindowSystem, tag: &str, layout: Box<dyn Layout>, data: &str) -> Result<Workspace, Error> {
         let mut data_iter = data.split(':');
-        let windows = xws.get_windows();
+        // let windows = xws.get_windows();
         // TODO: filter serialized windows against actual present windows
 
         let screen = data_iter.next()
@@ -157,7 +157,11 @@ impl Workspace {
     }
 
     pub fn add_container(&mut self, layout: Box<dyn Layout>) {
-        self.managed.stack.add_container(layout);
+        if self.managed.stack.len() > 1 {
+            self.managed.stack.add_container(layout);
+        } else {
+            self.managed.layout = layout;
+        }
     }
 
     pub fn set_urgency(&mut self, urgent: bool, xws: &XlibWindowSystem,  config: &Config, window: Window) {

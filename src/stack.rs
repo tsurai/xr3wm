@@ -162,19 +162,19 @@ impl Stack {
     }
 
     pub fn add_container(&mut self, layout: Box<dyn Layout>) {
+        let n_nodes = self.len();
+
         if let Some(idx) = self.focus {
             match self.nodes.get_mut(idx) {
-                Some(Node::Container(c)) => if c.stack.nodes.len() > 1 {
+                Some(Node::Container(c)) => {
                     c.stack.add_container(layout)
-                } else {
-                    c.layout = layout;
                 },
-                Some(Node::Window(w)) => {
+                Some(Node::Window(w)) => if n_nodes > 1 {
                     let mut container = Container::new(layout);
                     container.stack.add_window(*w);
                     container.stack.focus = Some(0);
                     self.nodes[idx] = Node::Container(container)
-                },
+                }
                 None => (),
             }
         }
