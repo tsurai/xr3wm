@@ -38,7 +38,14 @@ impl Workspaces {
     pub fn new(config: &Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
         if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
             debug!("loading previous workspace state");
-            return Workspaces::load_workspaces(config, xws)
+            let workspaces = Workspaces::load_workspaces(config, xws)?;
+            workspaces.all().iter().for_each(|workspace| {
+                workspace.all().iter().for_each(|&window| {
+                    xws.request_window_events(window);
+                })
+            });
+
+            return Ok(workspaces);
         }
 
         let n_screens = xws.get_screen_infos().len();

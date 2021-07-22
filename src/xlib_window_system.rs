@@ -668,6 +668,13 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn request_window_events(&self, window: Window) {
+        unsafe {
+            self.grab_button(window);
+            XSelectInput(self.display, window, 0x0042_0010);
+        }
+    }
+
     fn cast_event_to<T>(&self) -> &T {
         unsafe { &*(self.event as *const T) }
     }
@@ -682,12 +689,9 @@ impl XlibWindowSystem {
             MapRequest => {
                 let evt: &XMapRequestEvent = self.cast_event_to();
 
-                unsafe {
-                    let atom = self.get_atom("WM_STATE", false);
-                    self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
-                    self.grab_button(evt.window);
-                    XSelectInput(self.display, evt.window, 0x0042_0010);
-                }
+                let atom = self.get_atom("WM_STATE", false);
+                self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
+                self.request_window_events(evt.window);
 
                 XMapRequest(evt.window)
             }

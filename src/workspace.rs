@@ -76,7 +76,7 @@ impl Workspace {
                 self.unmanaged.serialize())
     }
 
-    fn all(&self) -> Vec<Window> {
+    pub fn all(&self) -> Vec<Window> {
         self.unmanaged.all_windows().iter().chain(self.managed.stack.all_windows().iter()).copied().collect()
     }
 /*

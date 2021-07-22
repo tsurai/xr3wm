@@ -133,7 +133,6 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 debug!("XDestroy: {}", window);
 
                 if workspaces.contains(window) {
-                    debug!("XDestroy: {}", window);
                     workspaces.remove_window(ws, &config, window);
                 }
             }
@@ -141,7 +140,6 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
                 debug!("XUnmapNotify: {} {}", window, send);
 
                 if send && workspaces.contains(window) {
-                    debug!("XUnmapNotify: {}", window);
                     workspaces.remove_window(ws, &config, window);
                 }
             }
