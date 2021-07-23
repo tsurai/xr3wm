@@ -95,7 +95,7 @@ fn run() -> Result<(), Error> {
     let ws = &XlibWindowSystem::new();
     ws.grab_modifier(config.mod_key);
 
-    let workspaces = Workspaces::new(&config, &ws)
+    let workspaces = Workspaces::new(&config, ws)
         .context("failed to create workspaces")?;
 
     if let Some(ref mut statusbar) = config.statusbar {

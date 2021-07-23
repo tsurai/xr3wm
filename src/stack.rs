@@ -72,7 +72,7 @@ impl Stack {
     pub fn focused_layouts(&self) -> Option<String> {
          self.focus
             .and_then(|idx| match self.nodes.get(idx) {
-                Some(Node::Container(c)) => Some(c.layout.name() + &c.stack.focused_layouts().map(|x| format!(" / {}", x)).unwrap_or("".into())),
+                Some(Node::Container(c)) => Some(c.layout.name() + &c.stack.focused_layouts().map(|x| format!(" / {}", x)).unwrap_or_else(|| "".into())),
                 Some(Node::Window(_)) => None,
                 _ => None,
             })
@@ -290,8 +290,7 @@ impl Stack {
                 } else {
                     None
                 })
-                .find(|&x| x)
-                .is_some()
+                .any(|x| x)
         }
     }
 
@@ -308,10 +307,10 @@ impl Stack {
                     .filter_map(|w| w.parse::<u64>().ok())
                     // filter obsolete windows that no longer exist
                     .filter(|w| windows.contains(w))
-                    .map(|w| Node::Window(w))
+                    .map(Node::Window)
                     .collect()
             })
-            .unwrap_or(Vec::new());
+            .unwrap_or_else(Vec::new);
 
         let focus = data_iter.next()
             .ok_or_else(|| err_msg("missing stack focus data"))?
