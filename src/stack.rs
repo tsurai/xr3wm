@@ -301,11 +301,13 @@ impl Stack {
             self.focus.unwrap_or(0))
     }
 
-    pub fn deserialize<'a, I: Iterator<Item=&'a str>>(data_iter: &mut I) -> Result<Self, Error> {
+    pub fn deserialize<'a, I: Iterator<Item=&'a str>>(data_iter: &mut I, windows: &[Window]) -> Result<Self, Error> {
         let nodes = data_iter.next()
             .map(|x| {
                 x.split(',')
                     .filter_map(|w| w.parse::<u64>().ok())
+                    // filter obsolete windows that no longer exist
+                    .filter(|w| windows.contains(w))
                     .map(|w| Node::Window(w))
                     .collect()
             })

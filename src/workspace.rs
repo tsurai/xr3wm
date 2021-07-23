@@ -39,8 +39,9 @@ impl Default for Workspace {
 impl Workspace {
     pub fn deserialize(xws: &XlibWindowSystem, tag: &str, layout: Box<dyn Layout>, data: &str) -> Result<Workspace, Error> {
         let mut data_iter = data.split(':');
-        // let windows = xws.get_windows();
-        // TODO: filter serialized windows against actual present windows
+
+        // get a list of all windows from the Xerver used for filterint obsolete windows
+        let windows = xws.get_windows();
 
         let screen = data_iter.next()
             .ok_or_else(|| err_msg("missing workspace screen data"))?
@@ -53,11 +54,11 @@ impl Workspace {
             .context("failed to parse workspace visibility value")?;
 
         let managed = Container {
-            stack: Stack::deserialize(&mut data_iter)?,
+            stack: Stack::deserialize(&mut data_iter, &windows)?,
             layout: layout.copy()
         };
 
-        let unmanaged = Stack::deserialize(&mut data_iter)?;
+        let unmanaged = Stack::deserialize(&mut data_iter, &windows)?;
 
         Ok(Workspace {
             managed,
