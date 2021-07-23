@@ -76,8 +76,7 @@ impl Workspaces {
 
         for screen in 0..n_screens {
             let ws = workspaces.list.iter_mut().find(|ws| ws.get_screen() == screen).unwrap();
-            // TODO: set_visible and show are ambigious
-            ws.set_visible(true);
+            ws.show(xws, config);
         }
 
         Ok(workspaces)

@@ -125,10 +125,6 @@ impl Workspace {
         self.visible
     }
 
-    pub fn set_visible(&mut self, visible: bool) {
-        self.visible = visible
-    }
-
     pub fn focused_window(&self) -> Option<Window> {
         if self.unmanaged.focused_window().is_none() {
             self.managed.stack.focused_window()
@@ -245,7 +241,7 @@ impl Workspace {
             return;
         }
 
-        self.unfocus_window(xws, config);
+        self.remove_window_highlight(xws, config);
 
         if self.unmanaged.contains(window) {
             self.unmanaged.focus_window(window);
@@ -257,29 +253,21 @@ impl Workspace {
         self.redraw(xws, config);
     }
 
-    pub fn unfocus_window(&mut self, xws: &XlibWindowSystem, config: &Config) {
+    pub fn remove_window_highlight(&mut self, xws: &XlibWindowSystem, config: &Config) {
         if let Some(window) = self.focused_window() {
             xws.set_window_border_color(window, config.border_color);
-
-            // TODO: why? investigate
-            /*
-            if self.unmanaged.focused_window().is_none() {
-                self.managed.stack.focused_window = 0;
-            } else {
-                self.unmanaged.focused_window = 0;
-            }*/
         }
     }
 
     pub fn move_parent_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        if let Some(window) = self.managed.stack.move_parent_focus(op) {
+        if self.managed.stack.move_parent_focus(op).is_some() {
             self.redraw(xws, config);
         }
     }
 
     // TODO: impl managed and unmanaged focus mode incl switching
     pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        if let Some(window) = self.managed.stack.move_focus(op) {
+        if self.managed.stack.move_focus(op).is_some() {
             self.redraw(xws, config);
         }
     }
@@ -292,7 +280,7 @@ impl Workspace {
             return;
         }
 
-        let idx = self.managed.stack.move_window(op);
+        self.managed.stack.move_window(op);
         self.redraw(xws, config);
     }
 
@@ -304,7 +292,7 @@ impl Workspace {
             return;
         }
 
-        let idx = self.managed.stack.move_parent_window(op);
+        self.managed.stack.move_parent_window(op);
         self.redraw(xws, config);
     }
 
