@@ -4,8 +4,10 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::stack::{Node, Stack};
 use crate::layout::{Layout, LayoutMsg, Rect};
 use x11::xlib::Window;
+use serde::{Serialize, Deserialize};
 use std::fmt;
 
+#[derive(Serialize, Deserialize)]
 pub struct Container {
     pub stack: Stack,
     pub layout: Box<dyn Layout>,

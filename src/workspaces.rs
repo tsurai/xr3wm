@@ -1,33 +1,18 @@
 #![allow(dead_code)]
 
 use crate::config::Config;
-use crate::layout::Layout;
 use crate::container::Container;
 use crate::workspace::Workspace;
 use crate::xlib_window_system::XlibWindowSystem;
-use std::io::prelude::*;
-use std::io::BufReader;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::default::Default;
 use std::cmp;
+use serde::{Serialize, Deserialize};
 use x11::xlib::Window;
 use failure::*;
 
-#[allow(dead_code)]
-pub struct WorkspaceInfo {
-    pub tags: String,
-    pub layout: String,
-    pub current: bool,
-    pub visible: bool,
-    pub urgent: bool,
-}
-
-pub struct WorkspaceConfig {
-    pub tag: String,
-    pub screen: usize,
-    pub layout: Box<dyn Layout>,
-}
+#[derive(Serialize, Deserialize)]
 pub struct Workspaces {
     list: Vec<Workspace>,
     cur: usize,
@@ -35,10 +20,18 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(config: &Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
-        if Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp")).exists() {
+    pub fn new(config: Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
+        let restore_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+        if restore_file_path.exists() {
+            let file = File::open(&restore_file_path)
+                .context("failed to open workspace serialization file")?;
+
             debug!("loading previous workspace state");
-            let workspaces = Workspaces::load_workspaces(config, xws)?;
+            let workspaces: Workspaces = serde_cbor::from_reader(file)
+                .context("failed to deserialize workspace states")?;
+
+            remove_file(restore_file_path).ok();
+
             workspaces.all().iter().for_each(|workspace| {
                 workspace.all().iter().for_each(|&window| {
                     xws.request_window_events(window);
@@ -52,12 +45,12 @@ impl Workspaces {
 
         let mut workspaces = Workspaces {
             list: config.workspaces
-                .iter()
+                .into_iter()
                 .map(|c| {
                     Workspace {
                         tag: c.tag.clone(),
                         screen: c.screen,
-                        managed: Container::new(c.layout.copy()),
+                        managed: Container::new(c.layout),
                         ..Default::default()
                     }
                 })
@@ -73,65 +66,14 @@ impl Workspaces {
                 }
             }
         }
-
+/*
         for screen in 0..n_screens {
             let ws = workspaces.list.iter_mut().find(|ws| ws.get_screen() == screen).unwrap();
-            ws.show(xws, config);
+            ws.show(xws, &config);
         }
+*/
 
         Ok(workspaces)
-    }
-
-    fn load_workspaces(config: &Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
-        let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
-
-        let file = File::open(&path)
-            .context("failed to open workspace serialization file")?;
-
-        let lines: Vec<String> = BufReader::new(file).lines()
-            .collect::<Result<_,_>>()
-            .context("failed to read lines from workspace serialization file")?;
-
-        remove_file(&path).ok();
-
-        Self::deserialize(config, xws, lines)
-    }
-
-    fn deserialize(config: &Config, xws: &XlibWindowSystem, data: Vec<String>) -> Result<Workspaces, Error> {
-        let screens = xws.get_screen_infos().len();
-        let cur = data.first()
-            .ok_or_else(|| err_msg("missing current workspace index data"))?
-            .parse::<usize>()
-            .context("failed to parse current workspace index value")?;
-
-        Ok(Workspaces {
-            list: config.workspaces
-                .iter()
-                .enumerate()
-                .map(|(i, c)| if i < data.len() {
-                    debug!("loading workspace {}", i + 1);
-
-                    data.get(i + 1)
-                        .ok_or_else(|| err_msg("missing workspace data"))
-                        .and_then(|x| Workspace::deserialize(xws, &c.tag, c.layout.copy(), x))
-                } else {
-                    Ok(Workspace {
-                        tag: c.tag.clone(),
-                        screen: c.screen,
-                        ..Default::default()
-                    })
-                })
-                .collect::<Result<_,_>>()
-                .context("failed to deserialize workspace data")?,
-            cur,
-            screens,
-        })
-    }
-
-    pub fn serialize(&self) -> String {
-        format!("{}\n{}",
-                self.cur,
-                self.list.iter().map(|x| x.serialize()).collect::<Vec<String>>().join("\n"))
     }
 
     pub fn get_mut(&mut self, index: usize) -> &mut Workspace {

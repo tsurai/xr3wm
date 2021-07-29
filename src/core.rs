@@ -20,7 +20,7 @@ pub mod core {
     }
 
     pub use crate::config::{Config, Statusbar, LogInfo};
-    pub use crate::workspaces::WorkspaceConfig;
+    pub use crate::workspace::WorkspaceConfig;
 }
 
 mod xlib_window_system;

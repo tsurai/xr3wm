@@ -6,14 +6,16 @@ use std::iter::Iterator;
 use crate::workspace::MoveOp;
 use crate::container::Container;
 use crate::layout::Layout;
+use serde::{Serialize, Deserialize};
 use failure::{err_msg, Error, ResultExt};
 
+#[derive(Serialize, Deserialize)]
 pub enum Node {
     Window(Window),
     Container(Container),
 }
 
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Stack {
     pub focus: Option<usize>,
     pub nodes: Vec<Node>,

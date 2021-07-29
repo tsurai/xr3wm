@@ -1,7 +1,8 @@
 #![allow(unused)]
 
 use crate::keycode::*;
-use crate::workspaces::{Workspaces, WorkspaceConfig};
+use crate::workspace::WorkspaceConfig;
+use crate::workspaces::Workspaces;
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::commands::{Cmd, ManageHook};
 use crate::layout::*;
@@ -289,13 +290,13 @@ impl Default for Config {
                                 mods: 0,
                                 key: "v".to_string(),
                             },
-                            Cmd::NestLayout(Vertical::new())
+                            Cmd::NestLayout(Box::new(|| Vertical::new()))
                         ),(
                             Keybinding {
                                 mods: 0,
                                 key: "b".to_string(),
                             },
-                            Cmd::NestLayout(Horizontal::new())
+                            Cmd::NestLayout(Box::new(|| Horizontal::new()))
                         ),(
                             Keybinding {
                                 mods: MOD_SHIFT,

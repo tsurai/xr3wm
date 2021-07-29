@@ -8,7 +8,22 @@ use crate::container::Container;
 use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp;
 use x11::xlib::Window;
+use serde::{Serialize, Deserialize};
 use failure::*;
+
+pub struct WorkspaceInfo {
+    pub tags: String,
+    pub layout: String,
+    pub current: bool,
+    pub visible: bool,
+    pub urgent: bool,
+}
+
+pub struct WorkspaceConfig {
+    pub tag: String,
+    pub screen: usize,
+    pub layout: Box<dyn Layout>,
+}
 
 pub enum MoveOp {
     Up,
@@ -16,6 +31,7 @@ pub enum MoveOp {
     Swap,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Workspace {
     pub(crate) managed: Container,
     pub(crate) unmanaged: Stack,
@@ -55,7 +71,7 @@ impl Workspace {
 
         let managed = Container {
             stack: Stack::deserialize(&mut data_iter, &windows)?,
-            layout: layout.copy()
+            layout
         };
 
         let unmanaged = Stack::deserialize(&mut data_iter, &windows)?;
@@ -67,14 +83,6 @@ impl Workspace {
             screen,
             visible,
         })
-    }
-
-    pub fn serialize(&self) -> String {
-        format!("{}:{}:{}:{}",
-                self.screen,
-                self.visible,
-                self.managed.stack.serialize(),
-                self.unmanaged.serialize())
     }
 
     pub fn all(&self) -> Vec<Window> {

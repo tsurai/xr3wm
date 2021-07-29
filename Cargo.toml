@@ -11,6 +11,9 @@ fern = "0.5.9"
 failure = "0.1.8"
 clap = "2.33.0"
 libloading = "0.5.2"
+typetag = "0.1"
+serde = "1.0"
+serde_cbor = "0.11"
 libc = "*"
 x11 = { version = "*", features = ["xlib", "xinerama"] }
 

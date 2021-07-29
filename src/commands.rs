@@ -12,7 +12,6 @@ use std::{env, thread};
 use std::ptr::null;
 use std::ffi::CString;
 use std::process::Command;
-use std::io::prelude::*;
 use std::path::Path;
 use std::fs::OpenOptions;
 use x11::xlib::Window;
@@ -25,7 +24,7 @@ pub enum Cmd {
     MoveToWorkspace(usize),
     MoveToScreen(usize),
     SendLayoutMsg(LayoutMsg),
-    NestLayout(Box<dyn Layout>),
+    NestLayout(Box<dyn Fn() -> Box<dyn Layout>>),
     Reload,
     Exit,
     KillClient,
@@ -71,9 +70,10 @@ impl Cmd {
                 workspaces.current_mut().send_layout_message(msg.clone());
                 workspaces.current().redraw(ws, config);
             }
-            Cmd::NestLayout(layout) => {
+            Cmd::NestLayout(layout_fn) => {
+                let layout = layout_fn();
                 debug!("Cmd::NestLayout: {}", layout.name());
-                workspaces.current_mut().add_container(layout.copy());
+                workspaces.current_mut().add_container(layout);
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
@@ -189,17 +189,16 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
 
     let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
 
-    // save current workspace state to load on restart
-    let mut file = OpenOptions::new()
+    // save current workspace states to restore on restart
+    let file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
         .open(&path)
         .context("failed to open workspace state tmp file")?;
-    file.write_all(workspaces.serialize().as_bytes())
-        .context("failed to save workspace state")?;
-    file.flush()
-        .context("failed to flush workspace tmp file")?;
+
+    serde_cbor::to_writer(file, &workspaces)
+        .context("failed to serialize workspace states")?;
 
     let mut args: Vec<*const libc::c_char> = env::args()
         .filter_map(|x| CString::new(x).ok())
