@@ -23,6 +23,7 @@ mod xlib_window_system;
 mod workspaces;
 mod workspace;
 mod container;
+mod statusbar;
 mod stack;
 mod layout;
 mod utils;

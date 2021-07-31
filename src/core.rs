@@ -19,7 +19,8 @@ pub mod core {
         pub use crate::layout::*;
     }
 
-    pub use crate::config::{Config, Statusbar, LogInfo};
+    pub use crate::config::{Config, LogInfo};
+    pub use crate::statusbar::Statusbar;
     pub use crate::workspace::WorkspaceConfig;
 }
 
@@ -30,5 +31,6 @@ mod workspace;
 mod commands;
 mod keycode;
 mod stack;
+mod statusbar;
 mod container;
 mod layout;
