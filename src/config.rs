@@ -17,6 +17,29 @@ use std::collections::HashMap;
 use libloading::{Library, Symbol};
 use failure::*;
 
+pub struct WorkspaceConfigList(Vec<WorkspaceConfig>);
+
+impl Default for WorkspaceConfigList {
+    fn default() -> WorkspaceConfigList {
+        (1usize..10)
+            .map(|idx| {
+                WorkspaceConfig {
+                    tag: idx.to_string(),
+                    screen: 0,
+                    layout: Strut::new(Tall::new(1, 0.5, 0.05)),
+                }
+            })
+            .collect::<Vec<WorkspaceConfig>>()
+            .into()
+    }
+}
+
+impl From<Vec<WorkspaceConfig>> for WorkspaceConfigList {
+    fn from(list: Vec<WorkspaceConfig>) -> Self {
+        WorkspaceConfigList(list)
+    }
+}
+
 pub struct WorkspaceInfo {
     pub id: usize,
     pub tag: String,
@@ -33,7 +56,6 @@ pub struct LogInfo {
 }
 
 pub struct Config {
-    pub workspaces: Vec<WorkspaceConfig>,
     pub mod_key: u8,
     pub border_width: u32,
     pub border_color: u32,
@@ -48,15 +70,6 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         let mut config = Config {
-            workspaces: (1usize..10)
-                .map(|idx| {
-                    WorkspaceConfig {
-                        tag: idx.to_string(),
-                        screen: 0,
-                        layout: Strut::new(Tall::new(1, 0.5, 0.05)),
-                    }
-                })
-                .collect(),
             mod_key: MOD_4,
             border_width: 2,
             border_color: 0x002e_2e2e,
@@ -291,20 +304,22 @@ crate-type = [\"dylib\"]")
         Ok(())
     }
 
-    pub fn load() -> Result<Config, Error> {
-        let mut cfg: Config = Default::default();
-
+    pub fn load() -> Result<(Config, Vec<WorkspaceConfig>), Error> {
         Config::compile()
             .context("failed to compile config")?;
 
         let lib: Library = ::libloading::os::unix::Library::open(Some(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so")), libc::RTLD_NOW | libc::RTLD_NODELETE)
             .context("failed to load libconfig")?.into();
 
-        let func: Symbol<extern fn(&mut Config)> = unsafe { lib.get(b"configure") }
+        let fn_configure_wm: Symbol<extern fn() -> Config> = unsafe { lib.get(b"configure_wm") }
             .context("failed to get symbol")?;
 
-        func(&mut cfg);
+        let fn_configure_ws: Symbol<extern fn() -> Vec<WorkspaceConfig>> = unsafe { lib.get(b"configure_workspaces") }
+            .context("failed to get symbol")?;
 
-        Ok(cfg)
+        let cfg_wm = fn_configure_wm();
+        let cfg_ws = fn_configure_ws();
+
+        Ok((cfg_wm, cfg_ws))
     }
 }

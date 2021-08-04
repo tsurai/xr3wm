@@ -83,7 +83,7 @@ fn run() -> Result<(), Error> {
     }
 
     info!("loading config");
-    let config = Config::load()
+    let (mut config, ws_cfg_list) = Config::load()
         .map_err(|e| {
             let error = utils::concat_error_chain(&e);
             utils::xmessage(&format!("failed to load config:\n{}", error))
@@ -96,20 +96,13 @@ fn run() -> Result<(), Error> {
     let xws = &XlibWindowSystem::new();
     xws.grab_modifier(config.mod_key);
 
-    let mut workspaces = Workspaces::new(config, xws)
+    let workspaces = Workspaces::new(ws_cfg_list, xws)
         .context("failed to create workspaces")?;
-
-    // TODO: temporary dirty hack to sidestep lifetime problems. This will be fixed in a follow up
-    // commit that refactores the config structures
-    let mut config = Config::load()
-        .context("failed to load config")?;
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
             .context("failed to start statusbar")?;
     }
-
-    workspaces.current_mut().show(xws, &config);
 
     info!("entering event loop");
     run_event_loop(config, xws, workspaces)

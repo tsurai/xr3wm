@@ -14,8 +14,9 @@ extern crate xr3wm;
 use std::default::Default;
 use xr3wm::core::*;
 
+
 #[no_mangle]
-pub extern fn configure(cfg: &mut Config) {
+pub extern fn configure(cfg: &mut Config, ws_cfg_list: &mut Vec<WorkspaceConfig>) {
 
 }").unwrap();
             }

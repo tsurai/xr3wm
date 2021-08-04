@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 use crate::container::Container;
-use crate::workspace::Workspace;
+use crate::workspace::{Workspace, WorkspaceConfig};
 use crate::xlib_window_system::XlibWindowSystem;
 use std::fs::{File, remove_file};
 use std::path::Path;
@@ -20,7 +20,7 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(config: Config, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
+    pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
         let restore_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
         if restore_file_path.exists() {
             let file = File::open(&restore_file_path)
@@ -44,7 +44,7 @@ impl Workspaces {
         let n_screens = xws.get_screen_infos().len();
 
         let mut workspaces = Workspaces {
-            list: config.workspaces
+            list: ws_cfg_list
                 .into_iter()
                 .map(|c| {
                     Workspace {
@@ -66,12 +66,6 @@ impl Workspaces {
                 }
             }
         }
-/*
-        for screen in 0..n_screens {
-            let ws = workspaces.list.iter_mut().find(|ws| ws.get_screen() == screen).unwrap();
-            ws.show(xws, &config);
-        }
-*/
 
         Ok(workspaces)
     }
