@@ -51,7 +51,7 @@ pub struct WorkspaceInfo {
 
 pub struct LogInfo {
     pub workspaces: Vec<WorkspaceInfo>,
-    pub layout_name: String,
+    pub layout_names: Vec<String>,
     pub window_title: String,
 }
 

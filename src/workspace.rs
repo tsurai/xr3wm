@@ -4,7 +4,6 @@ use crate::config::Config;
 use crate::layout::{Layout, Tall};
 use crate::layout::LayoutMsg;
 use crate::stack::Stack;
-use crate::container::Container;
 use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp;
 use x11::xlib::Window;
@@ -33,7 +32,7 @@ pub enum MoveOp {
 
 #[derive(Serialize, Deserialize)]
 pub struct Workspace {
-    pub(crate) managed: Container,
+    pub(crate) managed: Stack,
     pub(crate) unmanaged: Stack,
     pub(crate) tag: String,
     pub screen: usize,
@@ -43,8 +42,8 @@ pub struct Workspace {
 impl Default for Workspace {
     fn default() -> Self {
         Self {
-            managed: Container::new(Tall::new(1, 0.5, 0.05)),
-            unmanaged: Stack::new(),
+            managed: Stack::new(Some(Tall::new(1, 0.5, 0.05))),
+            unmanaged: Stack::new(None),
             tag: String::new(),
             screen: 0,
             visible: false,
@@ -53,7 +52,7 @@ impl Default for Workspace {
 }
 
 impl Workspace {
-    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, layout: Box<dyn Layout>, data: &str) -> Result<Workspace, Error> {
+    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, data: &str) -> Result<Workspace, Error> {
         let mut data_iter = data.split(':');
 
         // get a list of all windows from the Xerver used for filterint obsolete windows
@@ -69,11 +68,7 @@ impl Workspace {
             .parse::<bool>()
             .context("failed to parse workspace visibility value")?;
 
-        let managed = Container {
-            stack: Stack::deserialize(&mut data_iter, &windows)?,
-            layout
-        };
-
+        let managed = Stack::deserialize(&mut data_iter, &windows)?;
         let unmanaged = Stack::deserialize(&mut data_iter, &windows)?;
 
         Ok(Workspace {
@@ -86,7 +81,7 @@ impl Workspace {
     }
 
     pub fn all(&self) -> Vec<Window> {
-        self.unmanaged.all_windows().iter().chain(self.managed.stack.all_windows().iter()).copied().collect()
+        self.unmanaged.all_windows().iter().chain(self.managed.all_windows().iter()).copied().collect()
     }
 /*
     fn all_visible(&self) -> Vec<Window> {
@@ -94,15 +89,17 @@ impl Workspace {
     }
 */
     fn all_urgent(&self) -> Vec<Window> {
-        self.unmanaged.urgent.iter().chain(self.managed.stack.urgent.iter()).copied().collect()
+        self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
 
-    pub fn get_layout(&self) -> &dyn Layout {
-        &*self.managed.layout
+    pub fn get_layout(&self) -> Option<&dyn Layout> {
+        self.managed.layout.as_ref().map(|x| x.as_ref())
     }
 
     pub fn send_layout_message(&mut self, msg: LayoutMsg) {
-        self.managed.send_layout_msg(msg);
+        if let Some(layout) = self.managed.layout.as_mut() {
+            layout.send_msg(msg);
+        }
     }
 
     pub fn get_tag(&self) -> &str {
@@ -122,11 +119,11 @@ impl Workspace {
     }
 
     pub fn is_managed(&self, window: Window) -> bool {
-        self.managed.stack.contains(window)
+        self.managed.contains(window)
     }
 
     pub fn is_urgent(&self) -> bool {
-        self.managed.stack.is_urgent() || self.unmanaged.is_urgent()
+        self.managed.is_urgent() || self.unmanaged.is_urgent()
     }
 
     pub fn is_visible(&self) -> bool {
@@ -135,7 +132,7 @@ impl Workspace {
 
     pub fn focused_window(&self) -> Option<Window> {
         if self.unmanaged.focused_window().is_none() {
-            self.managed.stack.focused_window()
+            self.managed.focused_window()
         } else {
             self.unmanaged.focused_window()
         }
@@ -144,7 +141,7 @@ impl Workspace {
     pub fn add_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if !xws.is_window_floating(window) {
             debug!("Add Managed: {}", window);
-            self.managed.stack.add_window(window);
+            self.managed.add_window(window);
 
             if self.unmanaged.len() > 0 {
                 debug!("Restacking");
@@ -161,11 +158,17 @@ impl Workspace {
         }
     }
 
-    pub fn add_container(&mut self, layout: Box<dyn Layout>) {
-        if self.managed.stack.len() > 1 {
-            self.managed.stack.add_container(layout);
+    pub fn nest_layout(&mut self, layout: Box<dyn Layout>) {
+        if self.managed.len() > 1 {
+            self.managed.add_container(layout);
+        } else  if let Some(s) = self.managed.all_container_mut().first_mut() {
+            if s.len() < 1 {
+                s.layout = Some(layout);
+            } else {
+                self.managed.add_container(layout);
+            }
         } else {
-            self.managed.layout = layout;
+            self.managed.add_container(layout);
         }
     }
 
@@ -177,7 +180,7 @@ impl Workspace {
         } else if urgent {
             debug!("set urgent {}", window);
             if self.is_managed(window) {
-                self.managed.stack.urgent.push(window);
+                self.managed.urgent.push(window);
             } else {
                 self.unmanaged.urgent.push(window);
             }
@@ -197,14 +200,14 @@ impl Workspace {
                 self.unmanaged.urgent.remove(index - 1);
             }
         } else {
-            self.managed.stack.remove_urgent(window);
+            self.managed.remove_urgent(window);
         }
     }
 
     fn remove_managed(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         trace!("remove managed window: {}", window);
         xws.unmap_window(window);
-        self.managed.stack.remove(window);
+        self.managed.remove(window);
 
         if self.visible {
             self.redraw(xws, config);
@@ -227,7 +230,7 @@ impl Workspace {
     }
 
     pub fn remove_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if self.managed.stack.contains(window) {
+        if self.managed.contains(window) {
             debug!("Remove Managed: {}", window);
             self.remove_managed(xws, config, window);
         } else if self.unmanaged.contains(window) {
@@ -245,7 +248,7 @@ impl Workspace {
     }
 */
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if window == 0 || self.unmanaged.focused_window() == Some(window) || self.managed.stack.focused_window() == Some(window) {
+        if window == 0 || self.unmanaged.focused_window() == Some(window) || self.managed.focused_window() == Some(window) {
             return;
         }
 
@@ -254,7 +257,7 @@ impl Workspace {
         if self.unmanaged.contains(window) {
             self.unmanaged.focus_window(window);
         } else {
-            self.managed.stack.focus_window(window);
+            self.managed.focus_window(window);
         }
 
         xws.focus_window(window, config.border_focus_color);
@@ -268,14 +271,14 @@ impl Workspace {
     }
 
     pub fn move_parent_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        if self.managed.stack.move_parent_focus(op).is_some() {
+        if self.managed.move_parent_focus(op).is_some() {
             self.redraw(xws, config);
         }
     }
 
     // TODO: impl managed and unmanaged focus mode incl switching
     pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        if self.managed.stack.move_focus(op).is_some() {
+        if self.managed.move_focus(op).is_some() {
             self.redraw(xws, config);
         }
     }
@@ -288,7 +291,7 @@ impl Workspace {
             return;
         }
 
-        self.managed.stack.move_window(op);
+        self.managed.move_window(op);
         self.redraw(xws, config);
     }
 
@@ -300,7 +303,7 @@ impl Workspace {
             return;
         }
 
-        self.managed.stack.move_parent_window(op);
+        self.managed.move_parent_window(op);
         self.redraw(xws, config);
     }
 
@@ -332,7 +335,7 @@ impl Workspace {
     pub fn hide(&mut self, xws: &XlibWindowSystem) {
         self.visible = false;
 
-        for &w in self.managed.stack.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
+        for &w in self.managed.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
             xws.hide_window(w);
         }
 
@@ -349,7 +352,7 @@ impl Workspace {
         self.visible = true;
 
         self.redraw(xws, config);
-        for &w in self.managed.stack.all_windows().iter() {
+        for &w in self.managed.all_windows().iter() {
             xws.show_window(w);
         }
 

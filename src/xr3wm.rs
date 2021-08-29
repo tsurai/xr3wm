@@ -12,9 +12,7 @@ use failure::{ResultExt, Error, Fail};
 use config::Config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
-use xlib_window_system::XlibEvent::{XMapRequest, XConfigurationNotify, XConfigurationRequest,
-                                    XDestroy, XUnmapNotify, XPropertyNotify, XEnterNotify,
-                                    XFocusIn, XFocusOut, XKeyPress, XButtonPress};
+use xlib_window_system::XlibEvent::{XMapRequest, XConfigurationNotify, XConfigurationRequest, XDestroy, XUnmapNotify, XPropertyNotify, XEnterNotify, XFocusIn, XFocusOut, XKeyPress, XButtonPress};
 
 mod config;
 mod keycode;
@@ -22,7 +20,7 @@ mod commands;
 mod xlib_window_system;
 mod workspaces;
 mod workspace;
-mod container;
+//mod container;
 mod statusbar;
 mod stack;
 mod layout;

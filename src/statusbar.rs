@@ -50,7 +50,7 @@ impl Statusbar {
 
             format!("{} | {} | {}\n",
                     workspaces,
-                    info.layout_name,
+                    info.layout_names.join("/"),
                     info.window_title)
         }))
     }
@@ -78,6 +78,13 @@ impl Statusbar {
             return Ok(());
         }
 
+        let layout_names = workspaces
+            .current()
+            .managed
+            .layout_iter()
+            .map(|x| x.name())
+            .collect();
+
         let output = (self.fn_format)(LogInfo {
             workspaces: workspaces.all()
                 .iter()
@@ -93,7 +100,7 @@ impl Statusbar {
                     }
                 })
                 .collect(),
-            layout_name: workspaces.current().managed.get_layout_names(),
+            layout_names,
             window_title: ws.get_window_title(workspaces.current().focused_window().unwrap_or(0)),
         });
 

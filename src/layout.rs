@@ -277,7 +277,7 @@ impl Layout for Full {
                 if Some(i) != stack.focus {
                     match node {
                         Node::Window(w) => ws.lower_window(*w),
-                        Node::Container(c) => c.stack.all_windows().iter().for_each(|&w| ws.lower_window(w)),
+                        Node::Stack(s) => s.all_windows().iter().for_each(|&w| ws.lower_window(w)),
                     }
                 }
 

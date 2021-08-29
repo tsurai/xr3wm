@@ -1,6 +1,0 @@
-* new window in full layout is not on top
-
-* layout change doesnt target the right container
-* allow removal of container adding the windows back to its parent
-* focus new
-* deleting windows in nested container doesnt trigger a proper refocus

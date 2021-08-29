@@ -73,7 +73,7 @@ impl Cmd {
             Cmd::NestLayout(layout_fn) => {
                 let layout = layout_fn();
                 debug!("Cmd::NestLayout: {}", layout.name());
-                workspaces.current_mut().add_container(layout);
+                workspaces.current_mut().nest_layout(layout);
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");

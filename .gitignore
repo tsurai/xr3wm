@@ -5,6 +5,7 @@
 *.dll
 *.swp
 tags
+todo
 
 # Executables
 *.exe

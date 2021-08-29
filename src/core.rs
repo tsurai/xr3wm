@@ -32,5 +32,4 @@ mod commands;
 mod keycode;
 mod stack;
 mod statusbar;
-mod container;
 mod layout;

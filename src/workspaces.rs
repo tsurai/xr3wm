@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::config::Config;
-use crate::container::Container;
+use crate::stack::Stack;
 use crate::workspace::{Workspace, WorkspaceConfig};
 use crate::xlib_window_system::XlibWindowSystem;
 use std::fs::{File, remove_file};
@@ -50,7 +50,7 @@ impl Workspaces {
                     Workspace {
                         tag: c.tag.clone(),
                         screen: c.screen,
-                        managed: Container::new(c.layout),
+                        managed: Stack::new(Some(c.layout)),
                         ..Default::default()
                     }
                 })
