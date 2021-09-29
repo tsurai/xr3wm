@@ -15,7 +15,7 @@ use std::process::Command;
 use std::path::Path;
 use std::fs::OpenOptions;
 use x11::xlib::Window;
-use failure::*;
+use anyhow::{bail, Context, Result};
 
 pub enum Cmd {
     Exec(String),
@@ -43,7 +43,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) -> Result<(), Error> {
+    pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) -> Result<()> {
         match self {
             Cmd::Exec(ref cmd) => {
                 debug!("Cmd::Exec: {}", cmd);
@@ -167,7 +167,7 @@ impl Cmd {
     }
 }
 
-fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
+fn reload(workspaces: &mut Workspaces) -> Result<()> {
     info!("recompiling...");
 
     let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
@@ -182,7 +182,7 @@ fn reload(workspaces: &mut Workspaces) -> Result<(), Error> {
     if !output.status.success() {
         let stderr_msg = String::from_utf8(output.stderr)
             .context("failed to convert cargo stderr to UTF-8")?;
-        bail!(format_err!("failed to recompile: {}", stderr_msg))
+        bail!("failed to recompile: {}", stderr_msg)
     }
 
     debug!("Cmd::Reload: restarting xr3wm...");

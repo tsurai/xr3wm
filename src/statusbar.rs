@@ -5,7 +5,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::config::{LogInfo, WorkspaceInfo};
 use std::io::Write;
 use std::process::{Command, Child, Stdio};
-use failure::*;
+use anyhow::{anyhow, bail, Context, Result};
 
 pub struct Statusbar {
     child: Option<Child>,
@@ -55,7 +55,7 @@ impl Statusbar {
         }))
     }
 
-    pub fn start(&mut self) -> Result<(), Error> {
+    pub fn start(&mut self) -> Result<()> {
         if self.child.is_some() {
             bail!(format!("'{}' is already running", self.executable));
         }
@@ -73,7 +73,7 @@ impl Statusbar {
         Ok(())
     }
 
-    pub fn update(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> Result<(), Error> {
+    pub fn update(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> Result<()> {
         if self.child.is_none() {
             return Ok(());
         }
@@ -105,10 +105,10 @@ impl Statusbar {
         });
 
         let stdin = self.child.as_mut()
-            .ok_or_else(|| err_msg("failed to get statusbar process"))?
+            .ok_or_else(|| anyhow!("failed to get statusbar process"))?
             .stdin
             .as_mut()
-            .ok_or_else(|| err_msg("failed to get statusbar stdin"))?;
+            .ok_or_else(|| anyhow!("failed to get statusbar stdin"))?;
 
         stdin.write_all(output.as_bytes())
             .context("failed to write to statusbar stdin")?;

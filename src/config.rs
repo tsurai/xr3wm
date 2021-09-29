@@ -15,7 +15,7 @@ use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
 use libloading::{Library, Symbol};
-use failure::*;
+use anyhow::{bail, Context, Result};
 
 pub struct WorkspaceConfigList(Vec<WorkspaceConfig>);
 
@@ -263,7 +263,7 @@ impl Default for Config {
 }
 
 impl Config {
-    fn compile() -> Result<(), Error> {
+    fn compile() -> Result<()> {
         let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/.build"));
         if !dst.exists() {
             create_dir(dst)
@@ -304,7 +304,7 @@ crate-type = [\"dylib\"]")
         Ok(())
     }
 
-    pub fn load() -> Result<(Config, Vec<WorkspaceConfig>), Error> {
+    pub fn load() -> Result<(Config, Vec<WorkspaceConfig>)> {
         Config::compile()
             .context("failed to compile config")?;
 

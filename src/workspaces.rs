@@ -10,7 +10,7 @@ use std::default::Default;
 use std::cmp;
 use serde::{Serialize, Deserialize};
 use x11::xlib::Window;
-use failure::*;
+use anyhow::{Context, Result};
 
 #[derive(Serialize, Deserialize)]
 pub struct Workspaces {
@@ -20,7 +20,7 @@ pub struct Workspaces {
 }
 
 impl Workspaces {
-    pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<Workspaces, Error> {
+    pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<Workspaces> {
         let restore_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
         if restore_file_path.exists() {
             let file = File::open(&restore_file_path)

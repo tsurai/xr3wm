@@ -7,7 +7,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::layout::{Layout, Rect};
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
-use failure::{err_msg, Error, ResultExt};
+use anyhow::{anyhow, Context, Result};
 
 pub struct LayoutIter<'a> {
     stack: Option<&'a Stack>,
@@ -67,7 +67,7 @@ impl Stack {
             self.focus.unwrap_or(0))
     }
 
-    pub fn deserialize<'a, I: Iterator<Item=&'a str>>(data_iter: &mut I, windows: &[Window]) -> Result<Self, Error> {
+    pub fn deserialize<'a, I: Iterator<Item=&'a str>>(data_iter: &mut I, windows: &[Window]) -> Result<Self> {
         let nodes = data_iter.next()
             .map(|x| {
                 x.split(',')
@@ -80,7 +80,7 @@ impl Stack {
             .unwrap_or_else(Vec::new);
 
         let focus = data_iter.next()
-            .ok_or_else(|| err_msg("missing stack focus data"))?
+            .ok_or_else(|| anyhow!("missing stack focus data"))?
             .parse::<usize>()
             .map(|x| if nodes.is_empty() {
                 None
@@ -98,6 +98,11 @@ impl Stack {
 
     pub fn all(&self) -> Vec<&Node> {
         self.nodes.iter().collect()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.nodes.len()
     }
 
     fn windows_idx(&self) -> Vec<(usize, Window)> {
@@ -159,7 +164,7 @@ impl Stack {
     }
 
     pub fn focus_window(&mut self, window: Window) -> bool {
-        let idx = (0..self.nodes.len())
+        let idx = (0..self.len())
             .find(|i| match self.nodes.get_mut(*i) {
                 Some(Node::Window(w)) => *w == window,
                 Some(Node::Stack(s)) => s.focus_window(window),
@@ -179,8 +184,8 @@ impl Stack {
                 let idx = self.focus.unwrap_or(0);
 
                 self.focus = Some(match op {
-                    MoveOp::Down => (idx + 1) % self.nodes.len(),
-                    MoveOp::Up => (idx + self.nodes.len() - 1) % self.nodes.len(),
+                    MoveOp::Down => (idx + 1) % self.len(),
+                    MoveOp::Up => idx.checked_sub(1).unwrap_or_else(|| self.len() - 1),
                     MoveOp::Swap => 0,
                 });
                 self.focused_window()
@@ -199,18 +204,14 @@ impl Stack {
                 let idx = self.focus.unwrap_or(0);
 
                 self.focus = Some(match op {
-                    MoveOp::Down => (idx + 1) % self.nodes.len(),
-                    MoveOp::Up => (idx + self.nodes.len() - 1) % self.nodes.len(),
+                    MoveOp::Down => (idx + 1) % self.len(),
+                    MoveOp::Up => idx.checked_sub(1).unwrap_or_else(|| self.len() - 1),
                     MoveOp::Swap => 0,
                 });
                 self.focused_window()
             },
             None => None,
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.nodes.len()
     }
 
     pub fn contains(&self, window: Window) -> bool {

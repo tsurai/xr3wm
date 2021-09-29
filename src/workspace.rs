@@ -8,7 +8,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp;
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
-use failure::*;
+use anyhow::{anyhow, Context, Result};
 
 pub struct WorkspaceInfo {
     pub tags: String,
@@ -52,19 +52,19 @@ impl Default for Workspace {
 }
 
 impl Workspace {
-    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, data: &str) -> Result<Workspace, Error> {
+    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, data: &str) -> Result<Workspace> {
         let mut data_iter = data.split(':');
 
         // get a list of all windows from the Xerver used for filterint obsolete windows
         let windows = xws.get_windows();
 
         let screen = data_iter.next()
-            .ok_or_else(|| err_msg("missing workspace screen data"))?
+            .ok_or_else(|| anyhow!("missing workspace screen data"))?
             .parse::<usize>()
             .context("failed to parse workspace screen value")?;
 
         let visible = data_iter.next()
-            .ok_or_else(|| err_msg("missing workspace visibility data"))?
+            .ok_or_else(|| anyhow!("missing workspace visibility data"))?
             .parse::<bool>()
             .context("failed to parse workspace visibility value")?;
 

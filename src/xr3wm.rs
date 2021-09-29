@@ -1,14 +1,9 @@
 #[macro_use]
 extern crate log;
-extern crate fern;
-extern crate failure;
-extern crate clap;
-extern crate libloading;
-extern crate x11;
 
 use clap::{Arg, App, ArgMatches};
 use clap::AppSettings::*;
-use failure::{ResultExt, Error, Fail};
+use anyhow::{Context, Result};
 use config::Config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
@@ -41,7 +36,7 @@ fn process_cli<'a>() -> ArgMatches<'a> {
 }
 
 // initialization of the logging system
-fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
+fn init_logger(verbosity: u64, logfile: &str) -> Result<()> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!("[{}] {}", record.level(), message))
@@ -69,7 +64,7 @@ fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
         .map_err(|e| e.into())
 }
 
-fn run() -> Result<(), Error> {
+fn run() -> Result<()> {
     let matches = process_cli();
 
     let verbosity = matches.occurrences_of("verbose");
@@ -108,7 +103,7 @@ fn run() -> Result<(), Error> {
     run_event_loop(config, xws, workspaces)
 }
 
-fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<(), Error> {
+fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<()> {
     loop {
         match ws.get_event() {
             XMapRequest(window) => {
@@ -204,28 +199,19 @@ fn main() {
     // failure crate boilerplate
     if let Err(e) = run() {
         use std::io::Write;
+
         let mut stderr = std::io::stderr();
-        let got_logger = log_enabled!(log::Level::Error);
 
-        let mut fail: &dyn Fail = e.as_fail();
-        if got_logger {
-            error!("{}", fail);
+        if log_enabled!(log::Level::Error) {
+            error!("{}", e);
         } else {
-            writeln!(&mut stderr, "{}", fail).ok();
+            writeln!(stderr, "ERROR: {}", e).ok();
         }
 
-        while let Some(cause) = fail.cause() {
-            if got_logger {
-                error!("caused by: {}", cause);
-            } else {
-                writeln!(&mut stderr, "caused by: {}", cause).ok();
-            }
+        e.chain().skip(1)
+            .for_each(|cause| error!("because: {}", cause));
 
-            if let Some(bt) = cause.backtrace() {
-                error!("backtrace: {}", bt)
-            }
-            fail = cause;
-        }
+        error!("backtrace: {}", e.backtrace());
 
         stderr.flush().ok();
         ::std::process::exit(1);
