@@ -7,8 +7,8 @@ use crate::layout::{Layout, LayoutMsg};
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::workspaces::Workspaces;
 use crate::workspace::MoveOp;
-use self::libc::execvp;
-use std::{env, thread};
+use self::libc::execvpe;
+use std::{env, iter, thread};
 use std::ptr::null;
 use std::ffi::CString;
 use std::process::Command;
@@ -167,7 +167,7 @@ impl Cmd {
     }
 }
 
-fn reload(workspaces: &mut Workspaces) -> Result<()> {
+fn reload(workspaces: &Workspaces) -> Result<()> {
     info!("recompiling...");
 
     let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
@@ -200,14 +200,21 @@ fn reload(workspaces: &mut Workspaces) -> Result<()> {
     serde_json::to_writer(file, workspaces)
         .context("failed to serialize workspace states")?;
 
-    let mut args: Vec<*const libc::c_char> = env::args()
+
+    let args: Vec<*const libc::c_char> = env::args()
         .filter_map(|x| CString::new(x).ok())
         .map(|x| x.into_raw() as *const libc::c_char)
+        .chain(iter::once(null()))
         .collect();
-    args.push(null());
+
+    let envs: Vec<*const libc::c_char> = env::vars()
+        .filter_map(|(k,v)| CString::new(format!("{}={}", k, v)).ok())
+        .map(|x| x.into_raw() as *const libc::c_char)
+        .chain(iter::once(null()))
+        .collect();
 
     unsafe {
-        execvp(args[0] as *const libc::c_char, args.as_ptr());
+        execvpe(args[0] as *const libc::c_char, args.as_ptr(), envs.as_ptr());
         // execvp returns only if an error has occurred
         error!("failed to reload: {}", ::std::io::Error::last_os_error());
     }
