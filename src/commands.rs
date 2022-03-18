@@ -197,7 +197,7 @@ fn reload(workspaces: &mut Workspaces) -> Result<()> {
         .open(&path)
         .context("failed to open workspace state tmp file")?;
 
-    serde_cbor::to_writer(file, &workspaces)
+    serde_json::to_writer(file, workspaces)
         .context("failed to serialize workspace states")?;
 
     let mut args: Vec<*const libc::c_char> = env::args()

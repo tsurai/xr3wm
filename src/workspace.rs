@@ -8,7 +8,6 @@ use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp;
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
-use anyhow::{anyhow, Context, Result};
 
 pub struct WorkspaceInfo {
     pub tags: String,

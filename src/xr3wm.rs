@@ -15,7 +15,6 @@ mod commands;
 mod xlib_window_system;
 mod workspaces;
 mod workspace;
-//mod container;
 mod statusbar;
 mod stack;
 mod layout;
@@ -76,6 +75,7 @@ fn run() -> Result<()> {
     }
 
     info!("loading config");
+
     let (mut config, ws_cfg_list) = Config::load()
         .map_err(|e| {
             let error = utils::concat_error_chain(&e);

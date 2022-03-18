@@ -14,7 +14,7 @@ use std::path::Path;
 use std::fs::{File, create_dir};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
-use libloading::{Library, Symbol};
+use libloading::os::unix::{Library, Symbol};
 use anyhow::{bail, Context, Result};
 
 pub struct WorkspaceConfigList(Vec<WorkspaceConfig>);
@@ -305,21 +305,23 @@ crate-type = [\"dylib\"]")
     }
 
     pub fn load() -> Result<(Config, Vec<WorkspaceConfig>)> {
-        Config::compile()
-            .context("failed to compile config")?;
+        unsafe {
+            Config::compile()
+                .context("failed to compile config")?;
 
-        let lib: Library = ::libloading::os::unix::Library::open(Some(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so")), libc::RTLD_NOW | libc::RTLD_NODELETE)
-            .context("failed to load libconfig")?.into();
+            let lib: Library = Library::open(Some(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so")), libc::RTLD_NOW | libc::RTLD_NODELETE)
+                .context("failed to load libconfig")?;
 
-        let fn_configure_wm: Symbol<extern fn() -> Config> = unsafe { lib.get(b"configure_wm") }
-            .context("failed to get symbol")?;
+            let fn_configure_wm: Symbol<extern fn() -> Config> = lib.get(b"configure_wm")
+                .context("failed to get symbol")?;
 
-        let fn_configure_ws: Symbol<extern fn() -> Vec<WorkspaceConfig>> = unsafe { lib.get(b"configure_workspaces") }
-            .context("failed to get symbol")?;
+            let fn_configure_ws: Symbol<extern fn() -> Vec<WorkspaceConfig>> = lib.get(b"configure_workspaces")
+                .context("failed to get symbol")?;
 
-        let cfg_wm = fn_configure_wm();
-        let cfg_ws = fn_configure_ws();
+            let cfg_wm = fn_configure_wm();
+            let cfg_ws = fn_configure_ws();
 
-        Ok((cfg_wm, cfg_ws))
+            Ok((cfg_wm, cfg_ws))
+        }
     }
 }

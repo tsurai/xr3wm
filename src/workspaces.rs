@@ -27,7 +27,7 @@ impl Workspaces {
                 .context("failed to open workspace serialization file")?;
 
             debug!("loading previous workspace state");
-            let workspaces: Workspaces = serde_cbor::from_reader(file)
+            let workspaces: Workspaces = serde_json::from_reader(file)
                 .context("failed to deserialize workspace states")?;
 
             remove_file(restore_file_path).ok();
