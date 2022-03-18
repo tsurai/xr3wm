@@ -51,42 +51,10 @@ impl Default for Workspace {
 }
 
 impl Workspace {
-    pub fn deserialize(xws: &XlibWindowSystem, tag: &str, data: &str) -> Result<Workspace> {
-        let mut data_iter = data.split(':');
-
-        // get a list of all windows from the Xerver used for filterint obsolete windows
-        let windows = xws.get_windows();
-
-        let screen = data_iter.next()
-            .ok_or_else(|| anyhow!("missing workspace screen data"))?
-            .parse::<usize>()
-            .context("failed to parse workspace screen value")?;
-
-        let visible = data_iter.next()
-            .ok_or_else(|| anyhow!("missing workspace visibility data"))?
-            .parse::<bool>()
-            .context("failed to parse workspace visibility value")?;
-
-        let managed = Stack::deserialize(&mut data_iter, &windows)?;
-        let unmanaged = Stack::deserialize(&mut data_iter, &windows)?;
-
-        Ok(Workspace {
-            managed,
-            unmanaged,
-            tag: tag.to_string(),
-            screen,
-            visible,
-        })
-    }
-
     pub fn all(&self) -> Vec<Window> {
         self.unmanaged.all_windows().iter().chain(self.managed.all_windows().iter()).copied().collect()
     }
-/*
-    fn all_visible(&self) -> Vec<Window> {
-        self.unmanaged.visible.iter().chain(self.managed.stack.visible.iter()).copied().collect()
-    }
-*/
+
     fn all_urgent(&self) -> Vec<Window> {
         self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
