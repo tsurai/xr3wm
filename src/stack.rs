@@ -123,7 +123,7 @@ impl Stack {
     pub fn all_windows(&self) -> Vec<Window> {
         self.windows()
             .into_iter()
-            .chain(self.all_stacks().iter().map(|s| s.all_windows()).flatten())
+            .chain(self.all_stacks().iter().flat_map(|s| s.all_windows()))
             .collect()
     }
 

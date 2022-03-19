@@ -201,13 +201,13 @@ impl Default for Config {
                                 mods: 0,
                                 key: "v".to_string(),
                             },
-                            Cmd::NestLayout(Box::new(|| Vertical::new()))
+                            Cmd::NestLayout(Box::new(Vertical::new))
                         ),(
                             Keybinding {
                                 mods: 0,
                                 key: "b".to_string(),
                             },
-                            Cmd::NestLayout(Box::new(|| Horizontal::new()))
+                            Cmd::NestLayout(Box::new(Horizontal::new))
                         ),(
                             Keybinding {
                                 mods: MOD_SHIFT,
