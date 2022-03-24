@@ -90,6 +90,13 @@ impl Workspaces {
         &self.list
     }
 
+    pub fn all_visible(&self) -> Vec<&Workspace> {
+        self.list
+            .iter()
+            .filter(|ws| ws.is_visible())
+            .collect()
+    }
+
     pub fn get_index(&self) -> usize {
         self.cur
     }
@@ -249,5 +256,15 @@ impl Workspaces {
         let screen = self.list[self.cur].screen;
         self.list[self.cur].screen = self.list[dest].screen;
         self.list[dest].screen = screen;
+    }
+
+    pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
+        self.current().redraw(xws, config);
+    }
+
+    pub fn redraw_all(&self, xws: &XlibWindowSystem, config: &Config) {
+        self.all_visible()
+            .iter()
+            .for_each(|ws| ws.redraw(xws, config));
     }
 }

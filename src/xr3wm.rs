@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use config::Config;
 use workspaces::Workspaces;
 use xlib_window_system::XlibWindowSystem;
-use xlib_window_system::XlibEvent::{XMapRequest, XConfigurationNotify, XConfigurationRequest, XDestroy, XUnmapNotify, XPropertyNotify, XEnterNotify, XFocusIn, XFocusOut, XKeyPress, XButtonPress};
+use xlib_window_system::XlibEvent::*;
 
 mod config;
 mod keycode;
@@ -103,73 +103,80 @@ fn run() -> Result<()> {
     run_event_loop(config, xws, workspaces)
 }
 
-fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<()> {
+fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<()> {
     loop {
-        match ws.get_event() {
+        match xws.get_event() {
             XMapRequest(window) => {
                 debug!("XMapRequest: {}", window);
                 if !workspaces.contains(window) {
-                    let class = ws.get_class_name(window);
+                    let class = xws.get_class_name(window);
                     let mut is_hooked = false;
 
                     for hook in config.manage_hooks.iter() {
                         if hook.class_name == class {
                             is_hooked = true;
-                            hook.cmd.call(ws, &mut workspaces, &config, window);
+                            hook.cmd.call(xws, &mut workspaces, &config, window);
                         }
                     }
 
                     if !is_hooked {
-                        workspaces.add_window(None, ws, &config, window);
-                        workspaces.focus_window(ws, &config, window);
+                        workspaces.add_window(None, xws, &config, window);
+                        workspaces.focus_window(xws, &config, window);
                     }
+                }
+            }
+            XMapNotify(window) => {
+                if !workspaces.contains(window) &&
+                    xws.get_window_strut(window).is_some()
+                {
+                    workspaces.redraw_all(xws, &config);
                 }
             }
             XDestroy(window) => {
                 debug!("XDestroy: {}", window);
 
                 if workspaces.contains(window) {
-                    workspaces.remove_window(ws, &config, window);
+                    workspaces.remove_window(xws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
                 debug!("XUnmapNotify: {} {}", window, send);
 
                 if send && workspaces.contains(window) {
-                    workspaces.remove_window(ws, &config, window);
+                    workspaces.remove_window(xws, &config, window);
                 }
             }
             XPropertyNotify(window, atom, _) => {
-                if atom == ws.get_atom("WM_HINTS", false) {
+                if atom == xws.get_atom("WM_HINTS", false) {
                     if let Some(idx) = workspaces.find_window(window) {
                         workspaces.get_mut(idx)
-                            .set_urgency(ws.is_urgent(window), ws, &config, window);
+                            .set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
                 }
             }
             XConfigurationNotify(_) => {
-                workspaces.rescreen(ws, &config);
+                workspaces.rescreen(xws, &config);
             }
             XConfigurationRequest(window, changes, mask) => {
                 let unmanaged = workspaces.is_unmanaged(window) || !workspaces.contains(window);
-                ws.configure_window(window, changes, mask, unmanaged);
+                xws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window) => {
                 trace!("XEnterNotify: {}", window);
-                workspaces.focus_window(ws, &config, window);
+                workspaces.focus_window(xws, &config, window);
             }
             XFocusIn(window) => {
                 trace!("XFocusIn: {}", window);
-                workspaces.focus_window(ws, &config, window);
+                workspaces.focus_window(xws, &config, window);
             }
             XFocusOut(window) => {
                 trace!("XFocusOut: {}", window);
                 /*if workspaces.current().focused_window() == Some(window) {
-                    workspaces.current_mut().unfocus_window(ws, &config);
+                    workspaces.current_mut().unfocus_window(xws, &config);
                 }*/
             }
             XButtonPress(window) => {
-                workspaces.focus_window(ws, &config, window);
+                workspaces.focus_window(xws, &config, window);
             }
             XKeyPress(_, mods, key) => {
                 trace!("XKeyPress: {}, {}", mods, key);
@@ -177,7 +184,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
 
                 for (binding, cmd) in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        cmd.call(ws, &mut workspaces, &config)
+                        cmd.call(xws, &mut workspaces, &config)
                             .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }
@@ -187,7 +194,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
         }
 
         if let Some(ref mut statusbar) = config.statusbar {
-            if let Err(e) = statusbar.update(ws, &workspaces) {
+            if let Err(e) = statusbar.update(xws, &workspaces) {
                 error!("{}", e.context("failed to update statusbar"));
             }
         }

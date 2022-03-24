@@ -238,7 +238,7 @@ impl Layout for Strut {
             width: 0,
             height: 0,
         };
-        let strut = ws.get_strut(area);
+        let strut = ws.compute_struts(area);
 
         new_area.x = area.x + strut.0;
         new_area.width = area.width - (strut.0 + strut.1);

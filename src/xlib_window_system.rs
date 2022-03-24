@@ -34,6 +34,7 @@ pub struct XlibWindowSystem {
 
 pub enum XlibEvent {
     XMapRequest(Window),
+    XMapNotify(Window),
     XConfigurationNotify(Window),
     XConfigurationRequest(Window, WindowChanges, u32),
     XDestroy(Window),
@@ -176,13 +177,18 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_strut(&self, screen: Rect) -> Strut {
+    pub fn get_window_strut(&self, window: Window) -> Option<Vec<u64>> {
         let atom = self.get_atom("_NET_WM_STRUT_PARTIAL", true);
+        self.get_property(window, atom)
+    }
 
+    // TODO: cache result and split into computation and getter functions.
+    // Struts rarely change and dont have to be computed on every redraw (see strut layout)
+    pub fn compute_struts(&self, screen: Rect) -> Strut {
         self.get_windows()
             .iter()
             .filter_map(|&w| {
-                self.get_property(w, atom)
+                self.get_window_strut(w)
             })
             .filter(|x| {
                 let screen_x = u64::from(screen.x);
@@ -694,6 +700,10 @@ impl XlibWindowSystem {
                 self.request_window_events(evt.window);
 
                 XMapRequest(evt.window)
+            }
+            MapNotify => {
+                let evt: &XMapEvent = self.cast_event_to();
+                XMapNotify(evt.window)
             }
             ConfigureNotify => {
                 let evt: &XConfigureEvent = self.cast_event_to();
