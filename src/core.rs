@@ -22,7 +22,7 @@ pub mod core {
 
 mod xlib_window_system;
 mod config;
-mod workspaces;
+mod state;
 mod workspace;
 mod commands;
 mod keycode;

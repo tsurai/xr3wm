@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::config::Config;
 use crate::layout::{Layout, Tall};
 use crate::layout::LayoutMsg;
@@ -9,6 +7,7 @@ use std::cmp;
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
 
+#[allow(dead_code)]
 pub struct WorkspaceInfo {
     pub tags: String,
     pub layout: String,
@@ -57,10 +56,6 @@ impl Workspace {
 
     fn all_urgent(&self) -> Vec<Window> {
         self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
-    }
-
-    pub fn get_layout(&self) -> Option<&dyn Layout> {
-        self.managed.layout.as_ref().map(|x| x.as_ref())
     }
 
     pub fn send_layout_message(&mut self, msg: LayoutMsg) {
@@ -219,6 +214,7 @@ impl Workspace {
             return;
         }
 
+        self.remove_urgent_window(window);
         self.remove_window_highlight(xws, config);
 
         if self.unmanaged.contains(window) {
@@ -361,6 +357,10 @@ impl Workspace {
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 
-        self.focus(xws, config);
+        if let Some(window) = self.focused_window() {
+            xws.focus_window(window, config.border_focus_color);
+        }
+
+        //self.focus(xws, config);
     }
 }

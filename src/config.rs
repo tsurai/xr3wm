@@ -2,7 +2,7 @@
 
 use crate::keycode::*;
 use crate::workspace::WorkspaceConfig;
-use crate::workspaces::Workspaces;
+use crate::state::WmState;
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::commands::{Cmd, ManageHook};
 use crate::statusbar::Statusbar;

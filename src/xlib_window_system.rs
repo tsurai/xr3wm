@@ -182,6 +182,12 @@ impl XlibWindowSystem {
         self.get_property(window, atom)
     }
 
+    pub fn get_window_state(&self, window: Window) -> Option<u8> {
+        let atom = self.get_atom("WM_STATE", true);
+        self.get_property(window, atom)
+            .and_then(|x| x.first().map(|s| *s as u8))
+    }
+
     // TODO: cache result and split into computation and getter functions.
     // Struts rarely change and dont have to be computed on every redraw (see strut layout)
     pub fn compute_struts(&self, screen: Rect) -> Strut {

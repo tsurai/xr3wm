@@ -5,7 +5,7 @@ extern crate libc;
 use crate::config::Config;
 use crate::layout::{Layout, LayoutMsg};
 use crate::xlib_window_system::XlibWindowSystem;
-use crate::workspaces::Workspaces;
+use crate::state::WmState;
 use crate::workspace::MoveOp;
 use self::libc::execvpe;
 use std::{env, iter, thread};
@@ -43,7 +43,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn call(&self, ws: &XlibWindowSystem, workspaces: &mut Workspaces, config: &Config) -> Result<()> {
+    pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config) -> Result<()> {
         match self {
             Cmd::Exec(ref cmd) => {
                 debug!("Cmd::Exec: {}", cmd);
@@ -51,115 +51,115 @@ impl Cmd {
             }
             Cmd::SwitchWorkspace(index) => {
                 debug!("Cmd::SwitchWorkspace: {}", index);
-                workspaces.switch_to(ws, config, index - 1, true);
+                state.switch_to(xws, config, index - 1, true);
             }
             Cmd::SwitchScreen(screen) => {
                 debug!("Cmd::SwitchScreen: {}", screen);
-                workspaces.switch_to_screen(ws, config, screen - 1);
+                state.switch_to_screen(xws, config, screen - 1);
             }
             Cmd::MoveToWorkspace(index) => {
                 debug!("Cmd::MoveToWorkspace: {}", index);
-                workspaces.move_window_to(ws, config, index - 1);
+                state.move_window_to(xws, config, index - 1);
             }
             Cmd::MoveToScreen(screen) => {
                 debug!("Cmd::MoveToScreen: {}", screen);
-                workspaces.move_window_to_screen(ws, config, screen - 1);
+                state.move_window_to_screen(xws, config, screen - 1);
             }
             Cmd::SendLayoutMsg(ref msg) => {
                 debug!("Cmd::SendLayoutMsg::{:?}", msg);
-                workspaces.current_mut().send_layout_message(msg.clone());
-                workspaces.current().redraw(ws, config);
+                state.current_mut().send_layout_message(msg.clone());
+                state.current().redraw(xws, config);
             }
             Cmd::NestLayout(layout_fn) => {
                 let layout = layout_fn();
                 debug!("Cmd::NestLayout: {}", layout.name());
-                workspaces.current_mut().nest_layout(layout);
+                state.current_mut().nest_layout(layout);
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
-                reload(workspaces)
+                reload(state)
                     .context("failed to reload xr3wm")?;
             }
             Cmd::Exit => {
                 debug!("Cmd::Exit");
-                ws.close();
+                xws.close();
             }
             Cmd::KillClient => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::KillClient: {}", window);
-                    ws.kill_window(window);
+                    xws.kill_window(window);
                 }
             }
             Cmd::FocusUp => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusUp: {}", window);
-                    workspaces.current_mut().move_focus(ws, config, MoveOp::Up);
+                    state.current_mut().move_focus(xws, config, MoveOp::Up);
                 }
             }
             Cmd::FocusDown => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusDown: {}", window);
-                    workspaces.current_mut().move_focus(ws, config, MoveOp::Down);
+                    state.current_mut().move_focus(xws, config, MoveOp::Down);
                 }
             }
             Cmd::FocusMaster => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusMaster: {}", window);
-                    workspaces.current_mut().move_focus(ws, config, MoveOp::Swap);
+                    state.current_mut().move_focus(xws, config, MoveOp::Swap);
                 }
             }
             Cmd::FocusParentUp => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusParentUp: {}", window);
-                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Up);
+                    state.current_mut().move_parent_focus(xws, config, MoveOp::Up);
                 }
             }
             Cmd::FocusParentDown => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusParentDown: {}", window);
-                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Down);
+                    state.current_mut().move_parent_focus(xws, config, MoveOp::Down);
                 }
             }
             Cmd::FocusParentMaster => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::FocusParentMaster: {}", window);
-                    workspaces.current_mut().move_parent_focus(ws, config, MoveOp::Swap);
+                    state.current_mut().move_parent_focus(xws, config, MoveOp::Swap);
                 }
             }
             Cmd::SwapUp => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapUp: {}", window);
-                    workspaces.current_mut().move_window(ws, config, MoveOp::Up);
+                    state.current_mut().move_window(xws, config, MoveOp::Up);
                 }
             }
             Cmd::SwapDown => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapDown: {}", window);
-                    workspaces.current_mut().move_window(ws, config, MoveOp::Down);
+                    state.current_mut().move_window(xws, config, MoveOp::Down);
                 }
             }
             Cmd::SwapMaster => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapMaster: {}", window);
-                    workspaces.current_mut().move_window(ws, config, MoveOp::Swap);
+                    state.current_mut().move_window(xws, config, MoveOp::Swap);
                 }
             }
             Cmd::SwapParentUp => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapParentUp: {}", window);
-                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Up);
+                    state.current_mut().move_parent_window(xws, config, MoveOp::Up);
                 }
             }
             Cmd::SwapParentDown => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapParentDown: {}", window);
-                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Down);
+                    state.current_mut().move_parent_window(xws, config, MoveOp::Down);
                 }
             }
             Cmd::SwapParentMaster => {
-                if let Some(window) = workspaces.current().focused_window() {
+                if let Some(window) = state.current().focused_window() {
                     debug!("Cmd::SwapParentMaster: {}", window);
-                    workspaces.current_mut().move_parent_window(ws, config, MoveOp::Swap);
+                    state.current_mut().move_parent_window(xws, config, MoveOp::Swap);
                 }
             }
         }
@@ -167,7 +167,7 @@ impl Cmd {
     }
 }
 
-fn reload(workspaces: &Workspaces) -> Result<()> {
+fn reload(state: &WmState) -> Result<()> {
     info!("recompiling...");
 
     let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
@@ -197,9 +197,8 @@ fn reload(workspaces: &Workspaces) -> Result<()> {
         .open(&path)
         .context("failed to open workspace state tmp file")?;
 
-    serde_json::to_writer(file, workspaces)
+    serde_json::to_writer(file, state)
         .context("failed to serialize workspace states")?;
-
 
     let args: Vec<*const libc::c_char> = env::args()
         .filter_map(|x| CString::new(x).ok())
@@ -236,14 +235,14 @@ pub enum CmdManage {
 
 impl CmdManage {
     pub fn call(&self,
-                ws: &XlibWindowSystem,
-                workspaces: &mut Workspaces,
+                xws: &XlibWindowSystem,
+                state: &mut WmState,
                 config: &Config,
                 window: Window) {
         match *self {
             CmdManage::Move(index) => {
                 debug!("CmdManage::Move: {}, {}", window, index);
-                workspaces.add_window(Some(index - 1), ws, config, window);
+                state.add_window(Some(index - 1), xws, config, window);
             }
             CmdManage::Float => {
                 debug!("CmdManage::Float");

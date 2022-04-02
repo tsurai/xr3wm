@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::workspaces::Workspaces;
+use crate::state::WmState;
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::config::{LogInfo, WorkspaceInfo};
 use std::io::Write;
@@ -73,12 +73,12 @@ impl Statusbar {
         Ok(())
     }
 
-    pub fn update(&mut self, ws: &XlibWindowSystem, workspaces: &Workspaces) -> Result<()> {
+    pub fn update(&mut self, ws: &XlibWindowSystem, state: &WmState) -> Result<()> {
         if self.child.is_none() {
             return Ok(());
         }
 
-        let layout_names = workspaces
+        let layout_names = state
             .current()
             .managed
             .layout_iter()
@@ -86,22 +86,22 @@ impl Statusbar {
             .collect();
 
         let output = (self.fn_format)(LogInfo {
-            workspaces: workspaces.all()
+            workspaces: state.all()
                 .iter()
                 .enumerate()
                 .map(|(i, x)| {
                     WorkspaceInfo {
                         id: i,
                         tag: x.get_tag().to_string(),
-                        screen: 0,
-                        current: i == workspaces.get_index(),
+                        screen: x.get_screen(),
+                        current: i == state.get_index(),
                         visible: x.is_visible(),
                         urgent: x.is_urgent(),
                     }
                 })
                 .collect(),
             layout_names,
-            window_title: ws.get_window_title(workspaces.current().focused_window().unwrap_or(0)),
+            window_title: ws.get_window_title(state.current().focused_window().unwrap_or(0)),
         });
 
         let stdin = self.child.as_mut()

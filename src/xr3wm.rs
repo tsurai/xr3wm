@@ -5,7 +5,7 @@ use clap::{Arg, App, ArgMatches};
 use clap::AppSettings::*;
 use anyhow::{Context, Result};
 use config::Config;
-use workspaces::Workspaces;
+use state::WmState;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::*;
 
@@ -13,7 +13,7 @@ mod config;
 mod keycode;
 mod commands;
 mod xlib_window_system;
-mod workspaces;
+mod state;
 mod workspace;
 mod statusbar;
 mod stack;
@@ -89,10 +89,10 @@ fn run() -> Result<()> {
     let xws = &XlibWindowSystem::new();
     xws.grab_modifier(config.mod_key);
 
-    let mut workspaces = Workspaces::new(ws_cfg_list, xws)
-        .context("failed to create workspaces")?;
+    let mut state = WmState::new(ws_cfg_list, xws)
+        .context("failed to create initial wm state")?;
 
-    workspaces.current_mut().show(xws, &config);
+    state.current_mut().show(xws, &config);
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
@@ -100,28 +100,28 @@ fn run() -> Result<()> {
     }
 
     info!("entering event loop");
-    run_event_loop(config, xws, workspaces)
+    run_event_loop(config, xws, state)
 }
 
-fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<()> {
+fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState) -> Result<()> {
     loop {
         match xws.get_event() {
             XMapRequest(window) => {
                 debug!("XMapRequest: {}", window);
-                if !workspaces.contains(window) {
+                if !state.contains(window) {
                     let class = xws.get_class_name(window);
                     let mut is_hooked = false;
 
                     for hook in config.manage_hooks.iter() {
                         if hook.class_name == class {
                             is_hooked = true;
-                            hook.cmd.call(xws, &mut workspaces, &config, window);
+                            hook.cmd.call(xws, &mut state, &config, window);
                         }
                     }
 
                     if !is_hooked {
-                        workspaces.add_window(None, xws, &config, window);
-                        workspaces.focus_window(xws, &config, window);
+                        state.add_window(None, xws, &config, window);
+                        state.focus_window(xws, &config, window);
                     }
                 }
             }
@@ -134,68 +134,68 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Wo
 
                     if let Some(win_types) = xws.get_property(window, atom) {
                         if win_types.iter().any(|&x| x == dock_type) {
-                            workspaces.redraw_all(xws, &config);
+                            state.redraw(xws, &config);
                         }
                     }
                 }
             }
             XDestroy(window) => {
-                debug!("XDestroy: {}", window);
+                debug!("XDestroy: {:x}", window);
 
-                if workspaces.contains(window) {
-                    workspaces.remove_window(xws, &config, window);
+                if state.contains(window) {
+                    state.remove_window(xws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
                 debug!("XUnmapNotify: {} {}", window, send);
 
-                if send && workspaces.contains(window) {
-                    workspaces.remove_window(xws, &config, window);
+                if send && state.contains(window) {
+                    state.remove_window(xws, &config, window);
                 } else {
                     let atom = xws.get_atom("_NET_WM_WINDOW_TYPE", true);
                     let dock_type = xws.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
 
                     if let Some(win_types) = xws.get_property(window, atom) {
                         if win_types.iter().any(|&x| x == dock_type) {
-                            workspaces.redraw_all(xws, &config);
+                            state.redraw(xws, &config);
                         }
                     }
                 }
+
             }
             XPropertyNotify(window, atom, _) => {
                 if atom == xws.get_atom("WM_HINTS", false) {
-                    if let Some(idx) = workspaces.find_window(window) {
-                        workspaces.get_mut(idx)
-                            .unwrap()
-                            .set_urgency(xws.is_urgent(window), xws, &config, window);
+                    if let Some(ws) = state.get_parent_mut(window) {
+                        ws.set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
                 } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
-                    workspaces.redraw_all(xws, &config);
+                    state.redraw(xws, &config);
                 }
             }
-            XConfigurationNotify(_) => {
-                workspaces.rescreen(xws, &config);
+            XConfigureNotify(_) => {
+                debug!("XConfigurationNotify");
+                state.rescreen(xws, &config);
             }
-            XConfigurationRequest(window, changes, mask) => {
-                let unmanaged = workspaces.is_unmanaged(window) || !workspaces.contains(window);
+            XConfigureRequest(window, changes, mask) => {
+                let unmanaged = state.is_unmanaged(window) || !state.contains(window);
                 xws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window) => {
                 trace!("XEnterNotify: {}", window);
-                workspaces.focus_window(xws, &config, window);
+                state.focus_window(xws, &config, window);
             }
             XFocusIn(window) => {
                 trace!("XFocusIn: {}", window);
-                workspaces.focus_window(xws, &config, window);
+                state.focus_window(xws, &config, window);
             }
             XFocusOut(window) => {
                 trace!("XFocusOut: {}", window);
-                /*if workspaces.current().focused_window() == Some(window) {
-                    workspaces.current_mut().unfocus_window(xws, &config);
+                /*if ws.current().focused_window() == Some(window) {
+                    ws.current_mut().unfocus_window(xws, &config);
                 }*/
             }
             XButtonPress(window) => {
-                workspaces.focus_window(xws, &config, window);
+                state.focus_window(xws, &config, window);
             }
             XKeyPress(_, mods, key) => {
                 trace!("XKeyPress: {}, {}", mods, key);
@@ -203,7 +203,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Wo
 
                 for (binding, cmd) in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        cmd.call(xws, &mut workspaces, &config)
+                        cmd.call(xws, &mut state, &config)
                             .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }
@@ -213,7 +213,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Wo
         }
 
         if let Some(ref mut statusbar) = config.statusbar {
-            if let Err(e) = statusbar.update(xws, &workspaces) {
+            if let Err(e) = statusbar.update(xws, &state) {
                 error!("{}", e.context("failed to update statusbar"));
             }
         }
