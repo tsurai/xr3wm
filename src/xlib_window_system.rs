@@ -35,8 +35,8 @@ pub struct XlibWindowSystem {
 pub enum XlibEvent {
     XMapRequest(Window),
     XMapNotify(Window),
-    XConfigurationNotify(Window),
-    XConfigurationRequest(Window, WindowChanges, u32),
+    XConfigureNotify(Window),
+    XConfigureRequest(Window, WindowChanges, u32),
     XDestroy(Window),
     XUnmapNotify(Window, bool),
     XPropertyNotify(Window, u64, bool),
@@ -111,7 +111,7 @@ impl XlibWindowSystem {
                                 cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
     }
 
-    fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
+    pub fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
         unsafe {
             let mut ret_type: c_ulong = 0;
             let mut ret_format: c_int = 0;
@@ -703,12 +703,21 @@ impl XlibWindowSystem {
             }
             MapNotify => {
                 let evt: &XMapEvent = self.cast_event_to();
-                XMapNotify(evt.window)
+
+                let atom = self.get_atom("WM_STATE", false);
+                if self.get_property(evt.window, atom).is_none() {
+                    unsafe {
+                        XSelectInput(self.display, evt.window, PropertyChangeMask);
+                    }
+                    XMapNotify(evt.window)
+                } else {
+                    Ignored
+                }
             }
             ConfigureNotify => {
                 let evt: &XConfigureEvent = self.cast_event_to();
                 if evt.window == self.root {
-                    XConfigurationNotify(evt.window)
+                    XConfigureNotify(evt.window)
                 } else {
                     Ignored
                 }
@@ -724,7 +733,7 @@ impl XlibWindowSystem {
                     sibling: event.above as Window,
                     stack_mode: event.detail as u32,
                 };
-                XConfigurationRequest(event.window, changes, event.value_mask as u32)
+                XConfigureRequest(event.window, changes, event.value_mask as u32)
             }
             DestroyNotify => {
                 let evt: &XDestroyWindowEvent = self.cast_event_to();

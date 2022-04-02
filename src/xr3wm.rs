@@ -126,10 +126,17 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Wo
                 }
             }
             XMapNotify(window) => {
-                if !workspaces.contains(window) &&
-                    xws.get_window_strut(window).is_some()
+                debug!("XMapNotify: {:x}", window);
+                if xws.get_window_strut(window).is_some()
                 {
-                    workspaces.redraw_all(xws, &config);
+                    let atom = xws.get_atom("_NET_WM_WINDOW_TYPE", true);
+                    let dock_type = xws.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
+
+                    if let Some(win_types) = xws.get_property(window, atom) {
+                        if win_types.iter().any(|&x| x == dock_type) {
+                            workspaces.redraw_all(xws, &config);
+                        }
+                    }
                 }
             }
             XDestroy(window) => {
@@ -144,14 +151,26 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut workspaces: Wo
 
                 if send && workspaces.contains(window) {
                     workspaces.remove_window(xws, &config, window);
+                } else {
+                    let atom = xws.get_atom("_NET_WM_WINDOW_TYPE", true);
+                    let dock_type = xws.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
+
+                    if let Some(win_types) = xws.get_property(window, atom) {
+                        if win_types.iter().any(|&x| x == dock_type) {
+                            workspaces.redraw_all(xws, &config);
+                        }
+                    }
                 }
             }
             XPropertyNotify(window, atom, _) => {
                 if atom == xws.get_atom("WM_HINTS", false) {
                     if let Some(idx) = workspaces.find_window(window) {
                         workspaces.get_mut(idx)
+                            .unwrap()
                             .set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
+                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
+                    workspaces.redraw_all(xws, &config);
                 }
             }
             XConfigurationNotify(_) => {
