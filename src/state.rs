@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 #[derive(Serialize, Deserialize)]
 pub struct WmState {
     workspaces: Vec<Workspace>,
+    struts: Vec<Window>,
     cur: usize,
     screens: usize
 }
@@ -52,6 +53,7 @@ impl WmState {
                     }
                 })
                 .collect(),
+            struts: Vec::new(),
             cur: 0,
             screens: n_screens
         };
@@ -69,12 +71,6 @@ impl WmState {
 
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Workspace> {
         self.workspaces.get_mut(index)
-            /*
-        if index < self.workspaces.len() {
-            self.workspaces.get_mut(index).unwrap()
-        } else {
-            self.current_mut()
-        }*/
     }
 
     pub fn current(&self) -> &Workspace {
@@ -275,5 +271,23 @@ impl WmState {
         self.all_visible()
             .iter()
             .for_each(|ws| ws.redraw(xws, config));
+    }
+
+    pub fn add_strut(&mut self, window: Window) {
+        if !self.struts.contains(&window) {
+            self.struts.push(window);
+        }
+    }
+
+    pub fn try_remove_strut(&mut self, window: Window) -> bool {
+        if let Some((idx,_)) = self.struts.iter()
+            .enumerate()
+            .find(|(_,&x)| x == window)
+        {
+            self.struts.swap_remove(idx);
+            true
+        } else {
+            false
+        }
     }
 }

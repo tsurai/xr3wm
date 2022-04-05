@@ -107,7 +107,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
     loop {
         match xws.get_event() {
             XMapRequest(window) => {
-                debug!("XMapRequest: {}", window);
+                trace!("XMapRequest: {}", window);
                 if !state.contains(window) {
                     let class = xws.get_class_name(window);
                     let mut is_hooked = false;
@@ -126,57 +126,47 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XMapNotify(window) => {
-                debug!("XMapNotify: {:x}", window);
-                if xws.get_window_strut(window).is_some()
-                {
-                    let atom = xws.get_atom("_NET_WM_WINDOW_TYPE", true);
-                    let dock_type = xws.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
-
-                    if let Some(win_types) = xws.get_property(window, atom) {
-                        if win_types.iter().any(|&x| x == dock_type) {
-                            state.redraw(xws, &config);
-                        }
-                    }
+                trace!("XMapNotify: {:x}", window);
+                if xws.get_window_strut(window).is_some() {
+                    state.add_strut(window);
+                    state.redraw(xws, &config);
                 }
             }
             XDestroy(window) => {
-                debug!("XDestroy: {:x}", window);
-
+                trace!("XDestroy: {:x}", window);
                 if state.contains(window) {
                     state.remove_window(xws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
-                debug!("XUnmapNotify: {} {}", window, send);
-
+                trace!("XUnmapNotify: {} {}", window, send);
                 if send && state.contains(window) {
                     state.remove_window(xws, &config, window);
-                } else {
-                    let atom = xws.get_atom("_NET_WM_WINDOW_TYPE", true);
-                    let dock_type = xws.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
-
-                    if let Some(win_types) = xws.get_property(window, atom) {
-                        if win_types.iter().any(|&x| x == dock_type) {
-                            state.redraw(xws, &config);
-                        }
-                    }
+                } else if state.try_remove_strut(window) {
+                    state.redraw(xws, &config);
                 }
-
             }
-            XPropertyNotify(window, atom, _) => {
+            XPropertyNotify(window, atom, is_new_value) => {
                 if atom == xws.get_atom("WM_HINTS", false) {
                     if let Some(ws) = state.get_parent_mut(window) {
                         ws.set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
-                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
+                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) ||
+                          atom == xws.get_atom("_NET_WM_STRUT", true) {
+                    if is_new_value {
+                        state.add_strut(window);
+                    } else {
+                        state.try_remove_strut(window);
+                    }
                     state.redraw(xws, &config);
                 }
             }
             XConfigureNotify(_) => {
-                debug!("XConfigurationNotify");
+                trace!("XConfigurationNotify");
                 state.rescreen(xws, &config);
             }
             XConfigureRequest(window, changes, mask) => {
+                trace!("XConfigureRequest: {}", window);
                 let unmanaged = state.is_unmanaged(window) || !state.contains(window);
                 xws.configure_window(window, changes, mask, unmanaged);
             }

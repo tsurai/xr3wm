@@ -711,6 +711,8 @@ impl XlibWindowSystem {
                 let evt: &XMapEvent = self.cast_event_to();
 
                 let atom = self.get_atom("WM_STATE", false);
+
+                // only windows with override redirect dont have WM_STATE
                 if self.get_property(evt.window, atom).is_none() {
                     unsafe {
                         XSelectInput(self.display, evt.window, PropertyChangeMask);
