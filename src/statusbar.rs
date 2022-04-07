@@ -94,7 +94,7 @@ impl Statusbar {
                         id: i,
                         tag: x.get_tag().to_string(),
                         screen: x.get_screen(),
-                        current: i == state.get_index(),
+                        current: i == state.get_ws_index(),
                         visible: x.is_visible(),
                         urgent: x.is_urgent(),
                     }

@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::stack::Stack;
 use crate::workspace::{Workspace, WorkspaceConfig};
 use crate::xlib_window_system::XlibWindowSystem;
+use crate::ewmh;
 use std::fs::{File, remove_file};
 use std::path::Path;
 use std::default::Default;
@@ -92,7 +93,7 @@ impl WmState {
             .collect()
     }
 
-    pub fn get_index(&self) -> usize {
+    pub fn get_ws_index(&self) -> usize {
         self.cur
     }
 
@@ -114,7 +115,7 @@ impl WmState {
                 .and_then(|x| self.find_window(x));
 
             let workspace = parent
-                .or_else(|| index.or_else(|| Some(self.get_index())))
+                .or_else(|| index.or_else(|| Some(self.get_ws_index())))
                 .and_then(|idx| self.get_mut(idx))
                 .expect("valid workspace");
 
@@ -144,7 +145,7 @@ impl WmState {
             // implies that the target workspace is on another screen
             if self.workspaces[index].visible {
                 if config.greedy_view {
-                    self.switch_screens(index);
+                    self.switch_screens(xws, index);
                     self.workspaces[self.cur].show(xws, config);
                 } else if center_pointer {
                     self.workspaces[index].center_pointer(xws);
@@ -157,7 +158,11 @@ impl WmState {
 
             self.workspaces[self.cur].unfocus(xws, config);
             self.workspaces[index].focus(xws, config);
+
             self.cur = index;
+
+            ewmh::set_current_desktop(xws, index);
+            ewmh::set_desktop_viewport(xws, self.all());
         }
     }
 
@@ -172,11 +177,14 @@ impl WmState {
             .map(|(i, _)| i)
             .last();
 
-        if let Some(idx) = idx_workspace {
+        if let Some(index) = idx_workspace {
             self.workspaces[self.cur].unfocus(xws, config);
-            self.workspaces[idx].focus(xws, config);
-            self.workspaces[idx].center_pointer(xws);
-            self.cur = idx;
+            self.workspaces[index].focus(xws, config);
+
+            self.workspaces[index].center_pointer(xws);
+            self.cur = index;
+
+            ewmh::set_current_desktop(xws, index);
         }
     }
 
@@ -250,7 +258,7 @@ impl WmState {
             }
         }
 
-        //self.workspaces.iter_mut().find(|ws| ws.screen == 0).unwrap().show(xws, config);
+        ewmh::set_desktop_viewport(xws, self.all());
     }
 
     pub fn find_window(&self, window: Window) -> Option<usize> {
@@ -261,10 +269,12 @@ impl WmState {
         self.workspaces.iter_mut().find(|workspace| workspace.contains(window))
     }
 
-    fn switch_screens(&mut self, dest: usize) {
+    fn switch_screens(&mut self, xws: &XlibWindowSystem, dest: usize) {
         let screen = self.current().get_screen();
         self.workspaces[self.cur].screen = self.workspaces[dest].screen;
         self.workspaces[dest].screen = screen;
+
+        ewmh::set_desktop_viewport(xws, self.all());
     }
 
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {

@@ -5,6 +5,7 @@ extern crate libc;
 
 use crate::keycode::{MOD_2, MOD_LOCK};
 use crate::layout::Rect;
+use crate::ewmh;
 use std::cmp;
 use std::str;
 use std::env;
@@ -76,9 +77,6 @@ impl XlibWindowSystem {
             }
 
             let root = XDefaultRootWindow(display);
-            XSelectInput(display, root, 0x001A_0034);
-            XDefineCursor(display, root, XCreateFontCursor(display, 68));
-            XSetErrorHandler(Some(error_handler));
 
             XlibWindowSystem {
                 display,
@@ -88,10 +86,24 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn init(&self) {
+        unsafe {
+            XSelectInput(self.display, self.root, 0x001A_0034);
+            XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
+            XSetErrorHandler(Some(error_handler));
+        }
+
+        ewmh::init_ewmh(self, self.root);
+    }
+
     pub fn close(&self) {
         unsafe {
             XCloseDisplay(self.display);
         }
+    }
+
+    pub fn get_root_window(&self) -> Window {
+        self.root
     }
 
     pub fn setup_window(&self,
@@ -109,6 +121,12 @@ impl XlibWindowSystem {
                                 y,
                                 cmp::max(width as i32 - (2 * border_width as i32), 0) as u32,
                                 cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
+    }
+
+    pub fn create_hidden_window(&self) -> Window {
+        unsafe {
+            XCreateSimpleWindow(self.display, self.root, -1, -1, 1, 1, 0, 0, 0)
+        }
     }
 
     pub fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
@@ -338,6 +356,8 @@ impl XlibWindowSystem {
             self.set_window_border_color(window, color);
             XSync(self.display, 0);
         }
+
+        ewmh::set_active_window(self, window);
     }
 
     pub fn skip_enter_events(&self) {
@@ -701,9 +721,6 @@ impl XlibWindowSystem {
         match evt_type {
             MapRequest => {
                 let evt: &XMapRequestEvent = self.cast_event_to();
-
-                let atom = self.get_atom("WM_STATE", false);
-                self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
                 self.request_window_events(evt.window);
 
                 XMapRequest(evt.window)

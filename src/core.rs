@@ -29,3 +29,4 @@ mod keycode;
 mod stack;
 mod statusbar;
 mod layout;
+mod ewmh;

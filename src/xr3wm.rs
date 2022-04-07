@@ -9,16 +9,17 @@ use state::WmState;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::*;
 
-mod config;
-mod keycode;
 mod commands;
-mod xlib_window_system;
-mod state;
-mod workspace;
-mod statusbar;
-mod stack;
+mod config;
+mod ewmh;
+mod keycode;
 mod layout;
+mod stack;
+mod state;
+mod statusbar;
 mod utils;
+mod workspace;
+mod xlib_window_system;
 
 fn process_cli<'a>() -> ArgMatches<'a> {
     App::new("xr3wm")
@@ -87,6 +88,7 @@ fn run() -> Result<()> {
         .context("failed to load config")?;
 
     let xws = &XlibWindowSystem::new();
+    xws.init();
     xws.grab_modifier(config.mod_key);
 
     let mut state = WmState::new(ws_cfg_list, xws)
@@ -98,6 +100,11 @@ fn run() -> Result<()> {
         statusbar.start()
             .context("failed to start statusbar")?;
     }
+
+    ewmh::set_current_desktop(xws, state.get_ws_index());
+    ewmh::set_number_of_desktops(xws, state.workspace_count());
+    ewmh::set_desktop_names(xws, state.all().iter().map(|ws| ws.get_tag().to_owned()).collect());
+    ewmh::set_desktop_viewport(xws, state.all());
 
     info!("entering event loop");
     run_event_loop(config, xws, state)
