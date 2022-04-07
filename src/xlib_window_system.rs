@@ -152,7 +152,7 @@ impl XlibWindowSystem {
                             .unwrap()
                             .as_bytes_with_nul()
                             .as_ptr() as *mut i8,
-                        create as i32) as u64
+                        !create as i32) as u64
         }
     }
 
@@ -224,24 +224,27 @@ impl XlibWindowSystem {
             })
     }
 
-    fn change_property(&self,
+    pub fn change_property<T: Into<u64>, A: IntoAtom>(&self,
                        window: Window,
-                       property: u64,
-                       typ: u64,
+                       atom: &str,
+                       atom_type: A,
                        mode: c_int,
-                       dat: &mut [c_ulong]) {
+                       data: &[T])
+    {
         unsafe {
-            let ptr: *mut u8 = dat.as_mut_ptr() as *mut u8;
             XChangeProperty(self.display,
                             window,
-                            property as c_ulong,
-                            typ as c_ulong,
-                            32,
+                            self.get_atom(atom, true) as c_ulong,
+                            atom_type.into(self),
+                            // Xlib requires char for format 8, short for 16 and 32 for long
+                            // skipping over int32 for some reason
+                            std::cmp::min(32, std::mem::size_of::<T>() as i32 * 8),
                             mode,
-                            ptr,
-                            2);
+                            data.as_ptr().cast::<u8>(),
+                            data.len() as i32);
         }
     }
+
 
     pub fn configure_window(&self,
                             window: Window,
@@ -290,8 +293,7 @@ impl XlibWindowSystem {
 
     pub fn show_window(&self, window: Window) {
         unsafe {
-            let atom = self.get_atom("WM_STATE", false);
-            self.change_property(window, atom, atom, 0, &mut [1, 0]);
+            self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[1u64, 0]);
             XMapWindow(self.display, window);
         }
     }
@@ -302,8 +304,7 @@ impl XlibWindowSystem {
             XUnmapWindow(self.display, window);
             XSelectInput(self.display, window, 0x0042_0010);
 
-            let atom = self.get_atom("WM_STATE", false);
-            self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
+            self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[0u64, 0]);
         }
     }
 
@@ -801,5 +802,21 @@ impl XlibWindowSystem {
 impl Default for XlibWindowSystem {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub trait IntoAtom {
+    fn into(self, xws: &XlibWindowSystem) -> Atom;
+}
+
+impl IntoAtom for Atom {
+    fn into(self, _: &XlibWindowSystem) -> Atom {
+        self
+    }
+}
+
+impl IntoAtom for &str {
+    fn into(self, xws: &XlibWindowSystem) -> Atom {
+        xws.get_atom(self, true)
     }
 }

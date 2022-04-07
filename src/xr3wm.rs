@@ -151,8 +151,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                     if let Some(ws) = state.get_parent_mut(window) {
                         ws.set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
-                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) ||
-                          atom == xws.get_atom("_NET_WM_STRUT", true) {
+                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
                     if is_new_value {
                         state.add_strut(window);
                     } else {
