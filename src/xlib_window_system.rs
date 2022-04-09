@@ -129,7 +129,7 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
+    pub fn get_property<A: IntoAtom>(&self, window: Window, atom: A) -> Option<Vec<u64>> {
         unsafe {
             let mut ret_type: c_ulong = 0;
             let mut ret_format: c_int = 0;
@@ -139,7 +139,7 @@ impl XlibWindowSystem {
 
             if XGetWindowProperty(self.display,
                                   window,
-                                  property,
+                                  atom.into(self),
                                   0,
                                   0xFFFF_FFFF,
                                   0,
@@ -252,7 +252,7 @@ impl XlibWindowSystem {
         unsafe {
             XChangeProperty(self.display,
                             window,
-                            self.get_atom(atom, true) as c_ulong,
+                            self.get_atom(atom, true),
                             atom_type.into(self),
                             // Xlib requires char for format 8, short for 16 and 32 for long
                             // skipping over int32 for some reason

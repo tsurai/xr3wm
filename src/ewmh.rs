@@ -24,7 +24,7 @@ pub fn init_ewmh(xws: &XlibWindowSystem, root: Window) {
     xws.change_property(window, "_NET_SUPPORTING_WM_CHECK", XA_WINDOW, PropModeReplace, &[window]);
 
     let wm_name = CString::new("xr3wm").unwrap();
-    xws.change_property(window, "_NET_WM_NAME", XA_STRING, PropModeReplace, wm_name.as_bytes_with_nul());
+    xws.change_property(window, "_NET_WM_NAME", "UTF8_STREAM", PropModeReplace, wm_name.as_bytes_with_nul());
 }
 
 pub fn set_active_window(xws: &XlibWindowSystem, window: Window) {
@@ -52,10 +52,10 @@ pub fn set_desktop_names(xws: &XlibWindowSystem, names: Vec<String>) {
         .map(|x| x.into_bytes_with_nul())
         .collect();
 
-    xws.change_property(root, "_NET_DESKTOP_NAMES", XA_STRING, PropModeReplace, &names.as_slice().concat());
+    xws.change_property(root, "_NET_DESKTOP_NAMES", "UTF8_STRING", PropModeReplace, &names.as_slice().concat());
 }
 
-pub fn set_desktop_viewport(xws: &XlibWindowSystem, workspaces: &Vec<Workspace>) {
+pub fn set_desktop_viewport(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
     let root = xws.get_root_window();
     let screens = xws.get_screen_infos();
 
