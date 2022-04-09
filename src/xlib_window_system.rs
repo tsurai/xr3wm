@@ -721,17 +721,32 @@ impl XlibWindowSystem {
         match evt_type {
             MapRequest => {
                 let evt: &XMapRequestEvent = self.cast_event_to();
-                self.request_window_events(evt.window);
 
-                XMapRequest(evt.window)
+                // Some docks rely entirely on the EWMH window type and do not set redirect
+                // override to prevent the WM from reparenting it
+                let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
+                let is_dock = self.get_property(evt.window, "_NET_WM_WINDOW_TYPE")
+                    .map(|atoms| atoms.iter().any(|&a| a == dock_type))
+                    .unwrap_or(false);
+
+                if !is_dock {
+                    // map the dock but do not manage it any further
+                    unsafe {
+                        XMapWindow(self.display, evt.window);
+                    }
+
+                    Ignored
+                } else {
+                    self.request_window_events(evt.window);
+
+                    XMapRequest(evt.window)
+                }
             }
             MapNotify => {
                 let evt: &XMapEvent = self.cast_event_to();
 
-                let atom = self.get_atom("WM_STATE", false);
-
                 // only windows with override redirect dont have WM_STATE
-                if self.get_property(evt.window, atom).is_none() {
+                if self.get_property(evt.window, "WM_STATE").is_none() {
                     unsafe {
                         XSelectInput(self.display, evt.window, PropertyChangeMask);
                     }
