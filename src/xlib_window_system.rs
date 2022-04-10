@@ -91,6 +91,7 @@ impl XlibWindowSystem {
             XSelectInput(self.display, self.root, 0x001A_0034);
             XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
             XSetErrorHandler(Some(error_handler));
+            XSync(self.display, 0);
         }
 
         ewmh::init_ewmh(self, self.root);
@@ -371,15 +372,24 @@ impl XlibWindowSystem {
 
     fn has_protocol(&self, window: Window, protocol: &str) -> bool {
         unsafe {
-            let mut count = MaybeUninit::uninit();
-            let mut atoms = MaybeUninit::uninit();
+            let mut count: MaybeUninit<c_int> = MaybeUninit::uninit();
+            let mut atoms: MaybeUninit<*mut Atom> = MaybeUninit::uninit();
 
-            XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr());
-            let ret = from_raw_parts(atoms.assume_init() as *const c_ulong, count.assume_init() as usize)
-                .contains(&self.get_atom(protocol, false));
+            if XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr()) != 0 {
+                let atoms = atoms.assume_init();
+                let count = count.assume_init();
+                let protocol_atom = self.get_atom(protocol, true);
 
-            XFree(atoms.assume_init() as *mut c_void);
-            ret
+                if count != 0 {
+                    let ret = from_raw_parts(atoms, count as usize)
+                        .contains(&protocol_atom);
+
+                    XFree(atoms as *mut c_void);
+
+                    return ret
+                }
+            }
+            false
         }
     }
 
@@ -391,7 +401,7 @@ impl XlibWindowSystem {
         unsafe {
             if self.has_protocol(window, "WM_DELETE_WINDOW") {
                 let time = SystemTime::now().duration_since(UNIX_EPOCH)
-                    .map(|x| x.as_secs() as i32)
+                    .map(|x| x.as_secs() as u64)
                     .unwrap_or(0);
                 let delete_atom = self.get_atom("WM_DELETE_WINDOW", true);
 
@@ -403,17 +413,14 @@ impl XlibWindowSystem {
                     window,
                     message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
                     format: 32,
-                    data: ClientMessageData::from([delete_atom as i64,
-                           time as i64,
-                           0,
-                           0,
-                           0]),
+                    data: ClientMessageData::from([delete_atom as u64, time as u64, 0, 0, 0]),
                 };
 
                 let event_ptr: *mut XClientMessageEvent = &mut event;
-                let ret = XSendEvent(self.display, window, 0, 0, event_ptr as *mut XEvent);
+                XSendEvent(self.display, window, 0, NoEventMask, event_ptr as *mut XEvent);
             } else {
                 XKillClient(self.display, window);
+                XSync(self.display, 0);
             }
         }
     }
@@ -553,7 +560,7 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn is_window_floating(&self, window: Window) -> bool {
+    pub fn is_floating_window(&self, window: Window) -> bool {
         if self.transient_for(window).is_some() {
             return true;
         }
@@ -729,7 +736,7 @@ impl XlibWindowSystem {
                     .map(|atoms| atoms.iter().any(|&a| a == dock_type))
                     .unwrap_or(false);
 
-                if !is_dock {
+                if is_dock {
                     // map the dock but do not manage it any further
                     unsafe {
                         XMapWindow(self.display, evt.window);

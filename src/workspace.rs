@@ -101,7 +101,7 @@ impl Workspace {
     }
 
     pub fn add_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if !xws.is_window_floating(window) {
+        if !xws.is_floating_window(window) {
             debug!("Add Managed: {}", window);
             self.managed.add_window(window);
 
