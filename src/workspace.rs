@@ -235,27 +235,21 @@ impl Workspace {
     }
 
     pub fn move_window(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        let focused_window = self.focused_window();
-        trace!("move window: {:?}", focused_window);
+        if let Some(window) = self.focused_window() {
+            trace!("move window: {:?}", window);
 
-        if focused_window.is_none() {
-            return;
+            self.managed.move_window(op);
+            self.redraw(xws, config);
         }
-
-        self.managed.move_window(op);
-        self.redraw(xws, config);
     }
 
     pub fn move_parent_window(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        let focused_window = self.focused_window();
-        trace!("move parent window: {:?}", focused_window);
+        if let Some(window) = self.focused_window() {
+            trace!("move parent window: {:?}", window);
 
-        if focused_window.is_none() {
-            return;
+            self.managed.move_parent_window(op);
+            self.redraw(xws, config);
         }
-
-        self.managed.move_parent_window(op);
-        self.redraw(xws, config);
     }
 
 
@@ -345,10 +339,6 @@ impl Workspace {
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 
-        if let Some(window) = self.focused_window() {
-            xws.focus_window(window, config.border_focus_color);
-        }
-
-        //self.focus(xws, config);
+        self.focus(xws, config);
     }
 }
