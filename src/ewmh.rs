@@ -17,6 +17,7 @@ pub fn init_ewmh(xws: &XlibWindowSystem, root: Window) {
         xws.get_atom("_NET_CURRENT_DESKTOP", true),
         xws.get_atom("_NET_WM_STRUT_PARTIAL", true),
         xws.get_atom("_NET_ACTIVE_WINDOW", true),
+        xws.get_atom("_NET_CLIENT_LIST", true),
     ]);
 
     let window = xws.create_hidden_window();
@@ -71,4 +72,16 @@ pub fn set_desktop_viewport(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
         .concat();
 
     xws.change_property(root, "_NET_DESKTOP_VIEWPORT", XA_CARDINAL, PropModeReplace, &viewports);
+}
+
+pub fn set_client_list(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
+    let root = xws.get_root_window();
+
+    let clients: Vec<Window> = workspaces.iter()
+        .map(|ws| ws.all())
+        .collect::<Vec<Vec<Window>>>()
+        .as_slice()
+        .concat();
+
+    xws.change_property(root, "_NET_CLIENT_LIST", XA_WINDOW, PropModeReplace, &clients);
 }

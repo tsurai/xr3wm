@@ -122,6 +122,8 @@ impl WmState {
             if parent.is_some() {
                 workspace.focus_window(xws, config, window);
             }
+
+            ewmh::set_client_list(xws, &self.workspaces);
         }
     }
 
@@ -215,6 +217,7 @@ impl WmState {
             self.workspaces.get_mut(idx)
                 .expect("valid workspace")
                 .remove_window(xws, config, window);
+            ewmh::set_client_list(xws, &self.workspaces);
         }
     }
 /*
