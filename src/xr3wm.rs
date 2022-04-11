@@ -94,6 +94,7 @@ fn run() -> Result<()> {
     let mut state = WmState::new(ws_cfg_list, xws)
         .context("failed to create initial wm state")?;
 
+    state.rescreen(xws, &config);
     state.current_mut().show(xws, &config);
 
     if let Some(ref mut statusbar) = config.statusbar {

@@ -20,29 +20,24 @@ pub struct WmState {
 
 impl WmState {
     pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<WmState> {
-        let restore_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
-        if restore_file_path.exists() {
-            let file = File::open(&restore_file_path)
-                .context("failed to open wm state serialization file")?;
+        let state_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+        if state_file_path.exists() {
+            match WmState::from_file(state_file_path) {
+                Ok(state) => {
+                    state.all().iter().for_each(|workspace| {
+                        workspace.all().iter().for_each(|&window| {
+                            xws.request_window_events(window);
+                        })
+                    });
 
-            debug!("loading previous wm state");
-            let ws: WmState = serde_json::from_reader(file)
-                .context("failed to deserialize wm state")?;
-
-            remove_file(restore_file_path).ok();
-
-            ws.all().iter().for_each(|workspace| {
-                workspace.all().iter().for_each(|&window| {
-                    xws.request_window_events(window);
-                })
-            });
-
-            return Ok(ws);
+                    return Ok(state);
+                },
+                Err(e) => error!("failed to restore previous state: {}", e)
+            }
         }
 
-        let n_screens = xws.get_screen_infos().len();
-
-        let mut ws = WmState {
+        debug!("creating default WmState");
+        Ok(WmState {
             workspaces: ws_cfg_list
                 .into_iter()
                 .map(|c| {
@@ -56,16 +51,19 @@ impl WmState {
                 .collect(),
             struts: Vec::new(),
             cur: 0,
-            screens: n_screens
-        };
+            screens: xws.get_screen_infos().len()
+        })
+    }
 
-        for screen in 0..n_screens {
-            if !ws.workspaces.iter().any(|ws| ws.get_screen() == screen) {
-                if let Some(ws) = ws.workspaces.iter_mut().filter(|ws| ws.get_screen() == 0).nth(1) {
-                    ws.set_screen(screen);
-                }
-            }
-        }
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<WmState> {
+        let file = File::open(&path)
+            .context("failed to open wm state serialization file")?;
+
+        debug!("loading previous wm state");
+        let ws: WmState = serde_json::from_reader(file)
+            .context("failed to deserialize wm state")?;
+
+        remove_file(path).ok();
 
         Ok(ws)
     }

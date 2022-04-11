@@ -72,10 +72,6 @@ impl Workspace {
         self.screen
     }
 
-    pub fn set_screen(&mut self, screen: usize) {
-        self.screen = screen
-    }
-
     pub fn is_unmanaged(&self, window: Window) -> bool {
         self.unmanaged.contains(window)
     }
@@ -193,22 +189,14 @@ impl Workspace {
 
     pub fn remove_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if self.managed.contains(window) {
-            debug!("Remove Managed: {}", window);
+            trace!("Remove Managed: {}", window);
             self.remove_managed(xws, config, window);
         } else if self.unmanaged.contains(window) {
-            debug!("Remove Unmanaged: {}", window);
+            trace!("Remove Unmanaged: {}", window);
             self.remove_unmanaged(xws, config, window);
         }
     }
-/*
-    pub fn hide_window(&mut self, window: Window) {
-        if self.managed.stack.contains(window) {
-            self.managed.stack.hide(window);
-        } else {
-            self.unmanaged.hide(window);
-        }
-    }
-*/
+
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if window == 0 || self.unmanaged.focused_window() == Some(window) || self.managed.focused_window() == Some(window) {
             return;
