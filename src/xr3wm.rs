@@ -155,7 +155,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XPropertyNotify(window, atom, is_new_value) => {
-                if atom == xws.get_atom("WM_HINTS", false) {
+                if atom == xws.get_atom("WM_HINTS", true) {
                     if let Some(ws) = state.get_parent_mut(window) {
                         ws.set_urgency(xws.is_urgent(window), xws, &config, window);
                     }

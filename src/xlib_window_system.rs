@@ -621,13 +621,21 @@ impl XlibWindowSystem {
         }
     }
 
-    fn get_wm_hints(&self, window: Window) -> &XWMHints {
-        unsafe { &*XGetWMHints(self.display, window) }
+    pub fn get_wm_hints(&self, window: Window) -> Option<&XWMHints> {
+        unsafe {
+            let hints_ptr = XGetWMHints(self.display, window);
+            if !hints_ptr.is_null() {
+                Some(&*hints_ptr)
+            } else {
+                None
+            }
+        }
     }
 
     pub fn is_urgent(&self, window: Window) -> bool {
-        let hints = self.get_wm_hints(window);
-        hints.flags & XUrgencyHint != 0
+        self.get_wm_hints(window)
+            .map(|x| x.flags & XUrgencyHint != 0)
+            .unwrap_or(false)
     }
 
     pub fn get_class_name(&self, window: Window) -> String {

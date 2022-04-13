@@ -134,7 +134,6 @@ impl Workspace {
         if !urgent {
             debug!("unset urgent {}", window);
             self.remove_urgent_window(window);
-            self.redraw(xws, config);
         } else if urgent {
             debug!("set urgent {}", window);
             if self.is_managed(window) {
@@ -142,23 +141,13 @@ impl Workspace {
             } else {
                 self.unmanaged.urgent.push(window);
             }
-            self.redraw(xws, config);
         }
+        self.redraw(xws, config);
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
-        let res = self.unmanaged.urgent
-            .iter()
-            .enumerate()
-            .find(|&(_, &x)| x == window)
-            .map(|(i, _)| i);
-
-        if let Some(index) = res {
-            if index < self.unmanaged.urgent.len() {
-                self.unmanaged.urgent.remove(index - 1);
-            }
-        } else {
-            self.managed.remove_urgent(window);
+        if !self.managed.remove_urgent(window) {
+            self.unmanaged.remove_urgent(window);
         }
     }
 
