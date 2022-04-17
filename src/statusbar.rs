@@ -79,14 +79,14 @@ impl Statusbar {
         }
 
         let layout_names = state
-            .current()
+            .current_ws()
             .managed
             .layout_iter()
             .map(|x| x.name())
             .collect();
 
         let output = (self.fn_format)(LogInfo {
-            workspaces: state.all()
+            workspaces: state.all_ws()
                 .iter()
                 .enumerate()
                 .map(|(i, x)| {
@@ -101,7 +101,7 @@ impl Statusbar {
                 })
                 .collect(),
             layout_names,
-            window_title: ws.get_window_title(state.current().focused_window().unwrap_or(0)),
+            window_title: ws.get_window_title(state.current_ws().focused_window().unwrap_or(0)),
         });
 
         let stdin = self.child.as_mut()

@@ -638,20 +638,20 @@ impl XlibWindowSystem {
             .unwrap_or(false)
     }
 
-    pub fn get_class_name(&self, window: Window) -> String {
+    pub fn get_class_name(&self, window: Window) -> Option<String> {
         unsafe {
             let mut hint = MaybeUninit::uninit();
 
             if XGetClassHint(self.display, window, hint.as_mut_ptr()) != 0 {
                 let hint = hint.assume_init();
                 if !hint.res_class.is_null() {
-                    return match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
-                        Ok(s) => s.to_string(),
-                        Err(_) => String::new(),
-                    }
+                    let hint_cstr = CStr::from_ptr(hint.res_class);
+                    return str::from_utf8(hint_cstr.to_bytes())
+                        .map(|x| x.to_owned())
+                        .ok();
                 }
             }
-            String::new()
+            None
         }
     }
 

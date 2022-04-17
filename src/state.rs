@@ -24,7 +24,7 @@ impl WmState {
         if state_file_path.exists() {
             match WmState::from_file(state_file_path) {
                 Ok(state) => {
-                    state.all().iter().for_each(|workspace| {
+                    state.all_ws().iter().for_each(|workspace| {
                         workspace.all().iter().for_each(|&window| {
                             xws.request_window_events(window);
                         })
@@ -68,23 +68,23 @@ impl WmState {
         Ok(ws)
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut Workspace> {
+    pub fn get_ws_mut(&mut self, index: usize) -> Option<&mut Workspace> {
         self.workspaces.get_mut(index)
     }
 
-    pub fn current(&self) -> &Workspace {
+    pub fn current_ws(&self) -> &Workspace {
         self.workspaces.get(self.cur).unwrap()
     }
 
-    pub fn current_mut(&mut self) -> &mut Workspace {
+    pub fn current_ws_mut(&mut self) -> &mut Workspace {
         self.workspaces.get_mut(self.cur).unwrap()
     }
 
-    pub fn all(&self) -> &Vec<Workspace> {
+    pub fn all_ws(&self) -> &Vec<Workspace> {
         &self.workspaces
     }
 
-    pub fn all_visible(&self) -> Vec<&Workspace> {
+    pub fn all_visible_ws(&self) -> Vec<&Workspace> {
         self.workspaces
             .iter()
             .filter(|ws| ws.is_visible())
@@ -95,7 +95,7 @@ impl WmState {
         self.cur
     }
 
-    pub fn workspace_count(&self) -> usize {
+    pub fn ws_count(&self) -> usize {
         self.workspaces.len()
     }
 
@@ -114,7 +114,7 @@ impl WmState {
 
             let workspace = parent
                 .or_else(|| index.or_else(|| Some(self.get_ws_index())))
-                .and_then(|idx| self.get_mut(idx))
+                .and_then(|idx| self.get_ws_mut(idx))
                 .expect("valid workspace");
 
             workspace.add_window(xws, config, window);
@@ -130,12 +130,12 @@ impl WmState {
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if let Some(index) = self.find_window(window) {
             if self.cur != index {
-                self.get_mut(index)
+                self.get_ws_mut(index)
                     .expect("valid workspace")
                     .focus_window(xws, config, window);
                 self.switch_to(xws, config, index, false);
             } else {
-                self.current_mut().focus_window(xws, config, window);
+                self.current_ws_mut().focus_window(xws, config, window);
             }
         }
     }
@@ -162,7 +162,7 @@ impl WmState {
             self.cur = index;
 
             ewmh::set_current_desktop(xws, index);
-            ewmh::set_desktop_viewport(xws, self.all());
+            ewmh::set_desktop_viewport(xws, self.all_ws());
         }
     }
 
@@ -189,14 +189,14 @@ impl WmState {
     }
 
     pub fn move_window_to(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize) {
-        if index == self.cur || index >= self.workspace_count() {
+        if index == self.cur || index >= self.ws_count() {
             return;
         }
 
-        if let Some(window) = self.current().focused_window() {
+        if let Some(window) = self.current_ws().focused_window() {
             self.remove_window(xws, config, window);
 
-            if let Some(workspace) = self.get_mut(index) {
+            if let Some(workspace) = self.get_ws_mut(index) {
                 workspace.add_window(xws, config, window);
                 workspace.unfocus(xws, config);
             }
@@ -259,7 +259,7 @@ impl WmState {
             }
         }
 
-        ewmh::set_desktop_viewport(xws, self.all());
+        ewmh::set_desktop_viewport(xws, self.all_ws());
     }
 
     pub fn find_window(&self, window: Window) -> Option<usize> {
@@ -271,15 +271,15 @@ impl WmState {
     }
 
     fn switch_screens(&mut self, xws: &XlibWindowSystem, dest: usize) {
-        let screen = self.current().get_screen();
+        let screen = self.current_ws().get_screen();
         self.workspaces[self.cur].screen = self.workspaces[dest].screen;
         self.workspaces[dest].screen = screen;
 
-        ewmh::set_desktop_viewport(xws, self.all());
+        ewmh::set_desktop_viewport(xws, self.all_ws());
     }
 
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
-        self.all_visible()
+        self.all_visible_ws()
             .iter()
             .for_each(|ws| ws.redraw(xws, config));
     }

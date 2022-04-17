@@ -95,7 +95,7 @@ fn run() -> Result<()> {
         .context("failed to create initial wm state")?;
 
     state.rescreen(xws, &config);
-    state.current_mut().show(xws, &config);
+    state.current_ws_mut().show(xws, &config);
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
@@ -103,9 +103,9 @@ fn run() -> Result<()> {
     }
 
     ewmh::set_current_desktop(xws, state.get_ws_index());
-    ewmh::set_number_of_desktops(xws, state.workspace_count());
-    ewmh::set_desktop_names(xws, state.all().iter().map(|ws| ws.get_tag().to_owned()).collect());
-    ewmh::set_desktop_viewport(xws, state.all());
+    ewmh::set_number_of_desktops(xws, state.ws_count());
+    ewmh::set_desktop_names(xws, state.all_ws().iter().map(|ws| ws.get_tag().to_owned()).collect());
+    ewmh::set_desktop_viewport(xws, state.all_ws());
 
     info!("entering event loop");
     run_event_loop(config, xws, state)
@@ -117,20 +117,20 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
             XMapRequest(window) => {
                 trace!("XMapRequest: {}", window);
                 if !state.contains(window) {
-                    let class = xws.get_class_name(window);
                     let mut is_hooked = false;
-
-                    for hook in config.manage_hooks.iter() {
-                        if hook.class_name == class {
-                            is_hooked = true;
-                            hook.cmd.call(xws, &mut state, &config, window);
+                    if let Some(class) = xws.get_class_name(window) {
+                        for hook in config.manage_hooks.iter() {
+                            if hook.class_name == class {
+                                hook.cmd.call(xws, &mut state, &config, window);
+                                is_hooked = true;
+                            }
                         }
                     }
 
                     if !is_hooked {
                         state.add_window(None, xws, &config, window);
-                        state.focus_window(xws, &config, window);
                     }
+                    state.focus_window(xws, &config, window);
                 }
             }
             XMapNotify(window) => {
