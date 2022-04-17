@@ -5,6 +5,7 @@ extern crate libc;
 
 use crate::keycode::{MOD_2, MOD_LOCK};
 use crate::layout::Rect;
+use crate::ewmh;
 use std::cmp;
 use std::str;
 use std::env;
@@ -34,12 +35,14 @@ pub struct XlibWindowSystem {
 
 pub enum XlibEvent {
     XMapRequest(Window),
-    XConfigurationNotify(Window),
-    XConfigurationRequest(Window, WindowChanges, u32),
+    XMapNotify(Window),
+    XConfigureNotify(Window),
+    XConfigureRequest(Window, WindowChanges, u32),
     XDestroy(Window),
     XUnmapNotify(Window, bool),
     XPropertyNotify(Window, u64, bool),
     XEnterNotify(Window),
+    XFocusIn(Window),
     XFocusOut(Window),
     XKeyPress(Window, u8, String),
     XButtonPress(Window),
@@ -74,9 +77,6 @@ impl XlibWindowSystem {
             }
 
             let root = XDefaultRootWindow(display);
-            XSelectInput(display, root, 0x001A_0034);
-            XDefineCursor(display, root, XCreateFontCursor(display, 68));
-            XSetErrorHandler(Some(error_handler));
 
             XlibWindowSystem {
                 display,
@@ -86,10 +86,25 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn init(&self) {
+        unsafe {
+            XSelectInput(self.display, self.root, 0x001A_0034);
+            XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
+            XSetErrorHandler(Some(error_handler));
+            XSync(self.display, 0);
+        }
+
+        ewmh::init_ewmh(self, self.root);
+    }
+
     pub fn close(&self) {
         unsafe {
             XCloseDisplay(self.display);
         }
+    }
+
+    pub fn get_root_window(&self) -> Window {
+        self.root
     }
 
     pub fn setup_window(&self,
@@ -109,7 +124,13 @@ impl XlibWindowSystem {
                                 cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
     }
 
-    fn get_property(&self, window: Window, property: u64) -> Option<Vec<u64>> {
+    pub fn create_hidden_window(&self) -> Window {
+        unsafe {
+            XCreateSimpleWindow(self.display, self.root, -1, -1, 1, 1, 0, 0, 0)
+        }
+    }
+
+    pub fn get_property<A: IntoAtom>(&self, window: Window, atom: A) -> Option<Vec<u64>> {
         unsafe {
             let mut ret_type: c_ulong = 0;
             let mut ret_format: c_int = 0;
@@ -119,7 +140,7 @@ impl XlibWindowSystem {
 
             if XGetWindowProperty(self.display,
                                   window,
-                                  property,
+                                  atom.into(self),
                                   0,
                                   0xFFFF_FFFF,
                                   0,
@@ -150,7 +171,7 @@ impl XlibWindowSystem {
                             .unwrap()
                             .as_bytes_with_nul()
                             .as_ptr() as *mut i8,
-                        create as i32) as u64
+                        !create as i32) as u64
         }
     }
 
@@ -175,13 +196,24 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_strut(&self, screen: Rect) -> Strut {
+    pub fn get_window_strut(&self, window: Window) -> Option<Vec<u64>> {
         let atom = self.get_atom("_NET_WM_STRUT_PARTIAL", true);
+        self.get_property(window, atom)
+    }
 
+    pub fn get_window_state(&self, window: Window) -> Option<u8> {
+        let atom = self.get_atom("WM_STATE", true);
+        self.get_property(window, atom)
+            .and_then(|x| x.first().map(|s| *s as u8))
+    }
+
+    // TODO: cache result and split into computation and getter functions.
+    // Struts rarely change and dont have to be computed on every redraw (see strut layout)
+    pub fn compute_struts(&self, screen: Rect) -> Strut {
         self.get_windows()
             .iter()
             .filter_map(|&w| {
-                self.get_property(w, atom)
+                self.get_window_strut(w)
             })
             .filter(|x| {
                 let screen_x = u64::from(screen.x);
@@ -211,24 +243,27 @@ impl XlibWindowSystem {
             })
     }
 
-    fn change_property(&self,
+    pub fn change_property<T: Into<u64>, A: IntoAtom>(&self,
                        window: Window,
-                       property: u64,
-                       typ: u64,
+                       atom: &str,
+                       atom_type: A,
                        mode: c_int,
-                       dat: &mut [c_ulong]) {
+                       data: &[T])
+    {
         unsafe {
-            let ptr: *mut u8 = dat.as_mut_ptr() as *mut u8;
             XChangeProperty(self.display,
                             window,
-                            property as c_ulong,
-                            typ as c_ulong,
-                            32,
+                            self.get_atom(atom, true),
+                            atom_type.into(self),
+                            // Xlib requires char for format 8, short for 16 and 32 for long
+                            // skipping over int32 for some reason
+                            std::cmp::min(32, std::mem::size_of::<T>() as i32 * 8),
                             mode,
-                            ptr,
-                            2);
+                            data.as_ptr().cast::<u8>(),
+                            data.len() as i32);
         }
     }
+
 
     pub fn configure_window(&self,
                             window: Window,
@@ -277,8 +312,7 @@ impl XlibWindowSystem {
 
     pub fn show_window(&self, window: Window) {
         unsafe {
-            let atom = self.get_atom("WM_STATE", false);
-            self.change_property(window, atom, atom, 0, &mut [1, 0]);
+            self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[1u64, 0]);
             XMapWindow(self.display, window);
         }
     }
@@ -289,8 +323,7 @@ impl XlibWindowSystem {
             XUnmapWindow(self.display, window);
             XSelectInput(self.display, window, 0x0042_0010);
 
-            let atom = self.get_atom("WM_STATE", false);
-            self.change_property(window as u64, atom, atom, 0, &mut [3, 0]);
+            self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[0u64, 0]);
         }
     }
 
@@ -324,6 +357,8 @@ impl XlibWindowSystem {
             self.set_window_border_color(window, color);
             XSync(self.display, 0);
         }
+
+        ewmh::set_active_window(self, window);
     }
 
     pub fn skip_enter_events(&self) {
@@ -337,15 +372,24 @@ impl XlibWindowSystem {
 
     fn has_protocol(&self, window: Window, protocol: &str) -> bool {
         unsafe {
-            let mut count = MaybeUninit::uninit();
-            let mut atoms = MaybeUninit::uninit();
+            let mut count: MaybeUninit<c_int> = MaybeUninit::uninit();
+            let mut atoms: MaybeUninit<*mut Atom> = MaybeUninit::uninit();
 
-            XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr());
-            let ret = from_raw_parts(atoms.assume_init() as *const c_ulong, count.assume_init() as usize)
-                .contains(&self.get_atom(protocol, false));
+            if XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr()) != 0 {
+                let atoms = atoms.assume_init();
+                let count = count.assume_init();
+                let protocol_atom = self.get_atom(protocol, true);
 
-            XFree(atoms.assume_init() as *mut c_void);
-            ret
+                if count != 0 {
+                    let ret = from_raw_parts(atoms, count as usize)
+                        .contains(&protocol_atom);
+
+                    XFree(atoms as *mut c_void);
+
+                    return ret
+                }
+            }
+            false
         }
     }
 
@@ -357,7 +401,7 @@ impl XlibWindowSystem {
         unsafe {
             if self.has_protocol(window, "WM_DELETE_WINDOW") {
                 let time = SystemTime::now().duration_since(UNIX_EPOCH)
-                    .map(|x| x.as_secs() as i32)
+                    .map(|x| x.as_secs() as u64)
                     .unwrap_or(0);
                 let delete_atom = self.get_atom("WM_DELETE_WINDOW", true);
 
@@ -369,26 +413,20 @@ impl XlibWindowSystem {
                     window,
                     message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
                     format: 32,
-                    data: ClientMessageData::from([delete_atom as i64,
-                           time as i64,
-                           0,
-                           0,
-                           0]),
+                    data: ClientMessageData::from([delete_atom as u64, time as u64, 0, 0, 0]),
                 };
 
                 let event_ptr: *mut XClientMessageEvent = &mut event;
-                let ret = XSendEvent(self.display, window, 0, 0, event_ptr as *mut XEvent);
+                XSendEvent(self.display, window, 0, NoEventMask, event_ptr as *mut XEvent);
             } else {
                 XKillClient(self.display, window);
+                XSync(self.display, 0);
             }
         }
     }
 
     pub fn restack_windows(&self, mut windows: Vec<Window>) {
         unsafe {
-            for w in windows.iter() {
-                debug!("{}", w);
-            }
             XRestackWindows(self.display,
                             (&mut windows[..]).as_mut_ptr(),
                             windows.len() as i32);
@@ -522,7 +560,7 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn is_window_floating(&self, window: Window) -> bool {
+    pub fn is_floating_window(&self, window: Window) -> bool {
         if self.transient_for(window).is_some() {
             return true;
         }
@@ -583,29 +621,37 @@ impl XlibWindowSystem {
         }
     }
 
-    fn get_wm_hints(&self, window: Window) -> &XWMHints {
-        unsafe { &*XGetWMHints(self.display, window) }
+    pub fn get_wm_hints(&self, window: Window) -> Option<&XWMHints> {
+        unsafe {
+            let hints_ptr = XGetWMHints(self.display, window);
+            if !hints_ptr.is_null() {
+                Some(&*hints_ptr)
+            } else {
+                None
+            }
+        }
     }
 
     pub fn is_urgent(&self, window: Window) -> bool {
-        let hints = self.get_wm_hints(window);
-        hints.flags & XUrgencyHint != 0
+        self.get_wm_hints(window)
+            .map(|x| x.flags & XUrgencyHint != 0)
+            .unwrap_or(false)
     }
 
-    pub fn get_class_name(&self, window: Window) -> String {
+    pub fn get_class_name(&self, window: Window) -> Option<String> {
         unsafe {
             let mut hint = MaybeUninit::uninit();
 
             if XGetClassHint(self.display, window, hint.as_mut_ptr()) != 0 {
                 let hint = hint.assume_init();
                 if !hint.res_class.is_null() {
-                    return match str::from_utf8(CStr::from_ptr(hint.res_class).to_bytes()) {
-                        Ok(s) => s.to_string(),
-                        Err(_) => String::new(),
-                    }
+                    let hint_cstr = CStr::from_ptr(hint.res_class);
+                    return str::from_utf8(hint_cstr.to_bytes())
+                        .map(|x| x.to_owned())
+                        .ok();
                 }
             }
-            String::new()
+            None
         }
     }
 
@@ -670,6 +716,13 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn request_window_events(&self, window: Window) {
+        unsafe {
+            self.grab_button(window);
+            XSelectInput(self.display, window, 0x0042_0010);
+        }
+    }
+
     fn cast_event_to<T>(&self) -> &T {
         unsafe { &*(self.event as *const T) }
     }
@@ -684,19 +737,43 @@ impl XlibWindowSystem {
             MapRequest => {
                 let evt: &XMapRequestEvent = self.cast_event_to();
 
-                unsafe {
-                    let atom = self.get_atom("WM_STATE", false);
-                    self.change_property(evt.window as u64, atom, atom, 0, &mut [1, 0]);
-                    self.grab_button(evt.window);
-                    XSelectInput(self.display, evt.window, 0x0042_0010);
-                }
+                // Some docks rely entirely on the EWMH window type and do not set redirect
+                // override to prevent the WM from reparenting it
+                let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
+                let is_dock = self.get_property(evt.window, "_NET_WM_WINDOW_TYPE")
+                    .map(|atoms| atoms.iter().any(|&a| a == dock_type))
+                    .unwrap_or(false);
 
-                XMapRequest(evt.window)
+                if is_dock {
+                    // map the dock but do not manage it any further
+                    unsafe {
+                        XMapWindow(self.display, evt.window);
+                    }
+
+                    Ignored
+                } else {
+                    self.request_window_events(evt.window);
+
+                    XMapRequest(evt.window)
+                }
+            }
+            MapNotify => {
+                let evt: &XMapEvent = self.cast_event_to();
+
+                // only windows with override redirect dont have WM_STATE
+                if self.get_property(evt.window, "WM_STATE").is_none() {
+                    unsafe {
+                        XSelectInput(self.display, evt.window, PropertyChangeMask);
+                    }
+                    XMapNotify(evt.window)
+                } else {
+                    Ignored
+                }
             }
             ConfigureNotify => {
                 let evt: &XConfigureEvent = self.cast_event_to();
                 if evt.window == self.root {
-                    XConfigurationNotify(evt.window)
+                    XConfigureNotify(evt.window)
                 } else {
                     Ignored
                 }
@@ -712,7 +789,7 @@ impl XlibWindowSystem {
                     sibling: event.above as Window,
                     stack_mode: event.detail as u32,
                 };
-                XConfigurationRequest(event.window, changes, event.value_mask as u32)
+                XConfigureRequest(event.window, changes, event.value_mask as u32)
             }
             DestroyNotify => {
                 let evt: &XDestroyWindowEvent = self.cast_event_to();
@@ -730,6 +807,14 @@ impl XlibWindowSystem {
                 let evt: &XEnterWindowEvent = self.cast_event_to();
                 if evt.detail != 2 {
                     XEnterNotify(evt.window)
+                } else {
+                    Ignored
+                }
+            }
+            FocusIn => {
+                let evt: &XFocusInEvent = self.cast_event_to();
+                if evt.detail != 5 {
+                    XFocusIn(evt.window)
                 } else {
                     Ignored
                 }
@@ -764,5 +849,21 @@ impl XlibWindowSystem {
 impl Default for XlibWindowSystem {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub trait IntoAtom {
+    fn into(self, xws: &XlibWindowSystem) -> Atom;
+}
+
+impl IntoAtom for Atom {
+    fn into(self, _: &XlibWindowSystem) -> Atom {
+        self
+    }
+}
+
+impl IntoAtom for &str {
+    fn into(self, xws: &XlibWindowSystem) -> Atom {
+        xws.get_atom(self, true)
     }
 }

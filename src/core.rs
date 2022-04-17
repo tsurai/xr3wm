@@ -1,9 +1,5 @@
 #[macro_use]
 extern crate log;
-extern crate libloading;
-extern crate x11;
-extern crate libc;
-extern crate failure;
 
 pub mod core {
     pub mod commands {
@@ -19,15 +15,18 @@ pub mod core {
         pub use crate::layout::*;
     }
 
-    pub use crate::config::{Config, Statusbar, LogInfo};
-    pub use crate::workspaces::WorkspaceConfig;
+    pub use crate::config::{Config, LogInfo};
+    pub use crate::statusbar::Statusbar;
+    pub use crate::workspace::WorkspaceConfig;
 }
 
 mod xlib_window_system;
 mod config;
-mod workspaces;
+mod state;
 mod workspace;
 mod commands;
 mod keycode;
 mod stack;
+mod statusbar;
 mod layout;
+mod ewmh;

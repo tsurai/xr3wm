@@ -1,7 +1,7 @@
 use std::process::{Command, Child};
-use failure::*;
+use anyhow::{Error, Result};
 
-pub(crate) fn xmessage(msg: &str) -> Result<Child, Error> {
+pub(crate) fn xmessage(msg: &str) -> Result<Child> {
     Command::new("xmessage")
         .arg("-center")
         .arg(msg)
@@ -12,17 +12,9 @@ pub(crate) fn xmessage(msg: &str) -> Result<Child, Error> {
 pub(crate) fn concat_error_chain(err: &Error) -> String {
     let mut msgs = Vec::new();
 
-    let mut fail: &dyn Fail = err.as_fail();
-    msgs.push(format!("{}", fail));
+    msgs.push(format!("ERROR: {}", err));
 
-    while let Some(cause) = fail.cause() {
-        msgs.push(format!("caused by: {}", cause));
-
-        if let Some(bt) = cause.backtrace() {
-            msgs.push(format!("backtrace: {}", bt));
-        }
-        fail = cause;
-    }
+    err.chain().skip(1).for_each(|cause| msgs.push(format!("because: {}", cause)));
 
     msgs.as_slice().join("\n")
 }

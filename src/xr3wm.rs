@@ -1,30 +1,25 @@
 #[macro_use]
 extern crate log;
-extern crate fern;
-extern crate failure;
-extern crate clap;
-extern crate libloading;
-extern crate x11;
 
 use clap::{Arg, App, ArgMatches};
 use clap::AppSettings::*;
-use failure::{ResultExt, Error, Fail};
+use anyhow::{Context, Result};
 use config::Config;
-use workspaces::Workspaces;
+use state::WmState;
 use xlib_window_system::XlibWindowSystem;
-use xlib_window_system::XlibEvent::{XMapRequest, XConfigurationNotify, XConfigurationRequest,
-                                    XDestroy, XUnmapNotify, XPropertyNotify, XEnterNotify,
-                                    XFocusOut, XKeyPress, XButtonPress};
+use xlib_window_system::XlibEvent::*;
 
-mod config;
-mod keycode;
 mod commands;
-mod xlib_window_system;
-mod workspaces;
-mod workspace;
-mod stack;
+mod config;
+mod ewmh;
+mod keycode;
 mod layout;
+mod stack;
+mod state;
+mod statusbar;
 mod utils;
+mod workspace;
+mod xlib_window_system;
 
 fn process_cli<'a>() -> ArgMatches<'a> {
     App::new("xr3wm")
@@ -41,7 +36,7 @@ fn process_cli<'a>() -> ArgMatches<'a> {
 }
 
 // initialization of the logging system
-fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
+fn init_logger(verbosity: u64, logfile: &str) -> Result<()> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!("[{}] {}", record.level(), message))
@@ -69,7 +64,7 @@ fn init_logger(verbosity: u64, logfile: &str) -> Result<(), Error> {
         .map_err(|e| e.into())
 }
 
-fn run() -> Result<(), Error> {
+fn run() -> Result<()> {
     let matches = process_cli();
 
     let verbosity = matches.occurrences_of("verbose");
@@ -81,7 +76,8 @@ fn run() -> Result<(), Error> {
     }
 
     info!("loading config");
-    let mut config = Config::load()
+
+    let (mut config, ws_cfg_list) = Config::load()
         .map_err(|e| {
             let error = utils::concat_error_chain(&e);
             utils::xmessage(&format!("failed to load config:\n{}", error))
@@ -91,78 +87,112 @@ fn run() -> Result<(), Error> {
         })
         .context("failed to load config")?;
 
-    let ws = &XlibWindowSystem::new();
-    ws.grab_modifier(config.mod_key);
+    let xws = &XlibWindowSystem::new();
+    xws.init();
+    xws.grab_modifier(config.mod_key);
 
-    let workspaces = Workspaces::new(&config, ws.get_screen_infos().len(), &ws.get_windows());
+    let mut state = WmState::new(ws_cfg_list, xws)
+        .context("failed to create initial wm state")?;
+
+    state.rescreen(xws, &config);
+    state.current_ws_mut().show(xws, &config);
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
             .context("failed to start statusbar")?;
     }
 
+    ewmh::set_current_desktop(xws, state.get_ws_index());
+    ewmh::set_number_of_desktops(xws, state.ws_count());
+    ewmh::set_desktop_names(xws, state.all_ws().iter().map(|ws| ws.get_tag().to_owned()).collect());
+    ewmh::set_desktop_viewport(xws, state.all_ws());
+
     info!("entering event loop");
-    run_event_loop(config, ws, workspaces)
+    run_event_loop(config, xws, state)
 }
 
-fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Workspaces) -> Result<(), Error> {
+fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState) -> Result<()> {
     loop {
-        match ws.get_event() {
+        match xws.get_event() {
             XMapRequest(window) => {
-                debug!("XMapRequest: {}", window);
-                if !workspaces.contains(window) {
-                    let class = ws.get_class_name(window);
+                trace!("XMapRequest: {}", window);
+                if !state.contains(window) {
                     let mut is_hooked = false;
-
-                    for hook in config.manage_hooks.iter() {
-                        if hook.class_name == class {
-                            is_hooked = true;
-                            hook.cmd.call(ws, &mut workspaces, &config, window);
+                    if let Some(class) = xws.get_class_name(window) {
+                        for hook in config.manage_hooks.iter() {
+                            if hook.class_name == class {
+                                hook.cmd.call(xws, &mut state, &config, window);
+                                is_hooked = true;
+                            }
                         }
                     }
 
                     if !is_hooked {
-                        workspaces.add_window(None, ws, &config, window);
+                        state.add_window(None, xws, &config, window);
                     }
+                    state.focus_window(xws, &config, window);
+                }
+            }
+            XMapNotify(window) => {
+                trace!("XMapNotify: {:x}", window);
+                if xws.get_window_strut(window).is_some() {
+                    state.add_strut(window);
+                    state.redraw(xws, &config);
                 }
             }
             XDestroy(window) => {
-                if workspaces.contains(window) {
-                    debug!("XDestroy: {}", window);
-                    workspaces.remove_window(ws, &config, window);
+                trace!("XDestroy: {:x}", window);
+                if state.contains(window) {
+                    state.remove_window(xws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
-                if send && workspaces.contains(window) {
-                    debug!("XUnmapNotify: {}", window);
-                    workspaces.remove_window(ws, &config, window);
+                trace!("XUnmapNotify: {} {}", window, send);
+                if send && state.contains(window) {
+                    state.remove_window(xws, &config, window);
+                } else if state.try_remove_strut(window) {
+                    state.redraw(xws, &config);
                 }
             }
-            XPropertyNotify(window, atom, _) => {
-                if atom == ws.get_atom("WM_HINTS", false) {
-                    if let Some(idx) = workspaces.find_window(window) {
-                        workspaces.get_mut(idx)
-                            .set_urgency(ws.is_urgent(window), ws, &config, window);
+            XPropertyNotify(window, atom, is_new_value) => {
+                if atom == xws.get_atom("WM_HINTS", true) {
+                    if let Some(ws) = state.get_parent_mut(window) {
+                        ws.set_urgency(xws.is_urgent(window), xws, &config, window);
                     }
+                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
+                    if is_new_value {
+                        state.add_strut(window);
+                    } else {
+                        state.try_remove_strut(window);
+                    }
+                    state.redraw(xws, &config);
                 }
             }
-            XConfigurationNotify(_) => {
-                workspaces.rescreen(ws, &config);
+            XConfigureNotify(_) => {
+                trace!("XConfigurationNotify");
+                state.rescreen(xws, &config);
             }
-            XConfigurationRequest(window, changes, mask) => {
-                let unmanaged = workspaces.is_unmanaged(window) || !workspaces.contains(window);
-                ws.configure_window(window, changes, mask, unmanaged);
+            XConfigureRequest(window, changes, mask) => {
+                trace!("XConfigureRequest: {}", window);
+                let unmanaged = state.is_unmanaged(window) || !state.contains(window);
+                xws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window) => {
                 trace!("XEnterNotify: {}", window);
-                workspaces.focus_window(ws, &config, window);
+                state.focus_window(xws, &config, window);
             }
-            XFocusOut(_) => {
-                trace!("XFocusOut");
-                workspaces.current_mut().unfocus_window(ws, &config);
+            XFocusIn(window) => {
+                trace!("XFocusIn: {}", window);
+                state.focus_window(xws, &config, window);
+            }
+            XFocusOut(window) => {
+                trace!("XFocusOut: {}", window);
+                /*if ws.current().focused_window() == Some(window) {
+                    ws.current_mut().unfocus_window(xws, &config);
+                }*/
             }
             XButtonPress(window) => {
-                workspaces.focus_window(ws, &config, window);
+                state.focus_window(xws, &config, window);
             }
             XKeyPress(_, mods, key) => {
                 trace!("XKeyPress: {}, {}", mods, key);
@@ -170,7 +200,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
 
                 for (binding, cmd) in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        cmd.call(ws, &mut workspaces, &config)
+                        cmd.call(xws, &mut state, &config)
                             .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }
@@ -180,7 +210,7 @@ fn run_event_loop(mut config: Config, ws: &XlibWindowSystem, mut workspaces: Wor
         }
 
         if let Some(ref mut statusbar) = config.statusbar {
-            if let Err(e) = statusbar.update(ws, &workspaces) {
+            if let Err(e) = statusbar.update(xws, &state) {
                 error!("{}", e.context("failed to update statusbar"));
             }
         }
@@ -192,28 +222,19 @@ fn main() {
     // failure crate boilerplate
     if let Err(e) = run() {
         use std::io::Write;
+
         let mut stderr = std::io::stderr();
-        let got_logger = log_enabled!(log::Level::Error);
 
-        let mut fail: &dyn Fail = e.as_fail();
-        if got_logger {
-            error!("{}", fail);
+        if log_enabled!(log::Level::Error) {
+            error!("{}", e);
         } else {
-            writeln!(&mut stderr, "{}", fail).ok();
+            writeln!(stderr, "ERROR: {}", e).ok();
         }
 
-        while let Some(cause) = fail.cause() {
-            if got_logger {
-                error!("caused by: {}", cause);
-            } else {
-                writeln!(&mut stderr, "caused by: {}", cause).ok();
-            }
+        e.chain().skip(1)
+            .for_each(|cause| error!("because: {}", cause));
 
-            if let Some(bt) = cause.backtrace() {
-                error!("backtrace: {}", bt)
-            }
-            fail = cause;
-        }
+        error!("backtrace: {}", e.backtrace());
 
         stderr.flush().ok();
         ::std::process::exit(1);

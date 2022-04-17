@@ -2,17 +2,20 @@
 name = "xr3wm"
 version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 
 [dependencies]
-log = "0.4.8"
-fern = "0.5.9"
-failure = "0.1.8"
-clap = "2.33.0"
-libloading = "0.5.2"
-libc = "*"
-x11 = { version = "*", features = ["xlib", "xinerama"] }
+log = "0.4"
+fern = "0.6"
+anyhow = { version = "1.0", features = ["backtrace"] }
+clap = "2.33"
+libloading = "0.7"
+typetag = "0.1"
+serde = "1.0"
+serde_json = "1.0"
+libc = "0.2"
+x11 = { version = "2.19", features = ["xlib", "xinerama"] }
 
 [lib]
 name = "xr3wm"

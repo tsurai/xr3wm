@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 #![allow(clippy::new_ret_no_self)]
 
-use crate::stack::Stack;
+use crate::stack::{Node, Stack};
 use crate::xlib_window_system::XlibWindowSystem;
 use std::cmp::min;
 use std::fmt;
 use x11::xlib::Window;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy)]
 pub struct Rect {
@@ -32,8 +33,6 @@ pub enum LayoutMsg {
     Decrease,
     IncreaseMaster,
     DecreaseMaster,
-    SplitHorizontal,
-    SplitVertical,
     NextLayout,
     PrevLayout,
     FirstLayout,
@@ -49,8 +48,6 @@ impl fmt::Debug for LayoutMsg {
             LayoutMsg::Decrease => write!(f, "Decrease"),
             LayoutMsg::IncreaseMaster => write!(f, "IncreasMaster"),
             LayoutMsg::DecreaseMaster => write!(f, "DecreaseMaster"),
-            LayoutMsg::SplitHorizontal => write!(f, "SplitHorizontal"),
-            LayoutMsg::SplitVertical => write!(f, "SplitVertical"),
             LayoutMsg::NextLayout => write!(f, "NextLayout"),
             LayoutMsg::PrevLayout => write!(f, "PrevLayout"),
             LayoutMsg::FirstLayout => write!(f, "FirstLayout"),
@@ -61,31 +58,29 @@ impl fmt::Debug for LayoutMsg {
     }
 }
 
+#[typetag::serde(tag = "type")]
 pub trait Layout {
     fn name(&self) -> String;
     fn send_msg(&mut self, msg: LayoutMsg);
 
     fn apply(&self, area: Rect, _: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        self.simple_apply(area, &stack.visible)
+        self.simple_apply(area, &stack.nodes)
     }
 
-    fn simple_apply(&self, _: Rect, _: &[Window]) -> Vec<Rect> {
+    fn simple_apply(&self, _: Rect, _: &[Node]) -> Vec<Rect> {
         Vec::new()
-    }
-
-    fn copy<'a>(&self) -> Box<dyn Layout + 'a> {
-        panic!("")
     }
 }
 
-pub struct Choose<'a> {
-    layouts: Vec<Box<dyn Layout + 'a>>,
+#[derive(Serialize, Deserialize)]
+pub struct Choose {
+    layouts: Vec<Box<dyn Layout>>,
     current: usize,
 }
 
-impl<'a> Choose<'a> {
-    pub fn new(layouts: Vec<Box<dyn Layout + 'a>>) -> Box<dyn Layout + 'a> {
-        // add proper error handling
+impl Choose {
+    pub fn new(layouts: Vec<Box<dyn Layout>>) -> Box<dyn Layout> {
+        // TODO: add proper error handling
         if layouts.is_empty() {
             panic!("Choose layout needs at least one layout");
         }
@@ -97,7 +92,8 @@ impl<'a> Choose<'a> {
     }
 }
 
-impl<'a> Layout for Choose<'a> {
+#[typetag::serde]
+impl Layout for Choose {
     fn name(&self) -> String {
         self.layouts[self.current].name()
     }
@@ -132,13 +128,9 @@ impl<'a> Layout for Choose<'a> {
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         self.layouts[self.current].apply(area, ws, stack)
     }
-
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Choose::new(self.layouts.iter().map(|x| x.copy()).collect())
-    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize)]
 pub struct Tall {
     num_masters: usize,
     ratio: f32,
@@ -146,7 +138,7 @@ pub struct Tall {
 }
 
 impl Tall {
-    pub fn new<'a>(num_masters: usize, ratio: f32, ratio_increment: f32) -> Box<dyn Layout + 'a> {
+    pub fn new(num_masters: usize, ratio: f32, ratio_increment: f32) -> Box<dyn Layout> {
         Box::new(Tall {
             num_masters,
             ratio,
@@ -155,6 +147,7 @@ impl Tall {
     }
 }
 
+#[typetag::serde]
 impl Layout for Tall {
     fn name(&self) -> String {
         "Tall".to_string()
@@ -182,7 +175,7 @@ impl Layout for Tall {
         }
     }
 
-    fn simple_apply(&self, area: Rect, windows: &[Window]) -> Vec<Rect> {
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
         let nwindows = windows.len();
 
         (0..nwindows)
@@ -213,23 +206,23 @@ impl Layout for Tall {
             })
             .collect()
     }
+}
 
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Box::new(*self)
+#[derive(Serialize, Deserialize)]
+pub struct Strut {
+    layout: Box<dyn Layout>,
+}
+
+impl Strut {
+    pub fn new(layout: Box<dyn Layout>) -> Box<dyn Layout> {
+        Box::new(Strut {
+            layout
+        })
     }
 }
 
-pub struct Strut<'a> {
-    layout: Box<dyn Layout + 'a>,
-}
-
-impl<'a> Strut<'a> {
-    pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(Strut { layout: layout.copy() })
-    }
-}
-
-impl<'a> Layout for Strut<'a> {
+#[typetag::serde]
+impl Layout for Strut {
     fn name(&self) -> String {
         self.layout.name()
     }
@@ -245,7 +238,7 @@ impl<'a> Layout for Strut<'a> {
             width: 0,
             height: 0,
         };
-        let strut = ws.get_strut(area);
+        let strut = ws.compute_struts(area);
 
         new_area.x = area.x + strut.0;
         new_area.width = area.width - (strut.0 + strut.1);
@@ -254,25 +247,22 @@ impl<'a> Layout for Strut<'a> {
 
         self.layout.apply(new_area, ws, stack)
     }
-
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Strut::new(self.layout.copy())
-    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize)]
 pub struct Full {
     focus: Option<Window>
 }
 
 impl Full {
-    pub fn new<'a>() -> Box<dyn Layout + 'a> {
+    pub fn new() -> Box<dyn Layout> {
         Box::new(Full{
             focus: None
         })
     }
 }
 
+#[typetag::serde]
 impl Layout for Full {
     fn name(&self) -> String {
         "Full".to_string()
@@ -281,10 +271,14 @@ impl Layout for Full {
     fn send_msg(&mut self, _msg: LayoutMsg) {}
 
     fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        stack.visible.iter()
-            .map(|&window| {
-                if window == stack.focused_window {
-                    ws.raise_window(window);
+        stack.nodes.iter()
+            .enumerate()
+            .map(|(i,node)| {
+                if Some(i) != stack.focus {
+                    match node {
+                        Node::Window(w) => ws.lower_window(*w),
+                        Node::Stack(s) => s.all_windows().iter().for_each(|&w| ws.lower_window(w)),
+                    }
                 }
 
                 Rect {
@@ -295,29 +289,27 @@ impl Layout for Full {
                 }
             }).collect()
     }
-
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Box::new(*self)
-    }
 }
 
-pub struct Gap<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct Gap {
     screen_gap: u32,
     window_gap: u32,
-    layout: Box<dyn Layout + 'a>,
+    layout: Box<dyn Layout>,
 }
 
-impl<'a> Gap<'a> {
-    pub fn new(screen_gap: u32, window_gap: u32, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
+impl Gap {
+    pub fn new(screen_gap: u32, window_gap: u32, layout: Box<dyn Layout>) -> Box<dyn Layout> {
         Box::new(Gap {
             screen_gap,
             window_gap,
-            layout: layout.copy(),
+            layout,
         })
     }
 }
 
-impl<'a> Layout for Gap<'a> {
+#[typetag::serde]
+impl Layout for Gap {
     fn name(&self) -> String {
         self.layout.name()
     }
@@ -345,30 +337,31 @@ impl<'a> Layout for Gap<'a> {
 
         rects
     }
-
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Gap::new(self.screen_gap, self.window_gap, self.layout.copy())
-    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize)]
 pub enum MirrorStyle {
     Horizontal,
     Vertical,
 }
 
-pub struct Mirror<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct Mirror {
     style: MirrorStyle,
-    layout: Box<dyn Layout + 'a>,
+    layout: Box<dyn Layout>,
 }
 
-impl<'a> Mirror<'a> {
-    pub fn new(style: MirrorStyle, layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(Mirror { layout: layout.copy(), style })
+impl Mirror {
+    pub fn new(style: MirrorStyle, layout: Box<dyn Layout>) -> Box<dyn Layout> {
+        Box::new(Mirror {
+            style,
+            layout
+        })
     }
 }
 
-impl<'a> Layout for Mirror<'a> {
+#[typetag::serde]
+impl Layout for Mirror {
     fn name(&self) -> String {
         format!("Mirror({})", self.layout.name())
     }
@@ -391,19 +384,18 @@ impl<'a> Layout for Mirror<'a> {
 
         rects
     }
-
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Mirror::new(self.style, self.layout.copy())
-    }
 }
 
-pub struct Rotate<'a> {
-    layout: Box<dyn Layout + 'a>,
+#[derive(Serialize, Deserialize)]
+pub struct Rotate {
+    layout: Box<dyn Layout>,
 }
 
-impl<'a> Rotate<'a> {
-    pub fn new(layout: Box<dyn Layout + 'a>) -> Box<dyn Layout + 'a> {
-        Box::new(Rotate { layout: layout.copy() })
+impl Rotate {
+    pub fn new(layout: Box<dyn Layout>) -> Box<dyn Layout> {
+        Box::new(Rotate {
+            layout
+        })
     }
 
     fn rotate_rect(rect: Rect) -> Rect {
@@ -416,7 +408,8 @@ impl<'a> Rotate<'a> {
     }
 }
 
-impl<'a> Layout for Rotate<'a> {
+#[typetag::serde]
+impl Layout for Rotate {
     fn name(&self) -> String {
         format!("Rotate({})", self.layout.name())
     }
@@ -434,8 +427,74 @@ impl<'a> Layout for Rotate<'a> {
             })
             .collect()
     }
+}
 
-    fn copy<'b>(&self) -> Box<dyn Layout + 'b> {
-        Rotate::new(self.layout.copy())
+#[derive(Serialize, Deserialize)]
+pub struct Horizontal;
+
+impl Horizontal {
+    pub fn new() -> Box<dyn Layout> {
+        Box::new(Horizontal {})
+    }
+}
+
+#[typetag::serde]
+impl Layout for Horizontal {
+    fn name(&self) -> String {
+        "Horizontal".to_string()
+    }
+
+    fn send_msg(&mut self, _msg: LayoutMsg) {}
+
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
+        let nwindows = windows.len();
+
+        (0..nwindows)
+            .map(|i| {
+                   let yoff = area.height / nwindows as u32;
+
+                    Rect {
+                        x: area.x,
+                        y: area.y + (yoff * i as u32),
+                        width: area.width,
+                        height: yoff,
+                    }
+            })
+            .collect()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Vertical;
+
+impl Vertical {
+    pub fn new() -> Box<dyn Layout> {
+        Box::new(Vertical {})
+    }
+}
+
+#[typetag::serde]
+impl Layout for Vertical {
+    fn name(&self) -> String {
+        "Vertical".to_string()
+    }
+
+    fn send_msg(&mut self, _msg: LayoutMsg) {}
+
+    fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
+        let nwindows = windows.len();
+
+        (0..nwindows)
+            .map(|i| {
+                   let xoff = area.width / nwindows as u32;
+
+                    Rect {
+                        x: area.x + (xoff * i as u32),
+                        y: area.y,
+                        width: xoff,
+                        height: area.height,
+                    }
+            })
+            .collect()
     }
 }
