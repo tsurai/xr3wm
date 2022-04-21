@@ -187,7 +187,11 @@ impl Workspace {
     }
 
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if window == 0 || self.unmanaged.focused_window() == Some(window) || self.managed.focused_window() == Some(window) {
+        if window == 0 ||
+           !self.is_visible() ||
+           self.unmanaged.focused_window() == Some(window) ||
+           self.managed.focused_window() == Some(window)
+        {
             return;
         }
 
@@ -218,7 +222,7 @@ impl Workspace {
 
     // TODO: impl managed and unmanaged focus mode incl switching
     pub fn move_focus(&mut self, xws: &XlibWindowSystem, config: &Config, op: MoveOp) {
-        if self.managed.move_focus(op).is_some() {
+        if self.focused_window() != self.managed.move_focus(op) {
             self.redraw(xws, config);
         }
     }
@@ -297,6 +301,10 @@ impl Workspace {
 
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
         trace!("Redraw...");
+
+        if !self.is_visible() {
+            return;
+        }
 
         let screen = xws.get_screen_infos()[self.screen];
 
