@@ -130,10 +130,14 @@ impl WmState {
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if let Some(index) = self.find_window(window) {
             if self.cur != index {
-                self.get_ws_mut(index)
-                    .expect("valid workspace")
-                    .focus_window(xws, config, window);
-                self.switch_to(xws, config, index, false);
+                let workspace = self.get_ws_mut(index)
+                    .expect("valid workspace");
+
+                workspace.focus_window(xws, config, window);
+
+                if workspace.is_visible() {
+                    self.switch_to(xws, config, index, false);
+                }
             } else {
                 self.current_ws_mut().focus_window(xws, config, window);
             }
