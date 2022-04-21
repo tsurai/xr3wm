@@ -8,7 +8,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::state::WmState;
 use crate::workspace::MoveOp;
 use self::libc::execvpe;
-use std::{env, iter, thread};
+use std::{env, iter};
 use std::ptr::null;
 use std::ffi::CString;
 use std::process::Command;
@@ -18,7 +18,7 @@ use x11::xlib::Window;
 use anyhow::{bail, Context, Result};
 
 pub enum Cmd {
-    Exec(String),
+    Exec(String, Vec<String>),
     SwitchWorkspace(usize),
     SwitchScreen(usize),
     MoveToWorkspace(usize),
@@ -45,9 +45,9 @@ pub enum Cmd {
 impl Cmd {
     pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config) -> Result<()> {
         match self {
-            Cmd::Exec(ref cmd) => {
-                debug!("Cmd::Exec: {}", cmd);
-                exec(cmd.clone());
+            Cmd::Exec(ref cmd, ref args) => {
+                debug!("Cmd::Exec: {} {:?}", cmd, args);
+                exec(cmd.clone(), args.clone());
             }
             Cmd::SwitchWorkspace(index) => {
                 debug!("Cmd::SwitchWorkspace: {}", index);
@@ -260,21 +260,18 @@ impl CmdManage {
     }
 }
 
-fn exec(cmd: String) {
-    thread::spawn(move || {
-        let args: Vec<&str> = cmd[..].split(' ').collect();
+fn exec(cmd: String, args: Vec<String>) {
+    if !cmd.is_empty() {
+        let mut cmd = Command::new(cmd);
 
         if !args.is_empty() {
-            let mut cmd = Command::new(args[0]);
-
-            if args.len() > 1 {
-                cmd.args(&args[1..]);
-            }
-
-            match cmd.output() {
-                Ok(_) => (),
-                _ => panic!("failed to start \"{:?}\"", cmd),
-            }
+            cmd.args(&args);
         }
-    });
+
+
+        match cmd.envs(env::vars()).spawn() {
+            Ok(_) => (),
+            _ => panic!("failed to start \"{:?}\"", cmd),
+        }
+    }
 }

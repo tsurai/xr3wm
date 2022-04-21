@@ -82,13 +82,13 @@ impl Default for Config {
                                 mods: 0,
                                 key: "Return".to_string()
                             },
-                            Cmd::Exec("xterm -u8".to_string())
+                            Cmd::Exec("xterm".into(), vec!["-u8".into()])
                         ),(
                             Keybinding {
                                 mods: 0,
                                 key: "d".to_string(),
                             },
-                            Cmd::Exec("dmenu_run".to_string())
+                            Cmd::Exec("dmenu_run".to_string(), vec![])
                         ),(
                             Keybinding {
                                 mods: MOD_SHIFT,
