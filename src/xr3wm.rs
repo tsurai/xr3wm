@@ -95,7 +95,6 @@ fn run() -> Result<()> {
         .context("failed to create initial wm state")?;
 
     state.rescreen(xws, &config);
-    state.current_ws_mut().show(xws, &config);
 
     if let Some(ref mut statusbar) = config.statusbar {
         statusbar.start()
@@ -115,7 +114,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
     loop {
         match xws.get_event() {
             XMapRequest(window) => {
-                trace!("XMapRequest: {}", window);
+                trace!("XMapRequest: {:#x}", window);
                 if !state.contains(window) {
                     let mut is_hooked = false;
                     if let Some(class) = xws.get_class_name(window) {
@@ -135,20 +134,20 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XMapNotify(window) => {
-                trace!("XMapNotify: {:x}", window);
+                trace!("XMapNotify: {:#x}", window);
                 if xws.get_window_strut(window).is_some() {
                     state.add_strut(window);
                     state.redraw(xws, &config);
                 }
             }
             XDestroy(window) => {
-                trace!("XDestroy: {:x}", window);
+                trace!("XDestroy: {:#x}", window);
                 if state.contains(window) {
                     state.remove_window(xws, &config, window);
                 }
             }
             XUnmapNotify(window, send) => {
-                trace!("XUnmapNotify: {} {}", window, send);
+                trace!("XUnmapNotify: {:#x} {}", window, send);
                 if send && state.contains(window) {
                     state.remove_window(xws, &config, window);
                 } else if state.try_remove_strut(window) {
@@ -158,7 +157,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
             XPropertyNotify(window, atom, is_new_value) => {
                 if atom == xws.get_atom("WM_HINTS", true) {
                     if let Some(ws) = state.get_parent_mut(window) {
-                        ws.set_urgency(xws.is_urgent(window), xws, &config, window);
+                        ws.set_urgency(xws.is_urgent(window), window);
                     }
                 } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
                     if is_new_value {
@@ -174,23 +173,22 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 state.rescreen(xws, &config);
             }
             XConfigureRequest(window, changes, mask) => {
-                trace!("XConfigureRequest: {}", window);
+                trace!("XConfigureRequest: {:#x}", window);
                 let unmanaged = state.is_unmanaged(window) || !state.contains(window);
                 xws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window) => {
-                trace!("XEnterNotify: {}", window);
+                trace!("XEnterNotify: {:#x}", window);
                 state.focus_window(xws, &config, window);
             }
             XFocusIn(window) => {
-                trace!("XFocusIn: {}", window);
-                state.focus_window(xws, &config, window);
-            }
-            XFocusOut(window) => {
-                trace!("XFocusOut: {}", window);
-                /*if ws.current().focused_window() == Some(window) {
-                    ws.current_mut().unfocus_window(xws, &config);
-                }*/
+                trace!("XFocusIn: {:#x}", window);
+                if let Some(idx) = state.find_window(window) {
+                    let screens = state.get_screens();
+                    if let Some(workspace) = state.get_ws(idx) {
+                        workspace.redraw(xws, &config, screens);
+                    }
+                }
             }
             XButtonPress(window) => {
                 state.focus_window(xws, &config, window);

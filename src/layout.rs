@@ -8,7 +8,7 @@ use std::fmt;
 use x11::xlib::Window;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Rect {
     pub x: u32,
     pub y: u32,

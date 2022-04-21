@@ -51,7 +51,7 @@ impl Cmd {
             }
             Cmd::SwitchWorkspace(index) => {
                 debug!("Cmd::SwitchWorkspace: {}", index);
-                state.switch_to(xws, config, index - 1, true);
+                state.switch_to_ws(xws, config, index - 1, true);
             }
             Cmd::SwitchScreen(screen) => {
                 debug!("Cmd::SwitchScreen: {}", screen);
@@ -68,7 +68,7 @@ impl Cmd {
             Cmd::SendLayoutMsg(ref msg) => {
                 debug!("Cmd::SendLayoutMsg::{:?}", msg);
                 state.current_ws_mut().send_layout_message(msg.clone());
-                state.current_ws().redraw(xws, config);
+                state.current_ws().redraw(xws, config, state.get_screens());
             }
             Cmd::NestLayout(layout_fn) => {
                 let layout = layout_fn();
@@ -86,80 +86,80 @@ impl Cmd {
             }
             Cmd::KillClient => {
                 if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::KillClient: {}", window);
+                    debug!("Cmd::KillClient: {:#x}", window);
                     xws.kill_window(window);
                 }
             }
-            Cmd::FocusUp => {
+            Cmd::FocusUp | Cmd::FocusDown | Cmd::FocusMaster | Cmd::FocusParentUp | Cmd::FocusParentDown | Cmd::FocusParentMaster => {
                 if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusUp: {}", window);
-                    state.current_ws_mut().move_focus(xws, config, MoveOp::Up);
+                    let workspace = state.current_ws_mut();
+                    let new_focus = match self {
+                        Cmd::FocusUp => {
+                            debug!("Cmd::FocusUp: {:#x}", window);
+                            workspace.move_focus(MoveOp::Up)
+                        }
+                        Cmd::FocusDown => {
+                            debug!("Cmd::FocusDown: {:#x}", window);
+                            workspace.move_focus(MoveOp::Down)
+                        }
+                        Cmd::FocusMaster => {
+                            debug!("Cmd::FocusMaster: {:#x}", window);
+                            workspace.move_focus(MoveOp::Swap)
+                        }
+                        Cmd::FocusParentUp => {
+                            debug!("Cmd::FocusParentUp: {:#x}", window);
+                            workspace.move_parent_focus(MoveOp::Up)
+                        }
+                        Cmd::FocusParentDown => {
+                            debug!("Cmd::FocusParentDown: {:#x}", window);
+                            workspace.move_parent_focus(MoveOp::Down)
+                        }
+                        Cmd::FocusParentMaster => {
+                            debug!("Cmd::FocusParentMaster: {:#x}", window);
+                            workspace.move_parent_focus(MoveOp::Swap)
+                        }
+                        _ => None
+                    };
+
+                    if let Some(window) = new_focus {
+                        xws.focus_window(window);
+                    }
                 }
-            }
-            Cmd::FocusDown => {
+            },
+            Cmd::SwapUp | Cmd::SwapDown | Cmd::SwapMaster | Cmd::SwapParentUp | Cmd::SwapParentDown | Cmd::SwapParentMaster => {
                 if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusDown: {}", window);
-                    state.current_ws_mut().move_focus(xws, config, MoveOp::Down);
-                }
-            }
-            Cmd::FocusMaster => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusMaster: {}", window);
-                    state.current_ws_mut().move_focus(xws, config, MoveOp::Swap);
-                }
-            }
-            Cmd::FocusParentUp => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusParentUp: {}", window);
-                    state.current_ws_mut().move_parent_focus(xws, config, MoveOp::Up);
-                }
-            }
-            Cmd::FocusParentDown => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusParentDown: {}", window);
-                    state.current_ws_mut().move_parent_focus(xws, config, MoveOp::Down);
-                }
-            }
-            Cmd::FocusParentMaster => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::FocusParentMaster: {}", window);
-                    state.current_ws_mut().move_parent_focus(xws, config, MoveOp::Swap);
-                }
-            }
-            Cmd::SwapUp => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapUp: {}", window);
-                    state.current_ws_mut().move_window(xws, config, MoveOp::Up);
-                }
-            }
-            Cmd::SwapDown => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapDown: {}", window);
-                    state.current_ws_mut().move_window(xws, config, MoveOp::Down);
-                }
-            }
-            Cmd::SwapMaster => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapMaster: {}", window);
-                    state.current_ws_mut().move_window(xws, config, MoveOp::Swap);
-                }
-            }
-            Cmd::SwapParentUp => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapParentUp: {}", window);
-                    state.current_ws_mut().move_parent_window(xws, config, MoveOp::Up);
-                }
-            }
-            Cmd::SwapParentDown => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapParentDown: {}", window);
-                    state.current_ws_mut().move_parent_window(xws, config, MoveOp::Down);
-                }
-            }
-            Cmd::SwapParentMaster => {
-                if let Some(window) = state.current_ws().focused_window() {
-                    debug!("Cmd::SwapParentMaster: {}", window);
-                    state.current_ws_mut().move_parent_window(xws, config, MoveOp::Swap);
+                    let workspace = state.current_ws_mut();
+                    let new_focus = match self {
+                        Cmd::SwapUp => {
+                            debug!("Cmd::SwapUp: {:#x}", window);
+                            workspace.move_window(MoveOp::Up)
+                        }
+                        Cmd::SwapDown => {
+                            debug!("Cmd::SwapDown: {:#x}", window);
+                            workspace.move_window(MoveOp::Down)
+                        }
+                        Cmd::SwapMaster => {
+                            debug!("Cmd::SwapMaster: {:#x}", window);
+                            workspace.move_window(MoveOp::Swap)
+                        }
+                        Cmd::SwapParentUp => {
+                            debug!("Cmd::SwapParentUp: {:#x}", window);
+                            workspace.move_parent_window(MoveOp::Up)
+                        }
+                        Cmd::SwapParentDown => {
+                            debug!("Cmd::SwapParentDown: {:#x}", window);
+                            workspace.move_parent_window(MoveOp::Down)
+                        }
+                        Cmd::SwapParentMaster => {
+                            debug!("Cmd::SwapParentMaster: {:#x}", window);
+                            workspace.move_parent_window(MoveOp::Swap)
+                        }
+                        _ => false
+                    };
+
+                    if new_focus {
+                        state.current_ws().redraw(xws, config, state.get_screens());
+                    }
                 }
             }
         }

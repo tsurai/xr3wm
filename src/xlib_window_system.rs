@@ -319,9 +319,9 @@ impl XlibWindowSystem {
 
     pub fn hide_window(&self, window: Window) {
         unsafe {
-            XSelectInput(self.display, window, 0x0040_0010);
+            XSelectInput(self.display, window, 0x0040_0010 | FocusChangeMask);
             XUnmapWindow(self.display, window);
-            XSelectInput(self.display, window, 0x0042_0010);
+            XSelectInput(self.display, window, 0x0042_0010 | FocusChangeMask);
 
             self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[0u64, 0]);
         }
@@ -351,11 +351,11 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn focus_window(&self, window: Window, color: u32) {
+    pub fn focus_window(&self, window: Window) {
+        trace!("set input focus: {:#x}", window);
         unsafe {
             XSetInputFocus(self.display, window, 1, 0);
-            self.set_window_border_color(window, color);
-            XSync(self.display, 0);
+            self.skip_enter_events();
         }
 
         ewmh::set_active_window(self, window);
@@ -719,7 +719,7 @@ impl XlibWindowSystem {
     pub fn request_window_events(&self, window: Window) {
         unsafe {
             self.grab_button(window);
-            XSelectInput(self.display, window, 0x0042_0010);
+            XSelectInput(self.display, window, 0x0042_0010 | FocusChangeMask);
         }
     }
 
@@ -813,16 +813,8 @@ impl XlibWindowSystem {
             }
             FocusIn => {
                 let evt: &XFocusInEvent = self.cast_event_to();
-                if evt.detail != 5 {
+                if evt.detail == 3 {
                     XFocusIn(evt.window)
-                } else {
-                    Ignored
-                }
-            }
-            FocusOut => {
-                let evt: &XFocusOutEvent = self.cast_event_to();
-                if evt.detail != 5 {
-                    XFocusOut(evt.window)
                 } else {
                     Ignored
                 }
