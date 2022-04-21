@@ -146,6 +146,7 @@ impl Workspace {
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
+        debug!("remove urgent window: {}", window);
         if !self.managed.remove_urgent(window) {
             self.unmanaged.remove_urgent(window);
         }

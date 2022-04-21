@@ -123,6 +123,10 @@ impl WmState {
                 workspace.focus_window(xws, config, window);
             }
 
+            if !workspace.is_visible() {
+                workspace.set_urgency(true, xws, config, window);
+            }
+
             ewmh::set_client_list(xws, &self.workspaces);
         }
     }
