@@ -1,9 +1,18 @@
+use std::env;
 use std::io::prelude::*;
 use std::path::Path;
 use std::fs::{File, create_dir};
 
 fn main() {
-    let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/config.rs"));
+    let cfg_file_path = env::var("XDG_CONFIG_HOME")
+        .map(|x| format!("{}/xr3wm/config.rs", x))
+        .or_else(|_| {
+            env::var("HOME")
+                .map(|x| format!("{}/.xr3wm/config.rs", x))
+        })
+        .expect("valid config directory");
+
+    let dst = Path::new(&cfg_file_path);
     if !dst.exists() {
         match create_dir(dst.parent().unwrap()) {
             Ok(_) => {

@@ -130,6 +130,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                     if !is_hooked {
                         state.add_window(None, xws, &config, window);
                     }
+
                     state.focus_window(xws, &config, window);
                 }
             }

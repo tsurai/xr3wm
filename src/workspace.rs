@@ -134,7 +134,7 @@ impl Workspace {
         if !urgent {
             debug!("unset urgent {}", window);
             self.remove_urgent_window(window);
-        } else if urgent {
+        } else {
             debug!("set urgent {}", window);
             if self.is_managed(window) {
                 self.managed.urgent.push(window);

@@ -7,6 +7,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::commands::{Cmd, ManageHook};
 use crate::statusbar::Statusbar;
 use crate::layout::*;
+use std::env;
 use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
@@ -263,8 +264,18 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn get_dir() -> Result<String, env::VarError> {
+        env::var("XDG_CONFIG_HOME")
+            .map(|x| format!("{}/xr3wm", x))
+            .or_else(|_| {
+                env::var("HOME")
+                    .map(|x| format!("{}/.xr3wm", x))
+            })
+    }
+
     fn compile() -> Result<()> {
-        let dst = Path::new(concat!(env!("HOME"), "/.xr3wm/.build"));
+        let build_dir = format!("{}/.build/",Self::get_dir()?);
+        let dst = Path::new(&build_dir);
         if !dst.exists() {
             create_dir(dst)
                 .context("failed to create config build directory")?
@@ -309,7 +320,9 @@ crate-type = [\"dylib\"]")
             Config::compile()
                 .context("failed to compile config")?;
 
-            let lib: Library = Library::open(Some(concat!(env!("HOME"), "/.xr3wm/.build/target/debug/libconfig.so")), libc::RTLD_NOW | libc::RTLD_NODELETE)
+            let cfg_path = format!("{}/.build/target/debug/libconfig.so", Self::get_dir()?);
+
+            let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;
 
             let fn_configure_wm: Symbol<extern fn() -> Config> = lib.get(b"configure_wm")
