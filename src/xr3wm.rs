@@ -177,9 +177,13 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 let unmanaged = state.is_unmanaged(window) || !state.contains(window);
                 xws.configure_window(window, changes, mask, unmanaged);
             }
-            XEnterNotify(window) => {
-                trace!("XEnterNotify: {:#x}", window);
-                state.focus_window(xws, &config, window);
+            XEnterNotify(window, is_root, x, y) => {
+                trace!("XEnterNotify: {:#x} {}", window, is_root);
+                if is_root {
+                    state.switch_to_ws_at(xws, &config, x, y, true)
+                } else {
+                    state.focus_window(xws, &config, window);
+                }
             }
             XFocusIn(window) => {
                 trace!("XFocusIn: {:#x}", window);

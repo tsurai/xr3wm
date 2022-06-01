@@ -41,7 +41,7 @@ pub enum XlibEvent {
     XDestroy(Window),
     XUnmapNotify(Window, bool),
     XPropertyNotify(Window, u64, bool),
-    XEnterNotify(Window),
+    XEnterNotify(Window, bool, u32, u32),
     XFocusIn(Window),
     XFocusOut(Window),
     XKeyPress(Window, u8, String),
@@ -88,7 +88,7 @@ impl XlibWindowSystem {
 
     pub fn init(&self) {
         unsafe {
-            XSelectInput(self.display, self.root, 0x001A_0034);
+            XSelectInput(self.display, self.root, 0x001A_0034 | EnterWindowMask);
             XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
             XSetErrorHandler(Some(error_handler));
             XSync(self.display, 0);
@@ -806,7 +806,9 @@ impl XlibWindowSystem {
             EnterNotify => {
                 let evt: &XEnterWindowEvent = self.cast_event_to();
                 if evt.detail != 2 {
-                    XEnterNotify(evt.window)
+                    XEnterNotify(evt.window, false, evt.x as u32, evt.y as u32)
+                } else if evt.detail == 2 && evt.window == self.root {
+                    XEnterNotify(evt.window, true, evt.x as u32, evt.y as u32)
                 } else {
                     Ignored
                 }

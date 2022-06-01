@@ -193,6 +193,23 @@ impl WmState {
         ewmh::set_desktop_viewport(xws, self.all_ws());
     }
 
+    pub fn switch_to_ws_at(&mut self, xws: &XlibWindowSystem, config: &Config, x: u32, y: u32, center_pointer: bool) {
+        let ws_idx = self.workspaces
+            .iter()
+            .enumerate()
+            .find(|(_,ws)| {
+                let screen = self.screens[ws.get_screen()];
+                x >= screen.x && x <= screen.x + screen.width &&
+                y >= screen.y && y <= screen.y + screen.height &&
+                ws.is_visible()
+            })
+            .map(|(idx,_)| idx);
+
+        if let Some(idx) = ws_idx {
+            self.switch_to_ws(xws, config, idx, center_pointer);
+        }
+    }
+
     pub fn switch_to_screen(&mut self, xws: &XlibWindowSystem, config: &Config, screen: usize) {
         if screen > self.screens.len() - 1 {
             return;
