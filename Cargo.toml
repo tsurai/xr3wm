@@ -3,7 +3,6 @@ name = "xr3wm"
 version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]
 edition = "2021"
-build = "build.rs"
 
 [dependencies]
 log = "0.4"

@@ -12,7 +12,7 @@ use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
 use std::path::Path;
-use std::fs::{File, create_dir};
+use std::fs::{File, create_dir_all};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
 use libloading::os::unix::{Library, Symbol};
@@ -269,23 +269,49 @@ impl Config {
             .map(|x| format!("{}/xr3wm", x))
             .or_else(|_| {
                 env::var("HOME")
-                    .map(|x| format!("{}/.xr3wm", x))
+                    .map(|x| format!("{}/.config/xr3wm", x))
             })
     }
 
-    fn compile() -> Result<()> {
-        let build_dir = format!("{}/.build/",Self::get_dir()?);
-        let dst = Path::new(&build_dir);
-        if !dst.exists() {
-            create_dir(dst)
-                .context("failed to create config build directory")?
-        }
+    fn create_default_cfg_file(path: &Path) -> Result<()> {
+        let mut f = File::create(path.join("config.rs"))
+            .context("failed to create config.rs")?;
 
-        if !dst.join("Cargo.toml").exists() {
-            let mut f = File::create(dst.join("Cargo.toml"))
-                .context("failed to create Cargo.toml")?;
+        f.write_all(b"#![allow(unused_imports)]
+extern crate xr3wm;
 
-            f.write_all(b"[project]
+use std::default::Default;
+use xr3wm::core::*;
+
+#[no_mangle]
+pub extern fn configure_workspaces() -> Vec<WorkspaceConfig> {
+    use layout::*;
+
+    (1usize..10)
+        .map(|idx| {
+            WorkspaceConfig {
+                tag: idx.to_string(),
+                screen: 0,
+                layout: Strut::new(Choose::new(vec![Tall::new(1, 0.5, 0.05), Rotate::new(Tall::new(1, 0.5, 0.05)), Full::new()])),
+            }
+        })
+        .collect()
+}
+
+#[no_mangle]
+pub extern fn configure_wm() -> Config {
+    let mut cfg: Config = Default::default();
+
+    cfg
+}")
+        .context("failed to write default config file")
+    }
+
+    fn create_cargo_toml_file(path: &Path) -> Result<()> {
+        let mut f = File::create(path.join("Cargo.toml"))
+            .context("failed to create Cargo.toml")?;
+
+        f.write_all(b"[project]
 name = \"config\"
 version = \"0.0.1\"
 authors = [\"xr3wm\"]
@@ -297,12 +323,28 @@ git = \"https://github.com/tsurai/xr3wm.git\"
 name = \"config\"
 path = \"../config.rs\"
 crate-type = [\"dylib\"]")
-                .context("failed to write Cargo.toml")?;
+            .context("failed to write Cargo.toml")
+    }
+
+    fn compile() -> Result<()> {
+        let build_dir = format!("{}/.build/", Self::get_dir()?);
+        let path = Path::new(&build_dir);
+        if !path.exists() {
+            create_dir_all(path)
+                .context("failed to create config build directory")?
+        }
+
+        if !path.join("Cargo.toml").exists() {
+            Self::create_cargo_toml_file(path)?
+        }
+
+        if !path.join("../config.rs").exists() {
+            Self::create_default_cfg_file(&path.join(".."))?
         }
 
         let output = Command::new("cargo")
             .arg("build")
-            .current_dir(dst)
+            .current_dir(path)
             .output()
             .context("failed to execute cargo")?;
 

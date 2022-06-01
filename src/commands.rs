@@ -170,10 +170,11 @@ impl Cmd {
 fn reload(state: &WmState) -> Result<()> {
     info!("recompiling...");
 
-    let config_build_dir = concat!(env!("HOME"), "/.xr3wm/.build");
+    let cfg_dir = Config::get_dir()
+        .context("failed to locate config directory")?;
     let mut cmd = Command::new("cargo");
 
-    let output = cmd.current_dir(&config_build_dir)
+    let output = cmd.current_dir(&format!("{}/.build", cfg_dir))
         .arg("build")
         .env("RUST_LOG", "none")
         .output()
@@ -187,7 +188,7 @@ fn reload(state: &WmState) -> Result<()> {
 
     debug!("Cmd::Reload: restarting xr3wm...");
 
-    let path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+    let path = Path::new(&cfg_dir).join(".state.tmp");
 
     // save current workspace states to restore on restart
     let file = OpenOptions::new()

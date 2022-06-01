@@ -22,7 +22,7 @@ pub struct WmState {
 
 impl WmState {
     pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<WmState> {
-        let state_file_path = Path::new(concat!(env!("HOME"), "/.xr3wm/.tmp"));
+        let state_file_path = Path::new(&Config::get_dir()?).join(".state.tmp");
         if state_file_path.exists() {
             match WmState::from_file(state_file_path) {
                 Ok(state) => {
