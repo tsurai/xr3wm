@@ -271,7 +271,7 @@ fn exec(cmd: String, args: Vec<String>) {
 
         match cmd.envs(env::vars()).spawn() {
             Ok(_) => (),
-            _ => panic!("failed to start \"{:?}\"", cmd),
+            Err(e) => error!("failed to start \"{:?}\": {}", cmd, e),
         }
     }
 }
