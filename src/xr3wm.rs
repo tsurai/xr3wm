@@ -1,13 +1,12 @@
 #[macro_use]
 extern crate log;
 
-use clap::{Arg, App, ArgMatches};
-use clap::AppSettings::*;
 use anyhow::{Context, Result};
 use config::Config;
 use state::WmState;
 use xlib_window_system::XlibWindowSystem;
 use xlib_window_system::XlibEvent::*;
+use std::env;
 
 mod commands;
 mod config;
@@ -21,59 +20,36 @@ mod utils;
 mod workspace;
 mod xlib_window_system;
 
-fn process_cli<'a>() -> ArgMatches<'a> {
-    App::new("xr3wm")
-        .version("0.0.1")
-        .author("Cristian Kubis <cristian.kubis@tsunix.de>")
-        .about("i3wm inspired tiling window manager")
-        .setting(DeriveDisplayOrder)
-        .arg(Arg::with_name("verbose")
-             .short("v")
-             .long("verbose")
-             .multiple(true)
-             .help("increrases the logging verbosity each use for up to 2 times"))
-        .get_matches()
+fn print_help() {
+    println!("usage: xr3wm [OPTION]
+Xmonad and i3 inspired X11 tiling window manager.
+
+  -h, --help    display this help and exit
+  -v, --version output version information and exit");
 }
 
-// initialization of the logging system
-fn init_logger(verbosity: u64, logfile: &str) -> Result<()> {
-    fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!("[{}] {}", record.level(), message))
-        })
-        // set the verbosity of the logging
-        .level(match verbosity {
-            1 => log::LevelFilter::Debug,
-            x if x > 1 => log::LevelFilter::Trace,
-            _ => log::LevelFilter::Info
-        })
-        // output everything but errors to stdout
-        .chain(
-            fern::Dispatch::new()
-                .filter(move |metadata| metadata.level() != log::LevelFilter::Error)
-                .chain(::std::io::stdout()))
-        // output errors to stderr
-        .chain(
-            fern::Dispatch::new()
-                .level(log::LevelFilter::Error)
-                .chain(::std::io::stderr()))
-        // duplicate all logs in a log file
-        .chain(fern::log_file(logfile)
-            .context("failed to open log file")?)
-        .apply()
-        .map_err(|e| e.into())
+fn parse_args() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "-v" | "--version" => println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
+            "-h" | "--help" => print_help(),
+            x => {
+                println!("xr3wm: invalid option -- '{}'\n", x);
+                print_help();
+            }
+        }
+
+        ::std::process::exit(0);
+    }
 }
 
 fn run() -> Result<()> {
-    let matches = process_cli();
-
-    let verbosity = matches.occurrences_of("verbose");
+    parse_args();
 
     // initialize logging system
-    if let Err(e) = init_logger(verbosity, concat!(env!("HOME"), "/.xr3wm/xr3wm.log")) {
-        eprintln!("[ERROR] failed to initialize logging system: {}", e);
-        ::std::process::exit(1);
-    }
+    env_logger::init();
 
     info!("loading config");
 
