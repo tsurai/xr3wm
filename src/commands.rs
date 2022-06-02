@@ -18,6 +18,7 @@ use x11::xlib::Window;
 use anyhow::{bail, Context, Result};
 
 pub enum Cmd {
+    Custom(Box<dyn Fn(&WmState) -> Result<Option<Cmd>, String>>),
     Exec(String, Vec<String>),
     SwitchWorkspace(usize),
     SwitchScreen(usize),
@@ -45,6 +46,14 @@ pub enum Cmd {
 impl Cmd {
     pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config) -> Result<()> {
         match self {
+            Cmd::Custom(func) => {
+                debug!("Cmd::Custom");
+                match func(state) {
+                    Ok(Some(cmd)) => cmd.call(xws, state, config)?,
+                    Ok(None) => (),
+                    Err(e) => error!("Cmd::Custom failed: {}", e),
+                }
+            }
             Cmd::Exec(ref cmd, ref args) => {
                 debug!("Cmd::Exec: {} {:?}", cmd, args);
                 exec(cmd.clone(), args.clone());
