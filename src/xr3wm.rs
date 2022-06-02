@@ -154,9 +154,9 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 xws.configure_window(window, changes, mask, unmanaged);
             }
             XEnterNotify(window, is_root, x, y) => {
-                trace!("XEnterNotify: {:#x} {}", window, is_root);
+                trace!("XEnterNotify: {:#x} {} x: {} y: {}", window, is_root,x ,y);
                 if is_root {
-                    state.switch_to_ws_at(xws, &config, x, y, true)
+                    state.switch_to_ws_at(xws, &config, x, y, false)
                 } else {
                     state.focus_window(xws, &config, window);
                 }

@@ -35,6 +35,7 @@ pub struct Workspace {
     pub(crate) tag: String,
     pub screen: usize,
     pub visible: bool,
+    pub focus: bool,
 }
 
 impl Default for Workspace {
@@ -45,6 +46,7 @@ impl Default for Workspace {
             tag: String::new(),
             screen: 0,
             visible: false,
+            focus: false,
         }
     }
 }
@@ -255,16 +257,23 @@ impl Workspace {
     }
 
     pub fn unfocus(&mut self, xws: &XlibWindowSystem, config: &Config) {
+        self.focus = false;
+
         if let Some(window) = self.focused_window() {
             trace!("unfocus window: {:#x}", window);
             xws.set_window_border_color(window, config.border_color);
         }
     }
 
-    pub fn focus(&self, xws: &XlibWindowSystem) {
+    pub fn focus(&mut self, xws: &XlibWindowSystem) {
+        self.focus = true;
+
         if let Some(window) = self.focused_window() {
             trace!("focus window: {:#x}", window);
             xws.focus_window(window);
+        } else {
+            trace!("clear focus");
+            xws.focus_window(xws.get_root_window());
         }
     }
 
@@ -344,8 +353,10 @@ impl Workspace {
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 
-        if let Some(window) = self.focused_window() {
-            xws.set_window_border_color(window, config.border_focus_color);
+        if self.focus {
+            if let Some(window) = self.focused_window() {
+                xws.set_window_border_color(window, config.border_focus_color);
+            }
         }
 
         xws.skip_enter_events();

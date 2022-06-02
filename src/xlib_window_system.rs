@@ -115,8 +115,10 @@ impl XlibWindowSystem {
                         border_width: u32,
                         border_color: u32,
                         window: Window) {
+
         self.set_window_border_width(window, border_width);
         self.set_window_border_color(window, border_color);
+
         self.move_resize_window(window,
                                 x,
                                 y,
@@ -727,6 +729,7 @@ impl XlibWindowSystem {
         unsafe { &*(self.event as *const T) }
     }
 
+    #[allow(clippy::nonminimal_bool)]
     pub fn get_event(&self) -> XlibEvent {
         unsafe {
             XNextEvent(self.display, self.event as *mut XEvent);
@@ -815,7 +818,18 @@ impl XlibWindowSystem {
             }
             FocusIn => {
                 let evt: &XFocusInEvent = self.cast_event_to();
-                if evt.detail == 3 {
+                trace!("XFocusIn: {:?}", evt);
+                if (evt.mode == NotifyNormal &&
+                        // mouse focus move from root to window
+                        (evt.detail == NotifyAncestor ||
+                        // mouse focus move from window to window
+                        evt.detail == NotifyNonlinear)) ||
+                    (evt.mode == NotifyWhileGrabbed &&
+                        // manual focus move from root to window
+                        (evt.detail == NotifyAncestor ||
+                        // manual focus move from window to window
+                        evt.detail == NotifyNonlinear))
+                {
                     XFocusIn(evt.window)
                 } else {
                     Ignored

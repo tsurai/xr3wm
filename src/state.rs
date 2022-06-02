@@ -42,11 +42,13 @@ impl WmState {
         Ok(WmState {
             workspaces: ws_cfg_list
                 .into_iter()
-                .map(|c| {
+                .enumerate()
+                .map(|(idx,c)| {
                     Workspace {
                         tag: c.tag.clone(),
                         screen: c.screen,
                         managed: Stack::new(Some(c.layout)),
+                        focus: idx == 0,
                         ..Default::default()
                     }
                 })
@@ -199,8 +201,8 @@ impl WmState {
             .enumerate()
             .find(|(_,ws)| {
                 let screen = self.screens[ws.get_screen()];
-                x >= screen.x && x <= screen.x + screen.width &&
-                y >= screen.y && y <= screen.y + screen.height &&
+                x >= screen.x && x < screen.x + screen.width &&
+                y >= screen.y && y < screen.y + screen.height &&
                 ws.is_visible()
             })
             .map(|(idx,_)| idx);
@@ -343,7 +345,10 @@ impl WmState {
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
         self.all_visible_ws()
             .iter()
-            .for_each(|ws| ws.redraw(xws, config, &self.screens));
+            .for_each(|ws| {
+                ws.redraw(xws, config, &self.screens);
+            });
+
     }
 
     pub fn add_strut(&mut self, window: Window) {
