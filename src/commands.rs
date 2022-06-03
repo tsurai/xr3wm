@@ -68,7 +68,7 @@ impl Cmd {
             }
             Cmd::MoveToWorkspace(index) => {
                 debug!("Cmd::MoveToWorkspace: {}", index);
-                state.move_window_to(xws, config, index - 1);
+                state.move_window_to_ws(xws, config, index - 1);
             }
             Cmd::MoveToScreen(screen) => {
                 debug!("Cmd::MoveToScreen: {}", screen);

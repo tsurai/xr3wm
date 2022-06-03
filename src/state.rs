@@ -234,7 +234,7 @@ impl WmState {
         }
     }
 
-    pub fn move_window_to(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize) {
+    pub fn move_window_to_ws(&mut self, xws: &XlibWindowSystem, config: &Config, index: usize) {
         if index == self.cur || index >= self.ws_count() {
             return;
         }
@@ -248,12 +248,13 @@ impl WmState {
 
     }
 
-    pub fn move_window_to_screen(&mut self,
-                                 xws: &XlibWindowSystem,
-                                 config: &Config,
-                                 screen: usize) {
-        if let Some((index, _)) = self.workspaces.iter().enumerate().find(|&(_, ws)| ws.screen == screen) {
-            self.move_window_to(xws, config, index);
+    pub fn move_window_to_screen(&mut self, xws: &XlibWindowSystem, config: &Config, screen: usize) {
+        if let Some((index,_)) = self.all_ws()
+            .iter()
+            .enumerate()
+            .find(|&(_, ws)| ws.is_visible() && ws.screen == screen)
+        {
+            self.move_window_to_ws(xws, config, index);
         }
     }
 
