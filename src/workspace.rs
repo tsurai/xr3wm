@@ -3,6 +3,7 @@ use crate::layout::{Layout, Tall};
 use crate::layout::{LayoutMsg, Rect};
 use crate::stack::Stack;
 use crate::xlib_window_system::XlibWindowSystem;
+use crate::ewmh;
 use std::cmp;
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
@@ -60,10 +61,8 @@ impl Workspace {
         self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
 
-    pub fn send_layout_message(&mut self, msg: LayoutMsg) {
-        if let Some(layout) = self.managed.layout.as_mut() {
-            layout.send_msg(msg);
-        }
+    pub fn send_layout_message(&mut self, xws: &XlibWindowSystem, msg: LayoutMsg) {
+        self.managed.send_layout_msg(xws, msg);
     }
 
     pub fn get_tag(&self) -> &str {
@@ -202,6 +201,7 @@ impl Workspace {
     }
 
     pub fn remove_window_highlight(&mut self, xws: &XlibWindowSystem, config: &Config) {
+        info!("remove highlight color");
         if let Some(window) = self.focused_window() {
             xws.set_window_border_color(window, config.border_color);
         }
@@ -326,13 +326,25 @@ impl Workspace {
         let screen = screens[self.screen];
 
         for (rect, window) in self.managed.apply_layout(screen, xws) {
-            xws.setup_window(rect.x,
-                rect.y,
-                rect.width,
-                rect.height,
-                config.border_width,
-                config.border_color,
-                window);
+            let is_fullscreen = ewmh::is_window_fullscreen(xws, window);
+
+            if is_fullscreen {
+                xws.setup_window(screen.x,
+                    screen.y,
+                    screen.width,
+                    screen.height,
+                    0,
+                    config.border_color,
+                    window);
+            } else {
+                xws.setup_window(rect.x,
+                    rect.y,
+                    rect.width,
+                    rect.height,
+                    config.border_width,
+                    config.border_color,
+                    window);
+            }
         }
 
         for &window in self.unmanaged.all_windows().iter() {

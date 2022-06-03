@@ -76,7 +76,7 @@ impl Cmd {
             }
             Cmd::SendLayoutMsg(ref msg) => {
                 debug!("Cmd::SendLayoutMsg::{:?}", msg);
-                state.current_ws_mut().send_layout_message(msg.clone());
+                state.current_ws_mut().send_layout_message(xws, msg.clone());
                 state.current_ws().redraw(xws, config, state.get_screens());
             }
             Cmd::NestLayout(layout_fn) => {

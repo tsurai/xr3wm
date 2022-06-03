@@ -3,6 +3,7 @@
 
 use crate::stack::{Node, Stack};
 use crate::xlib_window_system::XlibWindowSystem;
+use crate::ewmh;
 use std::cmp::min;
 use std::fmt;
 use x11::xlib::Window;
@@ -27,7 +28,7 @@ impl fmt::Debug for Rect {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum LayoutMsg {
     Increase,
     Decrease,
@@ -37,6 +38,7 @@ pub enum LayoutMsg {
     PrevLayout,
     FirstLayout,
     LastLayout,
+    ResetLayout,
     NthLayout(usize),
     Custom(String),
 }
@@ -53,6 +55,7 @@ impl fmt::Debug for LayoutMsg {
             LayoutMsg::FirstLayout => write!(f, "FirstLayout"),
             LayoutMsg::NthLayout(n) => write!(f, "NthLayout: {}", n),
             LayoutMsg::LastLayout => write!(f, "LastLayout"),
+            LayoutMsg::ResetLayout => write!(f, "ResetLayout"),
             LayoutMsg::Custom(ref val) => write!(f, "Custom({})", val.clone()),
         }
     }
@@ -61,7 +64,7 @@ impl fmt::Debug for LayoutMsg {
 #[typetag::serde(tag = "type")]
 pub trait Layout {
     fn name(&self) -> String;
-    fn send_msg(&mut self, msg: LayoutMsg);
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg);
 
     fn apply(&self, area: Rect, _: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         self.simple_apply(area, &stack.nodes)
@@ -98,8 +101,9 @@ impl Layout for Choose {
         self.layouts[self.current].name()
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
         let len = self.layouts.len();
+        let prev = self.current;
 
         match msg {
             LayoutMsg::NextLayout => {
@@ -120,13 +124,17 @@ impl Layout for Choose {
                 }
             }
             x => {
-                self.layouts[self.current].send_msg(x);
+                self.layouts[self.current].send_msg(xws, nodes, x);
             }
+        }
+
+        if self.current != prev {
+            self.layouts[prev].send_msg(xws, nodes, LayoutMsg::ResetLayout);
         }
     }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        self.layouts[self.current].apply(area, ws, stack)
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        self.layouts[self.current].apply(area, xws, stack)
     }
 }
 
@@ -153,7 +161,7 @@ impl Layout for Tall {
         "Tall".to_string()
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
+    fn send_msg(&mut self, _: &XlibWindowSystem, _: &[Node], msg: LayoutMsg) {
         match msg {
             LayoutMsg::Increase => {
                 if self.ratio + self.ratio_increment < 1.0 {
@@ -227,38 +235,46 @@ impl Layout for Strut {
         self.layout.name()
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
-        self.layout.send_msg(msg);
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
+        self.layout.send_msg(xws, nodes, msg);
     }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         let mut new_area = Rect {
             x: 0,
             y: 0,
             width: 0,
             height: 0,
         };
-        let strut = ws.compute_struts(area);
+        let strut = xws.compute_struts(area);
 
         new_area.x = area.x + strut.0;
         new_area.width = area.width - (strut.0 + strut.1);
         new_area.y = area.y + strut.2;
         new_area.height = area.height - (strut.2 + strut.3);
 
-        self.layout.apply(new_area, ws, stack)
+        self.layout.apply(new_area, xws, stack)
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Full {
-    focus: Option<Window>
+    focus: Option<Window>,
+    is_fullscreen: bool,
 }
 
 impl Full {
-    pub fn new() -> Box<dyn Layout> {
+    pub fn new(is_fullscreen: bool) -> Box<dyn Layout> {
         Box::new(Full{
-            focus: None
+            focus: None,
+            is_fullscreen,
         })
+    }
+
+    fn reset(xws: &XlibWindowSystem, nodes: &[Node]) {
+        nodes.iter()
+            .filter_map(|x| if let Node::Window(w) = x { Some(w) } else { None })
+            .for_each(|&w| ewmh::set_window_fullscreen(xws, w, false));
     }
 }
 
@@ -268,16 +284,38 @@ impl Layout for Full {
         "Full".to_string()
     }
 
-    fn send_msg(&mut self, _msg: LayoutMsg) {}
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
+        match msg {
+            LayoutMsg::ResetLayout => {
+                Full::reset(xws, nodes);
+            },
+            LayoutMsg::Custom(x) if x.as_str() == "ToggleFullscreen" => {
+                self.is_fullscreen = !self.is_fullscreen;
+                if !self.is_fullscreen {
+                    Full::reset(xws, nodes);
+                }
+            },
+            _ => (),
+        }
+    }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         stack.nodes.iter()
             .enumerate()
             .map(|(i,node)| {
                 if Some(i) != stack.focus {
                     match node {
-                        Node::Window(w) => ws.lower_window(*w),
-                        Node::Stack(s) => s.all_windows().iter().for_each(|&w| ws.lower_window(w)),
+                        Node::Window(w) => {
+                            xws.lower_window(*w);
+                            if self.is_fullscreen {
+                                ewmh::set_window_fullscreen(xws, *w, false);
+                            }
+                        },
+                        Node::Stack(s) => s.all_windows().iter().for_each(|&w| xws.lower_window(w)),
+                    }
+                } else if self.is_fullscreen {
+                    if let Node::Window(w) = node {
+                        ewmh::set_window_fullscreen(xws, *w, true);
                     }
                 }
 
@@ -314,11 +352,11 @@ impl Layout for Gap {
         self.layout.name()
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
-        self.layout.send_msg(msg);
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
+        self.layout.send_msg(xws, nodes, msg);
     }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         let area = Rect {
             x: area.x + self.screen_gap,
             y: area.y + self.screen_gap,
@@ -326,7 +364,7 @@ impl Layout for Gap {
             height: area.height - (2 * self.screen_gap),
         };
 
-        let mut rects = self.layout.apply(area, ws, stack);
+        let mut rects = self.layout.apply(area, xws, stack);
 
         for rect in rects.iter_mut() {
             rect.x += self.window_gap;
@@ -366,12 +404,12 @@ impl Layout for Mirror {
         format!("Mirror({})", self.layout.name())
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
-        self.layout.send_msg(msg);
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
+        self.layout.send_msg(xws, nodes, msg);
     }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
-        let mut rects = self.layout.apply(area, ws, stack);
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        let mut rects = self.layout.apply(area, xws, stack);
 
         match self.style {
             MirrorStyle::Horizontal => {
@@ -414,13 +452,13 @@ impl Layout for Rotate {
         format!("Rotate({})", self.layout.name())
     }
 
-    fn send_msg(&mut self, msg: LayoutMsg) {
-        self.layout.send_msg(msg);
+    fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg) {
+        self.layout.send_msg(xws, nodes, msg);
     }
 
-    fn apply(&self, area: Rect, ws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+    fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
         self.layout
-            .apply(Self::rotate_rect(area), ws, stack)
+            .apply(Self::rotate_rect(area), xws, stack)
             .iter()
             .map(|&r| {
                 Self::rotate_rect(r)
@@ -444,7 +482,7 @@ impl Layout for Horizontal {
         "Horizontal".to_string()
     }
 
-    fn send_msg(&mut self, _msg: LayoutMsg) {}
+    fn send_msg(&mut self, _: &XlibWindowSystem, _: &[Node], _: LayoutMsg) {}
 
     fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
         let nwindows = windows.len();
@@ -479,7 +517,7 @@ impl Layout for Vertical {
         "Vertical".to_string()
     }
 
-    fn send_msg(&mut self, _msg: LayoutMsg) {}
+    fn send_msg(&mut self, _: &XlibWindowSystem, _: &[Node], _: LayoutMsg) {}
 
     fn simple_apply(&self, area: Rect, windows: &[Node]) -> Vec<Rect> {
         let nwindows = windows.len();

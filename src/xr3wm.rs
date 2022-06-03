@@ -79,7 +79,7 @@ fn run() -> Result<()> {
 
     ewmh::set_current_desktop(xws, state.get_ws_index());
     ewmh::set_number_of_desktops(xws, state.ws_count());
-    ewmh::set_desktop_names(xws, state.all_ws().iter().map(|ws| ws.get_tag().to_owned()).collect());
+    ewmh::set_desktop_names(xws, state.all_ws());
     ewmh::set_desktop_viewport(xws, state.all_ws());
 
     info!("entering event loop");

@@ -242,10 +242,10 @@ impl WmState {
         if let Some(window) = self.current_ws().focused_window() {
             self.remove_window(xws, config, window);
 
-            if let Some(workspace) = self.get_ws_mut(index) {
-                workspace.add_window(xws, window);
-            }
+            self.workspaces[index].add_window(xws, window);
+            self.workspaces[index].redraw(xws, config, &self.screens);
         }
+
     }
 
     pub fn move_window_to_screen(&mut self,

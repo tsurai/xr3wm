@@ -124,6 +124,7 @@ impl XlibWindowSystem {
                                 y,
                                 cmp::max(width as i32 - (2 * border_width as i32), 0) as u32,
                                 cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
+        self.show_window(window);
     }
 
     pub fn create_hidden_window(&self) -> Window {
@@ -209,6 +210,15 @@ impl XlibWindowSystem {
             .and_then(|x| x.first().map(|s| *s as u8))
     }
 
+    pub fn get_window_attributes(&self, window: Window) -> XWindowAttributes {
+        unsafe {
+            let mut ret_attributes = MaybeUninit::<XWindowAttributes>::uninit();
+            XGetWindowAttributes(self.display, window, ret_attributes.as_mut_ptr());
+
+            ret_attributes.assume_init()
+        }
+    }
+
     // TODO: cache result and split into computation and getter functions.
     // Struts rarely change and dont have to be computed on every redraw (see strut layout)
     pub fn compute_struts(&self, screen: Rect) -> Strut {
@@ -266,6 +276,11 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn delete_property<A: IntoAtom>(&self, window: Window, atom: A) {
+        unsafe {
+            XDeleteProperty(self.display, window, atom.into(self));
+        }
+    }
 
     pub fn configure_window(&self,
                             window: Window,

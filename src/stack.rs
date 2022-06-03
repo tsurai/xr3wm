@@ -4,7 +4,7 @@ use std::cmp;
 use std::iter::Iterator;
 use crate::workspace::MoveOp;
 use crate::xlib_window_system::XlibWindowSystem;
-use crate::layout::{Layout, Rect};
+use crate::layout::{Layout, LayoutMsg, Rect};
 use x11::xlib::Window;
 use serde::{Serialize, Deserialize};
 use anyhow::{anyhow, Context, Result};
@@ -335,6 +335,12 @@ impl Stack {
                     None
                 })
                 .any(|x| x)
+        }
+    }
+
+    pub fn send_layout_msg(&mut self, xws: &XlibWindowSystem, msg: LayoutMsg) {
+        if let Some(layout) = self.layout.as_mut() {
+            layout.send_msg(xws, &self.nodes, msg);
         }
     }
 

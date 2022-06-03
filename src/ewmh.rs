@@ -45,10 +45,12 @@ pub fn set_current_desktop(xws: &XlibWindowSystem, index: usize) {
 }
 
 #[allow(dead_code)]
-pub fn set_desktop_names(xws: &XlibWindowSystem, names: Vec<String>) {
+pub fn set_desktop_names(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
     let root = xws.get_root_window();
 
-    let names: Vec<Vec<u8>>= names.into_iter()
+    let names: Vec<Vec<u8>>= workspaces
+        .iter()
+        .map(|x| x.get_tag().to_owned())
         .filter_map(|x| CString::new(x).ok())
         .map(|x| x.into_bytes_with_nul())
         .collect();
@@ -84,4 +86,24 @@ pub fn set_client_list(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
         .concat();
 
     xws.change_property(root, "_NET_CLIENT_LIST", XA_WINDOW, PropModeReplace, &clients);
+}
+
+pub fn set_window_fullscreen(xws: &XlibWindowSystem, window: Window, is_fullscreen: bool) {
+    if is_fullscreen {
+        xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &[
+            xws.get_atom("_NET_WM_STATE_FULLSCREEN", true)
+        ]);
+    } else {
+        xws.delete_property(window, "_NET_WM_STATE");
+    }
+}
+
+pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {
+    xws.get_property(window, "_NET_WM_STATE")
+            .map(|prop| {
+                prop.get(0)
+                    .map(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN", true))
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false)
 }
