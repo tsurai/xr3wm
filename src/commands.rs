@@ -278,9 +278,13 @@ fn exec(cmd: String, args: Vec<String>) {
             cmd.args(&args);
         }
 
-        match cmd.envs(env::vars()).spawn() {
-            Ok(_) => (),
-            Err(e) => error!("failed to start \"{:?}\": {}", cmd, e),
-        }
+        std::thread::spawn(move || {
+            match cmd.envs(env::vars()).spawn() {
+                Ok(mut child) => {
+                    child.wait().ok();
+                },
+                Err(e) => error!("failed to start \"{:?}\": {}", cmd, e),
+            }
+        });
     }
 }
