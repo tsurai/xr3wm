@@ -11,7 +11,7 @@ use std::env;
 use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fs::{File, create_dir_all};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
@@ -57,6 +57,7 @@ pub struct LogInfo {
 }
 
 pub struct Config {
+    pub path: PathBuf,
     pub mod_key: u8,
     pub border_width: u32,
     pub border_color: u32,
@@ -71,6 +72,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         let mut config = Config {
+            path: PathBuf::from(env!("CARGO_MANIFEST_DIR")),
             mod_key: MOD_4,
             border_width: 2,
             border_color: 0x002e_2e2e,
@@ -265,11 +267,27 @@ impl Default for Config {
 
 impl Config {
     pub fn get_dir() -> Result<String, env::VarError> {
-        env::var("XDG_CONFIG_HOME")
-            .map(|x| format!("{}/xr3wm", x))
+        let mut cfg_path = None;
+        let mut args = env::args().skip(1);
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--config" | "-c" => cfg_path = args.next(),
+                x if x.starts_with("--config=") => {
+                    cfg_path = x.splitn(2, '=').last().map(|x| x.into());
+                },
+                _ => (),
+            }
+        }
+
+        cfg_path.ok_or(())
             .or_else(|_| {
-                env::var("HOME")
-                    .map(|x| format!("{}/.config/xr3wm", x))
+                env::var("XDG_CONFIG_HOME")
+                    .map(|x| format!("{}/xr3wm", x))
+                    .or_else(|_| {
+                        env::var("HOME")
+                            .map(|x| format!("{}/.config/xr3wm", x))
+                    })
             })
     }
 
@@ -326,8 +344,8 @@ crate-type = [\"dylib\"]")
             .context("failed to write Cargo.toml")
     }
 
-    fn compile() -> Result<()> {
-        let build_dir = format!("{}/.build/", Self::get_dir()?);
+    fn compile(path: &str) -> Result<()> {
+        let build_dir = format!("{}/.build/", path);
         let path = Path::new(&build_dir);
         if !path.exists() {
             create_dir_all(path)
@@ -359,10 +377,12 @@ crate-type = [\"dylib\"]")
 
     pub fn load() -> Result<(Config, Vec<WorkspaceConfig>)> {
         unsafe {
-            Config::compile()
+            let path = Self::get_dir()?;
+
+            Config::compile(&path)
                 .context("failed to compile config")?;
 
-            let cfg_path = format!("{}/.build/target/debug/libconfig.so", Self::get_dir()?);
+            let cfg_path = format!("{}/.build/target/debug/libconfig.so", path);
 
             let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;

@@ -20,33 +20,35 @@ mod utils;
 mod workspace;
 mod xlib_window_system;
 
-fn print_help() {
+fn print_version() -> ! {
+    println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    ::std::process::exit(0);
+}
+
+fn print_help() -> ! {
     println!("usage: xr3wm [OPTION]
 Xmonad and i3 inspired X11 tiling window manager.
 
-  -h, --help    display this help and exit
-  -v, --version output version information and exit");
+  -c, --config=path config file path
+  -h, --help        display this help and exit
+  -v, --version     output version information and exit");
+    ::std::process::exit(0);
 }
 
-fn parse_args() {
-    let args: Vec<String> = env::args().collect();
+fn handle_args() {
+    let args = env::args().skip(1);
 
-    if args.len() > 1 {
-        match args[1].as_str() {
-            "-v" | "--version" => println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")),
-            "-h" | "--help" => print_help(),
-            x => {
-                println!("xr3wm: invalid option -- '{}'\n", x);
-                print_help();
-            }
+    for arg in args {
+        match arg.as_str() {
+            "--help" | "-h" => print_help(),
+            "--version" | "-v" => print_version(),
+            _ => (),
         }
-
-        ::std::process::exit(0);
     }
 }
 
 fn run() -> Result<()> {
-    parse_args();
+    handle_args();
 
     // initialize logging system
     env_logger::init();
