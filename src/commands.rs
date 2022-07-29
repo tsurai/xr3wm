@@ -11,7 +11,7 @@ use self::libc::execvpe;
 use std::{env, iter};
 use std::ptr::null;
 use std::ffi::CString;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::path::Path;
 use std::fs::OpenOptions;
 use x11::xlib::Window;
@@ -272,14 +272,15 @@ impl CmdManage {
 
 fn exec(cmd: String, args: Vec<String>) {
     if !cmd.is_empty() {
-        let mut cmd = Command::new(cmd);
-
-        if !args.is_empty() {
-            cmd.args(&args);
-        }
-
         std::thread::spawn(move || {
-            match cmd.envs(env::vars()).spawn() {
+            match Command::new(&cmd)
+                .envs(env::vars())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .args(&args)
+                .spawn()
+            {
                 Ok(mut child) => {
                     child.wait().ok();
                 },
