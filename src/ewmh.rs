@@ -101,7 +101,7 @@ pub fn set_window_fullscreen(xws: &XlibWindowSystem, window: Window, is_fullscre
 pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {
     xws.get_property(window, "_NET_WM_STATE")
             .map(|prop| {
-                prop.get(0)
+                prop.first()
                     .map(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN", true))
                     .unwrap_or(false)
             })

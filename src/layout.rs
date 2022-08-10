@@ -28,7 +28,7 @@ impl fmt::Debug for Rect {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum LayoutMsg {
     Increase,
     Decrease,

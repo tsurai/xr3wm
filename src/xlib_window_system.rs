@@ -445,7 +445,7 @@ impl XlibWindowSystem {
     pub fn restack_windows(&self, mut windows: Vec<Window>) {
         unsafe {
             XRestackWindows(self.display,
-                            (&mut windows[..]).as_mut_ptr(),
+                            (windows[..]).as_mut_ptr(),
                             windows.len() as i32);
         }
     }

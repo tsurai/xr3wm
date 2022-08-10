@@ -17,8 +17,10 @@ use std::fs::OpenOptions;
 use x11::xlib::Window;
 use anyhow::{bail, Context, Result};
 
+type CustomCmdFn = dyn Fn(&WmState) -> Result<Option<Cmd>, String>;
+
 pub enum Cmd {
-    Custom(Box<dyn Fn(&WmState) -> Result<Option<Cmd>, String>>),
+    Custom(Box<CustomCmdFn>),
     Exec(String, Vec<String>),
     SwitchWorkspace(usize),
     SwitchScreen(usize),
