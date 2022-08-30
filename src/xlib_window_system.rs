@@ -115,7 +115,6 @@ impl XlibWindowSystem {
                         border_width: u32,
                         border_color: u32,
                         window: Window) {
-
         self.set_window_border_width(window, border_width);
         self.set_window_border_color(window, border_color);
 
@@ -124,7 +123,6 @@ impl XlibWindowSystem {
                                 y,
                                 cmp::max(width as i32 - (2 * border_width as i32), 0) as u32,
                                 cmp::max(height as i32 - (2 * border_width as i32), 0) as u32);
-        self.show_window(window);
     }
 
     pub fn create_hidden_window(&self) -> Window {

@@ -180,15 +180,16 @@ impl Workspace {
 
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) -> bool {
         if window == 0 ||
-           !self.is_visible() ||
            self.unmanaged.focused_window() == Some(window) ||
            self.managed.focused_window() == Some(window)
         {
             return false;
         }
 
-        self.remove_urgent_window(window);
-        self.remove_window_highlight(xws, config);
+        if self.is_visible() {
+            self.remove_urgent_window(window);
+            self.remove_window_highlight(xws, config);
+        }
 
         if self.unmanaged.contains(window) {
             self.unmanaged.focus_window(window);
@@ -268,7 +269,9 @@ impl Workspace {
     pub fn focus(&mut self, xws: &XlibWindowSystem) {
         self.focus = true;
 
-        if let Some(window) = self.focused_window() {
+        if let Some(window) = self.focused_window()
+            .or_else(|| self.all().first().copied())
+        {
             trace!("focus window: {:#x}", window);
             xws.focus_window(window);
         } else {
@@ -306,7 +309,6 @@ impl Workspace {
     pub fn show(&mut self, xws: &XlibWindowSystem) {
         self.visible = true;
 
-        //self.redraw(xws, config);
         for &w in self.managed.all_windows().iter() {
             xws.show_window(w);
         }
@@ -317,10 +319,6 @@ impl Workspace {
     }
 
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config, screens: &[Rect]) {
-        if !self.is_visible() {
-            return;
-        }
-
         trace!("Redraw workspace: {}", self.tag);
 
         let screen = screens[self.screen];
@@ -370,7 +368,5 @@ impl Workspace {
                 xws.set_window_border_color(window, config.border_focus_color);
             }
         }
-
-        xws.skip_enter_events();
     }
 }

@@ -242,8 +242,10 @@ impl WmState {
         if let Some(window) = self.current_ws().focused_window() {
             self.remove_window(xws, config, window);
 
-            self.workspaces[index].add_window(xws, window);
-            self.workspaces[index].redraw(xws, config, &self.screens);
+            let ws = &mut self.workspaces[index];
+            ws.add_window(xws, window);
+            ws.focus_window(xws, config, window);
+            ws.redraw(xws, config, &self.screens);
         }
 
     }
@@ -315,7 +317,7 @@ impl WmState {
                 if let Some(workspace) = self.workspaces.iter_mut().find(|ws| !ws.is_visible()) {
                     trace!("moving workspace {}", workspace.tag);
                     workspace.screen = screen;
-                    workspace.redraw(xws, config, &self.screens);
+                    workspace.redraw(xws, config, &new_screens);
                     workspace.show(xws);
                 }
             }

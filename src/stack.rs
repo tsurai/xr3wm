@@ -225,7 +225,7 @@ impl Stack {
     pub fn add_window(&mut self, window: Window) {
         match self.focused_node_mut() {
             Some(Node::Stack(s)) => s.add_window(window),
-            Some(Node::Window(_)) => self.nodes.insert(self.focus.unwrap_or(0) + 1, Node::Window(window)),
+            Some(Node::Window(_)) => self.nodes.insert(self.focus.expect("focus idx") + 1, Node::Window(window)),
             None => self.nodes.push(Node::Window(window)),
         }
     }
