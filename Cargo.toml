@@ -13,7 +13,7 @@ typetag = "0.1"
 serde = "1.0"
 serde_json = "1.0"
 libc = "0.2"
-x11 = { version = "2.19", features = ["xlib", "xinerama"] }
+x11 = { version = "2.20", features = ["xlib", "xinerama"] }
 
 [lib]
 name = "xr3wm"

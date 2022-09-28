@@ -90,11 +90,8 @@ impl Workspace {
     }
 
     pub fn focused_window(&self) -> Option<Window> {
-        if self.unmanaged.focused_window().is_none() {
-            self.managed.focused_window()
-        } else {
-            self.unmanaged.focused_window()
-        }
+        self.unmanaged.focused_window()
+            .or_else(|| self.managed.focused_window())
     }
 
     pub fn add_window(&mut self, xws: &XlibWindowSystem, window: Window) {
@@ -178,9 +175,8 @@ impl Workspace {
         true
     }
 
-    pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) -> bool {
+    pub fn focus_window(&mut self, xws: &XlibWindowSystem, window: Window) -> bool {
         if window == 0 ||
-           self.unmanaged.focused_window() == Some(window) ||
            self.managed.focused_window() == Some(window)
         {
             return false;
@@ -188,7 +184,6 @@ impl Workspace {
 
         if self.is_visible() {
             self.remove_urgent_window(window);
-            self.remove_window_highlight(xws, config);
         }
 
         if self.unmanaged.contains(window) {
@@ -199,13 +194,6 @@ impl Workspace {
 
         xws.focus_window(window);
         true
-    }
-
-    pub fn remove_window_highlight(&mut self, xws: &XlibWindowSystem, config: &Config) {
-        info!("remove highlight color");
-        if let Some(window) = self.focused_window() {
-            xws.set_window_border_color(window, config.border_color);
-        }
     }
 
     pub fn move_parent_focus(&mut self, op: MoveOp) -> Option<Window> {
@@ -272,10 +260,8 @@ impl Workspace {
         if let Some(window) = self.focused_window()
             .or_else(|| self.all().first().copied())
         {
-            trace!("focus window: {:#x}", window);
             xws.focus_window(window);
         } else {
-            trace!("clear focus");
             xws.focus_window(xws.get_root_window());
         }
     }
@@ -365,6 +351,7 @@ impl Workspace {
 
         if self.focus {
             if let Some(window) = self.focused_window() {
+                println!("set focus color for: {:X}", window);
                 xws.set_window_border_color(window, config.border_focus_color);
             }
         }

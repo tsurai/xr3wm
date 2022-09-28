@@ -367,13 +367,42 @@ impl XlibWindowSystem {
     }
 
     pub fn focus_window(&self, window: Window) {
-        trace!("set input focus: {:#x}", window);
-        unsafe {
-            XSetInputFocus(self.display, window, 1, 0);
-            self.skip_enter_events();
-        }
+        let input_hint = self.get_wm_hints(window).map(|x| x.input != 0).unwrap_or(true);
+        let takes_focus = self.has_protocol(window, "WM_TAKE_FOCUS");
 
-        ewmh::set_active_window(self, window);
+        if input_hint {
+            trace!("set input focus: {:#x}", window);
+            unsafe {
+                XSetInputFocus(self.display, window, 1, 0);
+                self.skip_enter_events();
+            }
+
+            ewmh::set_active_window(self, window);
+        } else if takes_focus {
+            trace!("send WM_TAKE_FOCUS to: {:#x}", window);
+            let time = SystemTime::now().duration_since(UNIX_EPOCH)
+                .map(|x| x.as_secs() as u64)
+                .unwrap_or(0);
+
+            let atom = self.get_atom("WM_TAKE_FOCUS", true);
+            let mut event = XClientMessageEvent {
+                type_: ClientMessage,
+                serial: 0,
+                send_event: 0,
+                display: std::ptr::null_mut(),
+                window,
+                message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
+                format: 32,
+                data: ClientMessageData::from([atom as u64, time as u64, 0, 0, 0]),
+            };
+
+            let event_ptr: *mut XClientMessageEvent = &mut event;
+            unsafe {
+                XSendEvent(self.display, window, 0, NoEventMask, event_ptr as *mut XEvent);
+            }
+
+            ewmh::set_active_window(self, window);
+        }
     }
 
     pub fn skip_enter_events(&self) {
@@ -638,12 +667,7 @@ impl XlibWindowSystem {
 
     pub fn get_wm_hints(&self, window: Window) -> Option<&XWMHints> {
         unsafe {
-            let hints_ptr = XGetWMHints(self.display, window);
-            if !hints_ptr.is_null() {
-                Some(&*hints_ptr)
-            } else {
-                None
-            }
+            XGetWMHints(self.display, window).as_ref()
         }
     }
 

@@ -134,7 +134,7 @@ impl WmState {
             workspace.add_window(xws, window);
 
             if parent.is_some() {
-                workspace.focus_window(xws, config, window);
+                workspace.focus_window(xws, window);
             }
 
             if !workspace.is_visible() {
@@ -149,18 +149,20 @@ impl WmState {
     }
 
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
-        if let Some(index) = self.find_window(window) {
-            if self.cur != index {
-                let workspace = self.get_ws_mut(index)
-                    .expect("valid workspace");
+        if xws.get_wm_hints(window).map(|x| x.input != 0).unwrap_or(true) {
+            if let Some(index) = self.find_window(window) {
+                if self.cur != index {
+                    let workspace = self.get_ws_mut(index)
+                        .expect("valid workspace");
 
-                workspace.focus_window(xws, config, window);
+                    workspace.focus_window(xws, window);
 
-                if workspace.is_visible() {
-                    self.switch_to_ws(xws, config, index, false);
+                    if workspace.is_visible() {
+                        self.switch_to_ws(xws, config, index, false);
+                    }
+                } else {
+                    self.current_ws_mut().focus_window(xws, window);
                 }
-            } else {
-                self.current_ws_mut().focus_window(xws, config, window);
             }
         }
     }
@@ -244,7 +246,7 @@ impl WmState {
 
             let ws = &mut self.workspaces[index];
             ws.add_window(xws, window);
-            ws.focus_window(xws, config, window);
+            ws.focus_window(xws, window);
             ws.redraw(xws, config, &self.screens);
         }
 

@@ -29,6 +29,7 @@ pub fn init_ewmh(xws: &XlibWindowSystem, root: Window) {
 }
 
 pub fn set_active_window(xws: &XlibWindowSystem, window: Window) {
+    trace!("set active window: {:x}", window);
     let root = xws.get_root_window();
     xws.change_property(root, "_NET_ACTIVE_WINDOW", XA_WINDOW, PropModeReplace, &[window]);
 }

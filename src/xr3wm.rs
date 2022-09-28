@@ -164,7 +164,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XFocusIn(window) => {
-                trace!("XFocusIn: {:#x}", window);
+                trace!("Focus event by: {:#x}", window);
                 if let Some(idx) = state.find_window(window) {
                     let screens = state.get_screens();
                     if let Some(workspace) = state.get_ws(idx) {
