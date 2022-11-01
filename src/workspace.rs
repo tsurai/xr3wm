@@ -351,7 +351,6 @@ impl Workspace {
 
         if self.focus {
             if let Some(window) = self.focused_window() {
-                println!("set focus color for: {:X}", window);
                 xws.set_window_border_color(window, config.border_focus_color);
             }
         }

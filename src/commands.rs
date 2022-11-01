@@ -170,6 +170,7 @@ impl Cmd {
 
                     if new_focus {
                         state.current_ws().redraw(xws, config, state.get_screens());
+                        xws.skip_enter_events();
                     }
                 }
             }

@@ -15,6 +15,10 @@ pub mod core {
         pub use crate::layout::*;
     }
 
+    pub mod state {
+        pub use crate::state::WmState;
+    }
+
     pub use crate::config::{Config, LogInfo};
     pub use crate::statusbar::Statusbar;
     pub use crate::workspace::WorkspaceConfig;
