@@ -300,22 +300,34 @@ impl Layout for Full {
     }
 
     fn apply(&self, area: Rect, xws: &XlibWindowSystem, stack: &Stack) -> Vec<Rect> {
+        let area = if self.is_fullscreen {
+            xws.get_screen_infos()
+                .into_iter()
+                .find(|screen| area.x >= screen.x && area.x < screen.x + screen.width && area.y >= screen.y && area.y < screen.x + screen.width)
+                .unwrap_or(area)
+        } else {
+            area
+        };
+
         stack.nodes.iter()
             .enumerate()
             .map(|(i,node)| {
-                if Some(i) != stack.focus {
-                    match node {
-                        Node::Window(w) => {
-                            xws.lower_window(*w);
-                            if self.is_fullscreen {
-                                ewmh::set_window_fullscreen(xws, *w, false);
+                match node {
+                    Node::Window(w) => {
+                        if self.is_fullscreen {
+                            ewmh::set_window_fullscreen(xws, *w, Some(i) == stack.focus);
+                        }
+
+                        if Some(i) == stack.focus {
+                            xws.raise_window(*w);
+                        }
+                    },
+                    Node::Stack(s) => {
+                        s.all_windows().iter().for_each(|&w| {
+                            if Some(i) == stack.focus {
+                                xws.raise_window(w);
                             }
-                        },
-                        Node::Stack(s) => s.all_windows().iter().for_each(|&w| xws.lower_window(w)),
-                    }
-                } else if self.is_fullscreen {
-                    if let Node::Window(w) = node {
-                        ewmh::set_window_fullscreen(xws, *w, true);
+                        });
                     }
                 }
 

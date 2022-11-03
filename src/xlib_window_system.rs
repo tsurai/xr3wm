@@ -371,7 +371,6 @@ impl XlibWindowSystem {
         let takes_focus = self.has_protocol(window, "WM_TAKE_FOCUS");
 
         if input_hint {
-            trace!("set input focus: {:#x}", window);
             unsafe {
                 XSetInputFocus(self.display, window, 1, 0);
                 self.skip_enter_events();
