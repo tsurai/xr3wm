@@ -255,6 +255,23 @@ impl Stack {
         }
     }
 
+    pub fn dissolve_container(&mut self) {
+        if let Some(Node::Stack(s)) = self.focused_node_mut() {
+            if matches!(s.focused_node(), Some(Node::Window(_))) {
+                let idx = self.focus.unwrap_or(0);
+                if let Node::Stack(stack) = self.nodes.remove(idx) {
+                    let prev_focus = stack.focus.unwrap_or(0);
+                    for node in stack.nodes.into_iter().rev() {
+                        self.nodes.insert(idx, node);
+                    }
+                    self.focus = Some(idx + prev_focus);
+                }
+            } else {
+                s.dissolve_container()
+            }
+        }
+    }
+
     pub fn move_window(&mut self, op: MoveOp) {
         match self.focused_node_mut() {
             Some(Node::Stack(s)) => s.move_window(op),

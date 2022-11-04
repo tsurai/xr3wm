@@ -28,6 +28,7 @@ pub enum Cmd {
     MoveToScreen(usize),
     SendLayoutMsg(LayoutMsg),
     NestLayout(Box<dyn Fn() -> Box<dyn Layout>>),
+    RemoveNested,
     Reload,
     Exit,
     KillClient,
@@ -85,6 +86,11 @@ impl Cmd {
                 let layout = layout_fn();
                 debug!("Cmd::NestLayout: {}", layout.name());
                 state.current_ws_mut().nest_layout(layout);
+            }
+            Cmd::RemoveNested => {
+                debug!("Cmd::RemoveNested");
+                state.current_ws_mut().managed.dissolve_container();
+                state.current_ws().redraw(xws, config, state.get_screens());
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
