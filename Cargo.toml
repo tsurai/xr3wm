@@ -1,4 +1,4 @@
-[project]
+[package]
 name = "xr3wm"
 version = "0.0.1"
 authors = ["Cristian Kubis <cristian.kubis@tsunix.de>"]

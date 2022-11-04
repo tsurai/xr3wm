@@ -152,10 +152,7 @@ impl XlibWindowSystem {
                                   &mut ret_bytes_after,
                                   ret_prop.as_mut_ptr() as *mut *mut c_uchar) == 0 {
                 if ret_format != 0 {
-                    Some(from_raw_parts(ret_prop.assume_init() as *const c_ulong, ret_nitems as usize)
-                        .iter()
-                        .map(|&x| x as u64)
-                        .collect())
+                    Some(from_raw_parts(ret_prop.assume_init() as *const c_ulong, ret_nitems as usize).to_vec())
                 } else {
                     None
                 }
@@ -172,7 +169,7 @@ impl XlibWindowSystem {
                             .unwrap()
                             .as_bytes_with_nul()
                             .as_ptr() as *mut i8,
-                        !create as i32) as u64
+                        !create as i32)
         }
     }
 
@@ -190,10 +187,7 @@ impl XlibWindowSystem {
                        ret_children.as_mut_ptr(),
                        &mut ret_nchildren);
 
-            from_raw_parts(ret_children.assume_init(), ret_nchildren as usize)
-                .iter()
-                .map(|&x| x as u64)
-                .collect()
+            from_raw_parts(ret_children.assume_init(), ret_nchildren as usize).to_vec()
         }
     }
 
@@ -304,7 +298,7 @@ impl XlibWindowSystem {
                 XGetWindowAttributes(self.display, window, attributes.as_mut_ptr());
 
                 let mut event = XConfigureEvent {
-                    type_: ConfigureRequest as i32,
+                    type_: ConfigureRequest,
                     display: self.display,
                     serial: 0,
                     send_event: 1,
@@ -380,7 +374,7 @@ impl XlibWindowSystem {
         } else if takes_focus {
             trace!("send WM_TAKE_FOCUS to: {:#x}", window);
             let time = SystemTime::now().duration_since(UNIX_EPOCH)
-                .map(|x| x.as_secs() as u64)
+                .map(|x| x.as_secs())
                 .unwrap_or(0);
 
             let atom = self.get_atom("WM_TAKE_FOCUS", true);
@@ -392,7 +386,7 @@ impl XlibWindowSystem {
                 window,
                 message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
                 format: 32,
-                data: ClientMessageData::from([atom as u64, time as u64, 0, 0, 0]),
+                data: ClientMessageData::from([atom, time, 0, 0, 0]),
             };
 
             let event_ptr: *mut XClientMessageEvent = &mut event;
@@ -444,7 +438,7 @@ impl XlibWindowSystem {
         unsafe {
             if self.has_protocol(window, "WM_DELETE_WINDOW") {
                 let time = SystemTime::now().duration_since(UNIX_EPOCH)
-                    .map(|x| x.as_secs() as u64)
+                    .map(|x| x.as_secs())
                     .unwrap_or(0);
                 let delete_atom = self.get_atom("WM_DELETE_WINDOW", true);
 
@@ -456,7 +450,7 @@ impl XlibWindowSystem {
                     window,
                     message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
                     format: 32,
-                    data: ClientMessageData::from([delete_atom as u64, time as u64, 0, 0, 0]),
+                    data: ClientMessageData::from([delete_atom, time, 0, 0, 0]),
                 };
 
                 let event_ptr: *mut XClientMessageEvent = &mut event;

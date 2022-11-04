@@ -213,7 +213,7 @@ fn reload(state: &WmState) -> Result<()> {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(&path)
+        .open(path)
         .context("failed to open workspace state tmp file")?;
 
     serde_json::to_writer(file, state)
