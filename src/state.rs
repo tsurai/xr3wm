@@ -269,6 +269,9 @@ impl WmState {
             workspace.remove_window(xws, window);
 
             if workspace.is_visible() {
+                if let Some(w) = workspace.focused_window() {
+                    xws.focus_window(w);
+                }
                 workspace.redraw(xws, config, &screens);
             }
 
