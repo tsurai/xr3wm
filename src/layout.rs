@@ -314,11 +314,14 @@ impl Layout for Full {
             .map(|(i,node)| {
                 match node {
                     Node::Window(w) => {
+                        let is_active = ewmh::get_active_window(xws) == Some(*w);
+                        let is_focused = Some(i) == stack.focus;
+
                         if self.is_fullscreen {
-                            ewmh::set_window_fullscreen(xws, *w, Some(i) == stack.focus);
+                            ewmh::set_window_fullscreen(xws, *w, is_active && is_focused);
                         }
 
-                        if Some(i) == stack.focus {
+                        if is_active && is_focused {
                             xws.raise_window(*w);
                         }
                     },

@@ -145,8 +145,8 @@ impl Workspace {
 
     fn remove_managed(&mut self, xws: &XlibWindowSystem, window: Window) {
         trace!("remove managed window: {:#x}", window);
-        xws.unmap_window(window);
         self.managed.remove(window);
+        xws.unmap_window(window);
     }
 
     fn remove_unmanaged(&mut self, xws: &XlibWindowSystem, window: Window) {
