@@ -65,7 +65,8 @@ fn run() -> Result<()> {
         })
         .context("failed to load config")?;
 
-    let xws = &XlibWindowSystem::new();
+    info!("initializing Xlib");
+    let xws = &mut XlibWindowSystem::new();
     xws.init();
     xws.grab_modifier(config.mod_key);
 
@@ -133,11 +134,11 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XPropertyNotify(window, atom, is_new_value) => {
-                if atom == xws.get_atom("WM_HINTS", true) {
+                if atom == xws.get_atom("WM_HINTS") {
                     if let Some(ws) = state.get_parent_mut(window) {
                         ws.set_urgency(xws.is_urgent(window), window);
                     }
-                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL", true) {
+                } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL") {
                     if is_new_value {
                         state.add_strut(window);
                     } else {

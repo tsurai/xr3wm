@@ -5,27 +5,28 @@ use std::ffi::CString;
 
 // TODO: cache atoms
 
-pub fn init_ewmh(xws: &XlibWindowSystem, root: Window) {
+pub fn init_ewmh(xws: &mut XlibWindowSystem) {
     debug!("initializing ewmh");
+    let root = xws.get_root_window();
 
-    xws.change_property(root, "_NET_SUPPORTED", XA_ATOM, PropModeReplace, &[
-        xws.get_atom("_NET_SUPPORTED", true),
-        xws.get_atom("_NET_SUPPORTING_WM_CHECK", true),
-        xws.get_atom("_NET_NUMBER_OF_DESKTOPS", true),
-        xws.get_atom("_NET_DESKTOP_NAMES", true),
-        xws.get_atom("_NET_DESKTOP_VIEWPORT", true),
-        xws.get_atom("_NET_CURRENT_DESKTOP", true),
-        xws.get_atom("_NET_WM_STRUT_PARTIAL", true),
-        xws.get_atom("_NET_ACTIVE_WINDOW", true),
-        xws.get_atom("_NET_CLIENT_LIST", true),
-    ]);
+    let atoms = &["_NET_SUPPORTED", "_NET_ACTIVE_WINDOW", "_NET_CLIENT_LIST",
+        "_NET_CURRENT_DESKTOP", "_NET_DESKTOP_NAMES", "_NET_DESKTOP_VIEWPORT",
+        "_NET_NUMBER_OF_DESKTOPS", "_NET_SUPPORTING_WM_CHECK", "_NET_WM_NAME",
+        "_NET_WM_STATE", "_NET_WM_STATE_DEMANDS_ATTENTION", "_NET_WM_STATE_FULLSCREEN",
+        "_NET_WM_STRUT_PARTIAL", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK",
+        "UTF8_STRING"];
+
+    xws.cache_atoms(atoms);
+
+    let atoms: Vec<Atom> = atoms.iter().map(|x| xws.get_atom(x)).collect();
+    xws.change_property(root, "_NET_SUPPORTED", XA_ATOM, PropModeReplace, &atoms);
 
     let window = xws.create_hidden_window();
     xws.change_property(root, "_NET_SUPPORTING_WM_CHECK", XA_WINDOW, PropModeReplace, &[window]);
     xws.change_property(window, "_NET_SUPPORTING_WM_CHECK", XA_WINDOW, PropModeReplace, &[window]);
 
     let wm_name = CString::new("xr3wm").unwrap();
-    xws.change_property(window, "_NET_WM_NAME", "UTF8_STREAM", PropModeReplace, wm_name.as_bytes_with_nul());
+    xws.change_property(window, "_NET_WM_NAME", "UTF8_STRING", PropModeReplace, wm_name.as_bytes_with_nul());
 }
 
 pub fn set_active_window(xws: &XlibWindowSystem, window: Window) {
@@ -108,9 +109,8 @@ pub fn set_window_fullscreen(xws: &XlibWindowSystem, window: Window, is_fullscre
 pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {
     xws.get_property(window, "_NET_WM_STATE")
             .map(|prop| {
-                prop.first()
-                    .map(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN", true))
-                    .unwrap_or(false)
+                prop.iter()
+                    .any(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN"))
             })
             .unwrap_or(false)
 }

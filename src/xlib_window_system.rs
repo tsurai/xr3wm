@@ -15,7 +15,8 @@ use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
 use std::time::{SystemTime, UNIX_EPOCH};
-use self::libc::{c_void, c_uchar, c_int, c_uint, c_long, c_ulong};
+use std::collections::HashMap;
+use self::libc::{c_void, c_char, c_uchar, c_int, c_uint, c_long, c_ulong};
 use self::libc::malloc;
 use self::XlibEvent::*;
 use x11::xinerama::XineramaQueryScreens;
@@ -25,12 +26,6 @@ extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c
     // TODO: proper error handling
     // HACK: fixes LeaveNotify on invalid windows
     0
-}
-
-pub struct XlibWindowSystem {
-    display: *mut Display,
-    root: Window,
-    event: *mut c_void,
 }
 
 pub enum XlibEvent {
@@ -66,6 +61,13 @@ pub struct WindowChanges {
     pub stack_mode: u32,
 }
 
+pub struct XlibWindowSystem {
+    display: *mut Display,
+    root: Window,
+    event: *mut c_void,
+    atoms: HashMap<&'static str, Atom>,
+}
+
 impl XlibWindowSystem {
     pub fn new() -> XlibWindowSystem {
         unsafe {
@@ -82,11 +84,12 @@ impl XlibWindowSystem {
                 display,
                 root,
                 event: malloc(256),
+                atoms: HashMap::new(),
             }
         }
     }
 
-    pub fn init(&self) {
+    pub fn init(&mut self) {
         unsafe {
             XSelectInput(self.display, self.root, 0x001A_0034 | EnterWindowMask);
             XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
@@ -94,7 +97,8 @@ impl XlibWindowSystem {
             XSync(self.display, 0);
         }
 
-        ewmh::init_ewmh(self, self.root);
+        self.cache_atoms(&["WM_DELETE_WINDOW", "WM_HINTS", "WM_PROTOCOLS", "WM_STATE", "WM_TAKE_FOCUS"]);
+        ewmh::init_ewmh(self);
     }
 
     pub fn close(&self) {
@@ -162,15 +166,47 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_atom(&self, s: &str, create: bool) -> u64 {
+    pub fn cache_atoms(&mut self, atoms_str: &[&'static str]) {
+        let atoms = self.create_atoms(atoms_str);
+
+        for (s,a) in atoms_str.iter().zip(atoms.iter()) {
+            self.atoms.insert(s, *a);
+        }
+    }
+
+    fn create_atom(&self, atom: &str) -> u64 {
         unsafe {
             XInternAtom(self.display,
-                        CString::new(s.as_bytes())
+                        CString::new(atom.as_bytes())
                             .unwrap()
                             .as_bytes_with_nul()
                             .as_ptr() as *mut i8,
-                        !create as i32)
+                        0)
         }
+    }
+
+    fn create_atoms(&self, atoms: &[&'static str]) -> Vec<u64> {
+        let mut atoms: Vec<*mut c_char> = atoms.iter()
+            .map(|x| {
+                CString::new(x.as_bytes())
+                    .unwrap()
+                    .into_raw()
+            })
+            .collect();
+
+        let mut ret_atoms: Vec<u64> = Vec::with_capacity(atoms.len());
+        unsafe {
+            XInternAtoms(self.display, atoms.as_mut_ptr(), atoms.len() as i32, 0, ret_atoms.as_ptr() as *mut u64);
+            ret_atoms.set_len(atoms.len());
+        }
+
+        ret_atoms
+    }
+
+    pub fn get_atom(&self, atom: &str) -> u64 {
+        self.atoms.get(atom)
+            .cloned()
+            .unwrap_or_else(|| { trace!("cache miss for: {}", atom); self.create_atom(atom) })
     }
 
     pub fn get_windows(&self) -> Vec<Window> {
@@ -192,12 +228,12 @@ impl XlibWindowSystem {
     }
 
     pub fn get_window_strut(&self, window: Window) -> Option<Vec<u64>> {
-        let atom = self.get_atom("_NET_WM_STRUT_PARTIAL", true);
+        let atom = self.get_atom("_NET_WM_STRUT_PARTIAL");
         self.get_property(window, atom)
     }
 
     pub fn get_window_state(&self, window: Window) -> Option<u8> {
-        let atom = self.get_atom("WM_STATE", true);
+        let atom = self.get_atom("WM_STATE");
         self.get_property(window, atom)
             .and_then(|x| x.first().map(|s| *s as u8))
     }
@@ -257,7 +293,7 @@ impl XlibWindowSystem {
         unsafe {
             XChangeProperty(self.display,
                             window,
-                            self.get_atom(atom, true),
+                            self.get_atom(atom),
                             atom_type.into(self),
                             // Xlib requires char for format 8, short for 16 and 32 for long
                             // skipping over int32 for some reason
@@ -377,14 +413,14 @@ impl XlibWindowSystem {
                 .map(|x| x.as_secs())
                 .unwrap_or(0);
 
-            let atom = self.get_atom("WM_TAKE_FOCUS", true);
+            let atom = self.get_atom("WM_TAKE_FOCUS");
             let mut event = XClientMessageEvent {
                 type_: ClientMessage,
                 serial: 0,
                 send_event: 0,
                 display: std::ptr::null_mut(),
                 window,
-                message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
+                message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
                 format: 32,
                 data: ClientMessageData::from([atom, time, 0, 0, 0]),
             };
@@ -415,7 +451,7 @@ impl XlibWindowSystem {
             if XGetWMProtocols(self.display, window, atoms.as_mut_ptr(), count.as_mut_ptr()) != 0 {
                 let atoms = atoms.assume_init();
                 let count = count.assume_init();
-                let protocol_atom = self.get_atom(protocol, true);
+                let protocol_atom = self.get_atom(protocol);
 
                 if count != 0 {
                     let ret = from_raw_parts(atoms, count as usize)
@@ -440,7 +476,7 @@ impl XlibWindowSystem {
                 let time = SystemTime::now().duration_since(UNIX_EPOCH)
                     .map(|x| x.as_secs())
                     .unwrap_or(0);
-                let delete_atom = self.get_atom("WM_DELETE_WINDOW", true);
+                let delete_atom = self.get_atom("WM_DELETE_WINDOW");
 
                 let mut event = XClientMessageEvent {
                     type_: ClientMessage,
@@ -448,7 +484,7 @@ impl XlibWindowSystem {
                     send_event: 0,
                     display: std::ptr::null_mut(),
                     window,
-                    message_type: self.get_atom("WM_PROTOCOLS", true) as c_ulong,
+                    message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
                     format: 32,
                     data: ClientMessageData::from([delete_atom, time, 0, 0, 0]),
                 };
@@ -611,9 +647,9 @@ impl XlibWindowSystem {
             return true;
         }
 
-        if let Some(property) = self.get_property(window, self.get_atom("_NET_WM_WINDOW_TYPE", true)) {
-            let dialog = self.get_atom("_NET_WM_WINDOW_TYPE_DIALOG", true);
-            let splash = self.get_atom("_NET_WM_WINDOW_TYPE_SPLASH", true);
+        if let Some(property) = self.get_property(window, self.get_atom("_NET_WM_WINDOW_TYPE")) {
+            let dialog = self.get_atom("_NET_WM_WINDOW_TYPE_DIALOG");
+            let splash = self.get_atom("_NET_WM_WINDOW_TYPE_SPLASH");
 
             property.iter().any(|&x| x == dialog || x == splash)
         } else {
@@ -695,7 +731,7 @@ impl XlibWindowSystem {
         unsafe {
             let mut name = MaybeUninit::uninit();
 
-            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME", true)) != 0 {
+            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME")) != 0 {
                 let name = name.assume_init();
                 if !name.value.is_null() {
                     return Self::ptr_to_string(name.value as *mut i8)
@@ -772,7 +808,7 @@ impl XlibWindowSystem {
 
                 // Some docks rely entirely on the EWMH window type and do not set redirect
                 // override to prevent the WM from reparenting it
-                let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK", true);
+                let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK");
                 let is_dock = self.get_property(evt.window, "_NET_WM_WINDOW_TYPE")
                     .map(|atoms| atoms.iter().any(|&a| a == dock_type))
                     .unwrap_or(false);
@@ -902,6 +938,6 @@ impl IntoAtom for Atom {
 
 impl IntoAtom for &str {
     fn into(self, xws: &XlibWindowSystem) -> Atom {
-        xws.get_atom(self, true)
+        xws.get_atom(self)
     }
 }
