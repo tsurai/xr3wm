@@ -311,6 +311,7 @@ impl Workspace {
             let is_fullscreen = ewmh::is_window_fullscreen(xws, window);
 
             if is_fullscreen {
+                xws.raise_window(window);
                 xws.setup_window(screen.x,
                     screen.y,
                     screen.width,

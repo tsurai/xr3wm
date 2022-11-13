@@ -313,7 +313,7 @@ impl Stack {
 
     pub fn remove(&mut self, window: Window) -> bool {
         let res = (0..self.nodes.len())
-            .find(|i| match self.nodes.get_mut(*i) {
+            .find(|&i| match self.nodes.get_mut(i) {
                 Some(Node::Stack(s)) => s.remove(window) && s.nodes.is_empty(),
                 Some(Node::Window(w)) => *w == window,
                 _ => false

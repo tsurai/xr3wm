@@ -3,7 +3,9 @@ use crate::workspace::Workspace;
 use x11::xlib::*;
 use std::ffi::CString;
 
-// TODO: cache atoms
+pub const NET_WM_STATE_REMOVE: u64 = 0;
+pub const NET_WM_STATE_ADD: u64 = 1;
+pub const NET_WM_STATE_TOGGLE: u64 = 2;
 
 pub fn init_ewmh(xws: &mut XlibWindowSystem) {
     debug!("initializing ewmh");
@@ -12,9 +14,8 @@ pub fn init_ewmh(xws: &mut XlibWindowSystem) {
     let atoms = &["_NET_SUPPORTED", "_NET_ACTIVE_WINDOW", "_NET_CLIENT_LIST",
         "_NET_CURRENT_DESKTOP", "_NET_DESKTOP_NAMES", "_NET_DESKTOP_VIEWPORT",
         "_NET_NUMBER_OF_DESKTOPS", "_NET_SUPPORTING_WM_CHECK", "_NET_WM_NAME",
-        "_NET_WM_STATE", "_NET_WM_STATE_DEMANDS_ATTENTION", "_NET_WM_STATE_FULLSCREEN",
-        "_NET_WM_STRUT_PARTIAL", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK",
-        "UTF8_STRING"];
+        "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STRUT_PARTIAL",
+        "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK", "UTF8_STRING"];
 
     xws.cache_atoms(atoms);
 
@@ -96,13 +97,27 @@ pub fn set_client_list(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
     xws.change_property(root, "_NET_CLIENT_LIST", XA_WINDOW, PropModeReplace, &clients);
 }
 
-pub fn set_window_fullscreen(xws: &XlibWindowSystem, window: Window, is_fullscreen: bool) {
-    if is_fullscreen {
-        xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &[
-            xws.get_atom("_NET_WM_STATE_FULLSCREEN", true)
-        ]);
-    } else {
-        xws.delete_property(window, "_NET_WM_STATE");
+pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, states: &[Atom], mode: u64) {
+    let active_states = xws.get_property(window, "_NET_WM_STATE")
+        .unwrap_or_default();
+
+    match mode {
+        NET_WM_STATE_REMOVE => {
+            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &active_states.into_iter().filter(|x| !states.iter().any(|y| y == x)).collect::<Vec<u64>>());
+        },
+        NET_WM_STATE_ADD => {
+            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeAppend, states);
+        },
+        NET_WM_STATE_TOGGLE => {
+            let (add_states, rem_states) = states.iter()
+                .partition::<Vec<Atom>,_>(|x| !active_states.iter().any(|y| y == *x));
+            let states: Vec<Atom> = active_states.into_iter()
+                .filter(|x| !rem_states.iter().any(|y| y == x))
+                .chain(add_states.into_iter())
+                .collect();
+            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &states);
+        },
+        _ => {}
     }
 }
 

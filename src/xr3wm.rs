@@ -147,6 +147,15 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                     state.redraw(xws, &config);
                 }
             }
+            XClientMessage(window, message_type, data) => {
+                trace!("ClientMessage: {:#x} {:?}", window, data);
+                if message_type == xws.get_atom("_NET_WM_STATE") {
+                    let data: Vec<u64> = data.as_longs().iter().map(|x| *x as u64).collect();
+                    let mode = data[0];
+                    ewmh::set_wm_state(xws, window, &data[1..3].iter().filter(|&x| *x != 0).cloned().collect::<Vec<u64>>(), mode);
+                    state.redraw(xws, &config);
+                }
+            }
             XConfigureNotify(_) => {
                 trace!("XConfigurationNotify");
                 state.rescreen(xws, &config);

@@ -31,6 +31,7 @@ extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c
 pub enum XlibEvent {
     XMapRequest(Window),
     XMapNotify(Window),
+    XClientMessage(Window, Atom, ClientMessageData),
     XConfigureNotify(Window),
     XConfigureRequest(Window, WindowChanges, u32),
     XDestroy(Window),
@@ -401,6 +402,7 @@ impl XlibWindowSystem {
         let takes_focus = self.has_protocol(window, "WM_TAKE_FOCUS");
 
         if input_hint {
+            trace!("set input focus via hint");
             unsafe {
                 XSetInputFocus(self.display, window, 1, 0);
                 self.skip_enter_events();
@@ -838,6 +840,10 @@ impl XlibWindowSystem {
                 } else {
                     Ignored
                 }
+            }
+            ClientMessage => {
+                let evt: &XClientMessageEvent = self.cast_event_to();
+                XClientMessage(evt.window, evt.message_type, evt.data)
             }
             ConfigureNotify => {
                 let evt: &XConfigureEvent = self.cast_event_to();

@@ -274,7 +274,7 @@ impl Full {
     fn reset(xws: &XlibWindowSystem, nodes: &[Node]) {
         nodes.iter()
             .filter_map(|x| if let Node::Window(w) = x { Some(w) } else { None })
-            .for_each(|&w| ewmh::set_window_fullscreen(xws, w, false));
+            .for_each(|&w| ewmh::set_wm_state(xws, w, &[xws.get_atom("_NET_WM_STATE_FULLSCREEN")], ewmh::NET_WM_STATE_REMOVE));
     }
 }
 
@@ -318,7 +318,7 @@ impl Layout for Full {
                         let is_focused = Some(i) == stack.focus;
 
                         if self.is_fullscreen {
-                            ewmh::set_window_fullscreen(xws, *w, is_active && is_focused);
+                            ewmh::set_wm_state(xws, *w, &[xws.get_atom("_NET_WM_STATE_FULLSCREEN")], (is_active && is_focused) as u64);
                         }
 
                         if is_active && is_focused {
