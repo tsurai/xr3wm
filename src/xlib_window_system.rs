@@ -210,6 +210,12 @@ impl XlibWindowSystem {
             .unwrap_or_else(|| { trace!("cache miss for: {}", atom); self.create_atom(atom) })
     }
 
+    pub fn get_atom_name(&self, atom: u64) -> &str {
+        unsafe {
+            str::from_utf8(CStr::from_ptr(XGetAtomName(self.display, atom)).to_bytes()).unwrap()
+        }
+    }
+
     pub fn get_windows(&self) -> Vec<Window> {
         unsafe {
             let mut ret_root: c_ulong = 0;

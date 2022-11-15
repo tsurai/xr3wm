@@ -274,7 +274,9 @@ impl Full {
     fn reset(xws: &XlibWindowSystem, nodes: &[Node]) {
         nodes.iter()
             .filter_map(|x| if let Node::Window(w) = x { Some(w) } else { None })
-            .for_each(|&w| ewmh::set_wm_state(xws, w, &[xws.get_atom("_NET_WM_STATE_FULLSCREEN")], ewmh::NET_WM_STATE_REMOVE));
+            .for_each(|&w| {
+                ewmh::set_wm_state(xws, w, &[xws.get_atom("_NET_WM_STATE_FULLSCREEN")], ewmh::NET_WM_STATE_REMOVE);
+            });
     }
 }
 

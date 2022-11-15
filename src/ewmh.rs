@@ -97,7 +97,7 @@ pub fn set_client_list(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
     xws.change_property(root, "_NET_CLIENT_LIST", XA_WINDOW, PropModeReplace, &clients);
 }
 
-pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, states: &[Atom], mode: u64) {
+pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, states: &[Atom], mode: u64) -> bool {
     let active_states = xws.get_property(window, "_NET_WM_STATE")
         .unwrap_or_default();
 
@@ -119,6 +119,8 @@ pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, states: &[Atom], mod
         },
         _ => {}
     }
+
+    states.contains(&xws.get_atom("_NET_WM_STATE_FULLSCREEN"))
 }
 
 pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {
