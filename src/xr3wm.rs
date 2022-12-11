@@ -58,8 +58,8 @@ fn run() -> Result<()> {
     let (mut config, ws_cfg_list) = Config::load()
         .map_err(|e| {
             let error = utils::concat_error_chain(&e);
-            utils::xmessage(&format!("failed to load config:\n{}", error))
-                .map_err(|e| warn!("failed to run xmessage: {}", e))
+            utils::xmessage(&format!("failed to load config:\n{error}"))
+                .map_err(|e| warn!("failed to run xmessage: {e}"))
                 .ok();
             e
         })
@@ -109,7 +109,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                         state.add_window(None, xws, &config, window);
                     }
 
-                    state.focus_window(xws, &config, window);
+                    state.focus_window(xws, &config, window, false);
                 }
             }
             XMapNotify(window) => {
@@ -147,16 +147,10 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                     state.redraw(xws, &config);
                 }
             }
-            XClientMessage(window, message_type, data) => {
-                trace!("ClientMessage: {:#x} {}, {:?}", window, xws.get_atom_name(message_type), data);
-                if message_type == xws.get_atom("_NET_WM_STATE") {
-                    let data: Vec<u64> = data.as_longs().iter().map(|x| *x as u64).collect();
-                    let mode = data[0];
-                    trace!("_NET_WM_STATE: {}", xws.get_atom_name(data[1]));
-                    if ewmh::set_wm_state(xws, window, &data[1..3].iter().filter(|&x| *x != 0).cloned().collect::<Vec<u64>>(), mode) {
-                        state.redraw(xws, &config)
-                    }
-                }
+            XClientMessage(window, msg_type, data) => {
+                let data: Vec<u64> = data.as_longs().iter().map(|x| *x as u64).collect();
+                trace!("ClientMessage: {:#x} {}, {:?}", window, xws.get_atom_name(msg_type), data);
+                ewmh::process_client_message(&mut state, xws, &config, window, msg_type, &data);
             }
             XConfigureNotify(_) => {
                 trace!("XConfigurationNotify");
@@ -172,7 +166,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 if is_root {
                     state.switch_to_ws_at(xws, &config, x, y, false)
                 } else {
-                    state.focus_window(xws, &config, window);
+                    state.focus_window(xws, &config, window, false);
                 }
             }
             XFocusIn(window) => {
@@ -185,7 +179,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             XButtonPress(window) => {
-                state.focus_window(xws, &config, window);
+                state.focus_window(xws, &config, window, false);
             }
             XKeyPress(_, mods, key) => {
                 trace!("XKeyPress: {}, {}", mods, key);
@@ -221,7 +215,7 @@ fn main() {
         if log_enabled!(log::Level::Error) {
             error!("{}", e);
         } else {
-            writeln!(stderr, "ERROR: {}", e).ok();
+            writeln!(stderr, "ERROR: {e}").ok();
         }
 
         e.chain().skip(1)

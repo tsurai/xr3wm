@@ -148,7 +148,7 @@ impl WmState {
         }
     }
 
-    pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window) {
+    pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window, force_switch: bool) {
         if xws.get_wm_hints(window).map(|x| x.input != 0).unwrap_or(true) {
             if let Some(index) = self.find_window(window) {
                 if self.cur != index {
@@ -157,7 +157,7 @@ impl WmState {
 
                     workspace.focus_window(xws, window);
 
-                    if workspace.is_visible() {
+                    if force_switch || workspace.is_visible() {
                         self.switch_to_ws(xws, config, index, false);
                     }
                 } else {

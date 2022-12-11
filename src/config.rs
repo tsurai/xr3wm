@@ -283,10 +283,10 @@ impl Config {
         cfg_path.ok_or(())
             .or_else(|_| {
                 env::var("XDG_CONFIG_HOME")
-                    .map(|x| format!("{}/xr3wm", x))
+                    .map(|x| format!("{x}/xr3wm"))
                     .or_else(|_| {
                         env::var("HOME")
-                            .map(|x| format!("{}/.config/xr3wm", x))
+                            .map(|x| format!("{x}/.config/xr3wm"))
                     })
             })
     }
@@ -345,7 +345,7 @@ crate-type = [\"dylib\"]")
     }
 
     fn compile(path: &str) -> Result<()> {
-        let build_dir = format!("{}/.build/", path);
+        let build_dir = format!("{path}/.build/");
         let path = Path::new(&build_dir);
         if !path.exists() {
             create_dir_all(path)
@@ -382,7 +382,7 @@ crate-type = [\"dylib\"]")
             Config::compile(&path)
                 .context("failed to compile config")?;
 
-            let cfg_path = format!("{}/.build/target/debug/libconfig.so", path);
+            let cfg_path = format!("{path}/.build/target/debug/libconfig.so");
 
             let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;

@@ -53,7 +53,7 @@ impl fmt::Debug for LayoutMsg {
             LayoutMsg::NextLayout => write!(f, "NextLayout"),
             LayoutMsg::PrevLayout => write!(f, "PrevLayout"),
             LayoutMsg::FirstLayout => write!(f, "FirstLayout"),
-            LayoutMsg::NthLayout(n) => write!(f, "NthLayout: {}", n),
+            LayoutMsg::NthLayout(n) => write!(f, "NthLayout: {n}"),
             LayoutMsg::LastLayout => write!(f, "LastLayout"),
             LayoutMsg::ResetLayout => write!(f, "ResetLayout"),
             LayoutMsg::Custom(ref val) => write!(f, "Custom({})", val.clone()),

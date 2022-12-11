@@ -98,7 +98,7 @@ impl XlibWindowSystem {
             XSync(self.display, 0);
         }
 
-        self.cache_atoms(&["WM_DELETE_WINDOW", "WM_HINTS", "WM_PROTOCOLS", "WM_STATE", "WM_TAKE_FOCUS"]);
+        self.cache_atoms(&["WM_DELETE_WINDOW", "WM_HINTS", "WM_PROTOCOLS", "WM_STATE", "WM_TAKE_FOCUS", "UTF8_STRING"]);
         ewmh::init_ewmh(self);
     }
 

@@ -1,5 +1,7 @@
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::workspace::Workspace;
+use crate::state::WmState;
+use crate::config::Config;
 use x11::xlib::*;
 use std::ffi::CString;
 
@@ -15,7 +17,7 @@ pub fn init_ewmh(xws: &mut XlibWindowSystem) {
         "_NET_CURRENT_DESKTOP", "_NET_DESKTOP_NAMES", "_NET_DESKTOP_VIEWPORT",
         "_NET_NUMBER_OF_DESKTOPS", "_NET_SUPPORTING_WM_CHECK", "_NET_WM_NAME",
         "_NET_WM_STATE", "_NET_WM_STATE_FULLSCREEN", "_NET_WM_STRUT_PARTIAL",
-        "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK", "UTF8_STRING"];
+        "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_DOCK"];
 
     xws.cache_atoms(atoms);
 
@@ -28,6 +30,30 @@ pub fn init_ewmh(xws: &mut XlibWindowSystem) {
 
     let wm_name = CString::new("xr3wm").unwrap();
     xws.change_property(window, "_NET_WM_NAME", "UTF8_STRING", PropModeReplace, wm_name.as_bytes_with_nul());
+}
+
+#[allow(dead_code)]
+pub fn process_client_message(state: &mut WmState, xws: &XlibWindowSystem, config: &Config, window: Window, msg_type: Atom, msg_data: &[u64]) {
+    match xws.get_atom_name(msg_type) {
+        "_NET_ACTIVE_WINDOW" => {
+            state.focus_window(xws, config, window, true);
+        },
+        "_NET_CURRENT_DESKTOP" => {
+            state.switch_to_ws(xws, config, msg_data[0] as usize, true);
+        },
+        "_NET_WM_STATE" => {
+            let mode = msg_data[0];
+            let wm_states: Vec<u64> = msg_data[1..3].iter()
+                .filter(|&x| *x != 0)
+                .cloned()
+                .collect();
+
+            if set_wm_state(xws, window, &wm_states, mode) {
+                state.redraw(xws, config)
+            }
+        },
+        _ => {}
+    }
 }
 
 pub fn set_active_window(xws: &XlibWindowSystem, window: Window) {

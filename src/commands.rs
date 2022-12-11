@@ -192,7 +192,7 @@ fn reload(state: &WmState) -> Result<()> {
         .context("failed to locate config directory")?;
     let mut cmd = Command::new("cargo");
 
-    let output = cmd.current_dir(&format!("{}/.build", cfg_dir))
+    let output = cmd.current_dir(&format!("{cfg_dir}/.build"))
         .arg("build")
         .env("RUST_LOG", "none")
         .output()
@@ -226,7 +226,7 @@ fn reload(state: &WmState) -> Result<()> {
         .collect();
 
     let envs: Vec<*const libc::c_char> = env::vars()
-        .filter_map(|(k,v)| CString::new(format!("{}={}", k, v)).ok())
+        .filter_map(|(k,v)| CString::new(format!("{k}={v}")).ok())
         .map(|x| x.into_raw() as *const libc::c_char)
         .chain(iter::once(null()))
         .collect();
