@@ -12,7 +12,7 @@ use std::iter::FromIterator;
 use std::default::Default;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::fs::{File, create_dir_all};
+use std::fs::{self, File};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
 use libloading::os::unix::{Library, Symbol};
@@ -344,11 +344,11 @@ crate-type = [\"dylib\"]")
             .context("failed to write Cargo.toml")
     }
 
-    fn compile(path: &str) -> Result<()> {
-        let build_dir = format!("{path}/.build/");
+    pub fn compile() -> Result<()> {
+        let build_dir = format!("{}/.build/", Self::get_dir()?);
         let path = Path::new(&build_dir);
         if !path.exists() {
-            create_dir_all(path)
+            fs::create_dir_all(path)
                 .context("failed to create config build directory")?
         }
 
@@ -369,7 +369,7 @@ crate-type = [\"dylib\"]")
         if !output.status.success() {
             let stderr_msg = String::from_utf8(output.stderr)
                 .context("failed to convert cargo stderr to UTF-8")?;
-            bail!(stderr_msg)
+            bail!("failed to recompile: {}", stderr_msg);
         }
 
         Ok(())
@@ -377,12 +377,10 @@ crate-type = [\"dylib\"]")
 
     pub fn load() -> Result<(Config, Vec<WorkspaceConfig>)> {
         unsafe {
-            let path = Self::get_dir()?;
-
-            Config::compile(&path)
+            Config::compile()
                 .context("failed to compile config")?;
 
-            let cfg_path = format!("{path}/.build/target/debug/libconfig.so");
+            let cfg_path = format!("{}/.build/target/debug/libconfig.so", Self::get_dir()?);
 
             let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;

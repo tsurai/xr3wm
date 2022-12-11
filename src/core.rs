@@ -34,3 +34,4 @@ mod stack;
 mod statusbar;
 mod layout;
 mod ewmh;
+mod utils;

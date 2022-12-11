@@ -7,13 +7,14 @@ use crate::layout::{Layout, LayoutMsg};
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::state::WmState;
 use crate::workspace::MoveOp;
+use crate::utils::exec;
 use self::libc::execvpe;
 use std::{env, iter};
 use std::ptr::null;
 use std::ffi::CString;
-use std::process::{Command, Stdio};
 use std::path::Path;
-use std::fs::OpenOptions;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use x11::xlib::Window;
 use anyhow::{bail, Context, Result};
 
@@ -188,25 +189,26 @@ impl Cmd {
 fn reload(state: &WmState) -> Result<()> {
     info!("recompiling...");
 
-    let cfg_dir = Config::get_dir()
-        .context("failed to locate config directory")?;
-    let mut cmd = Command::new("cargo");
+    let log_path = Path::new("/tmp/xr3wm_build_err.log");
 
-    let output = cmd.current_dir(&format!("{cfg_dir}/.build"))
-        .arg("build")
-        .env("RUST_LOG", "none")
-        .output()
-        .context("failed to run cargo")?;
+    if let Err(err_msg) = Config::compile() {
+        let mut file = File::create(log_path)?;
+        file.write_all(format!("{err_msg}").as_bytes())?;
+        file.sync_all()?;
 
-    if !output.status.success() {
-        let stderr_msg = String::from_utf8(output.stderr)
-            .context("failed to convert cargo stderr to UTF-8")?;
-        bail!("failed to recompile: {}", stderr_msg)
+        let term = env::var("TERM")
+            .unwrap_or_else(|_| "xterm".to_owned());
+
+        exec(term, vec!["-e".into(), format!("less {}", log_path.to_str().unwrap_or(""))]);
+
+        bail!(err_msg)
+    } else if log_path.try_exists().unwrap_or(false) {
+        fs::remove_file("/tmp/xr3wm_build_err.log").ok();
     }
 
     debug!("Cmd::Reload: restarting xr3wm...");
 
-    let path = Path::new(&cfg_dir).join(".state.tmp");
+    let path = Path::new(&Config::get_dir()?).join(".state.tmp");
 
     // save current workspace states to restore on restart
     let file = OpenOptions::new()
@@ -276,25 +278,5 @@ impl CmdManage {
                 unimplemented!()
             }
         }
-    }
-}
-
-fn exec(cmd: String, args: Vec<String>) {
-    if !cmd.is_empty() {
-        std::thread::spawn(move || {
-            match Command::new(&cmd)
-                .envs(env::vars())
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .args(&args)
-                .spawn()
-            {
-                Ok(mut child) => {
-                    child.wait().ok();
-                },
-                Err(e) => error!("failed to start \"{:?}\": {}", cmd, e),
-            }
-        });
     }
 }
