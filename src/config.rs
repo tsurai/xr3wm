@@ -310,7 +310,7 @@ pub extern fn configure_workspaces() -> Vec<WorkspaceConfig> {
             WorkspaceConfig {
                 tag: idx.to_string(),
                 screen: 0,
-                layout: Strut::new(Choose::new(vec![Tall::new(1, 0.5, 0.05), Rotate::new(Tall::new(1, 0.5, 0.05)), Full::new()])),
+                layout: Strut::new(Choose::new(vec![Tall::new(1, 0.5, 0.05), Rotate::new(Tall::new(1, 0.5, 0.05)), Full::new(false)])),
             }
         })
         .collect()
