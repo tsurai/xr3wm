@@ -23,6 +23,7 @@ type CustomCmdFn = dyn Fn(&WmState) -> Result<Option<Cmd>, String>;
 pub enum Cmd {
     Custom(Box<CustomCmdFn>),
     Exec(String, Vec<String>),
+    SpawnTerminal(Vec<String>),
     SwitchWorkspace(usize),
     SwitchScreen(usize),
     MoveToWorkspace(usize),
@@ -62,6 +63,10 @@ impl Cmd {
                 debug!("Cmd::Exec: {} {:?}", cmd, args);
                 exec(cmd.clone(), args.clone());
             }
+            Cmd::SpawnTerminal(ref args) => {
+                debug!("Cmd::SpawnTerminal: {} {:?}", config.terminal, args);
+                exec(config.terminal.clone(), args.clone());
+            }
             Cmd::SwitchWorkspace(index) => {
                 debug!("Cmd::SwitchWorkspace: {}", index);
                 state.switch_to_ws(xws, config, index - 1, true);
@@ -95,7 +100,7 @@ impl Cmd {
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
-                reload(state)
+                reload(config, state)
                     .context("failed to reload xr3wm")?;
             }
             Cmd::Exit => {
@@ -186,7 +191,7 @@ impl Cmd {
     }
 }
 
-fn reload(state: &WmState) -> Result<()> {
+fn reload(config: &Config, state: &WmState) -> Result<()> {
     info!("recompiling...");
 
     let log_path = Path::new("/tmp/xr3wm_build_err.log");
@@ -196,10 +201,7 @@ fn reload(state: &WmState) -> Result<()> {
         file.write_all(format!("{err_msg}").as_bytes())?;
         file.sync_all()?;
 
-        let term = env::var("TERM")
-            .unwrap_or_else(|_| "xterm".to_owned());
-
-        exec(term, vec!["-e".into(), format!("less {}", log_path.to_str().unwrap_or(""))]);
+        exec(config.terminal.clone(), vec!["-e".into(), format!("less {}", log_path.to_str().unwrap_or(""))]);
 
         bail!(err_msg)
     } else if log_path.try_exists().unwrap_or(false) {

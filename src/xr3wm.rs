@@ -56,12 +56,6 @@ fn run() -> Result<()> {
     info!("loading config");
 
     let (mut config, ws_cfg_list) = Config::load()
-        .map_err(|e| {
-            let error = utils::concat_error_chain(&e);
-            utils::xmessage(&format!("failed to load config:\n{error}"))
-                .map_err(|e| warn!("failed to run xmessage: {e}")).ok();
-            e
-        })
         .context("failed to load config")?;
 
     info!("initializing Xlib");

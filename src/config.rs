@@ -64,6 +64,7 @@ pub struct Config {
     pub border_focus_color: u32,
     pub border_urgent_color: u32,
     pub greedy_view: bool,
+    pub terminal: String,
     pub keybindings: HashMap<Keybinding, Cmd>,
     pub manage_hooks: Vec<ManageHook>,
     pub statusbar: Option<Statusbar>,
@@ -79,12 +80,13 @@ impl Default for Config {
             border_focus_color: 0x002a_82e6,
             border_urgent_color: 0x00ff_0000,
             greedy_view: false,
+            terminal: "xterm".to_string(),
             keybindings: vec![(
                             Keybinding {
                                 mods: 0,
                                 key: "Return".to_string()
                             },
-                            Cmd::Exec("xterm".into(), vec!["-u8".into()])
+                            Cmd::SpawnTerminal(vec![])
                         ),(
                             Keybinding {
                                 mods: 0,
