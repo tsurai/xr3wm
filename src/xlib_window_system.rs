@@ -92,7 +92,7 @@ impl XlibWindowSystem {
 
     pub fn init(&mut self) {
         unsafe {
-            XSelectInput(self.display, self.root, 0x001A_0034 | EnterWindowMask);
+            XSelectInput(self.display, self.root, 0x001A_0034 | EnterWindowMask | PropertyChangeMask);
             XDefineCursor(self.display, self.root, XCreateFontCursor(self.display, 68));
             XSetErrorHandler(Some(error_handler));
             XSync(self.display, 0);

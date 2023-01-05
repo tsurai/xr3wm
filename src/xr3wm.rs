@@ -138,6 +138,17 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                         state.try_remove_strut(window);
                     }
                     state.redraw(xws, &config);
+                } else if window == xws.get_root_window() &&
+                    (atom == xws.get_atom("_NET_CURRENT_DESKTOP") ||
+                    atom == xws.get_atom("_NET_NUMBER_OF_DESKTOPS") ||
+                    atom == xws.get_atom("_NET_DESKTOP_NAMES") ||
+                    atom == xws.get_atom("_NET_ACTIVE_WINDOW"))
+                {
+                    if let Some(ref mut statusbar) = config.statusbar {
+                        if let Err(e) = statusbar.update(xws, &state) {
+                            error!("{}", e.context("failed to update statusbar"));
+                        }
+                    }
                 }
             }
             XClientMessage(window, msg_type, data) => {
@@ -187,12 +198,6 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                 }
             }
             _ => {}
-        }
-
-        if let Some(ref mut statusbar) = config.statusbar {
-            if let Err(e) = statusbar.update(xws, &state) {
-                error!("{}", e.context("failed to update statusbar"));
-            }
         }
     }
 

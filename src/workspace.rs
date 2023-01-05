@@ -125,8 +125,10 @@ impl Workspace {
 
     pub fn set_urgency(&mut self, urgent: bool, window: Window) {
         if !urgent {
-            debug!("unset urgent {:#x}", window);
-            self.remove_urgent_window(window);
+            if self.is_urgent() {
+                debug!("unset urgent {:#x}", window);
+                self.remove_urgent_window(window);
+            }
         } else {
             debug!("set urgent {:#x}", window);
             if self.is_managed(window) {
