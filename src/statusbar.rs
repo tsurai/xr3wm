@@ -8,7 +8,6 @@ use std::process::{Command, Child, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
 
 pub struct Statusbar {
-    child: Option<Child>,
     executable: String,
     args: Option<Vec<String>>,
     fn_format: Box<dyn Fn(LogInfo) -> String>,
@@ -20,7 +19,6 @@ impl Statusbar {
                fn_format: Box<dyn Fn(LogInfo) -> String>)
                -> Statusbar {
         Statusbar {
-            child: None,
             executable,
             args,
             fn_format,
@@ -55,11 +53,7 @@ impl Statusbar {
         }))
     }
 
-    pub fn start(&mut self) -> Result<()> {
-        if self.child.is_some() {
-            bail!(format!("'{}' is already running", self.executable));
-        }
-
+    pub fn start(&self) -> Result<Child> {
         debug!("starting statusbar {}", self.executable);
         let mut cmd = Command::new(self.executable.clone());
 
@@ -67,17 +61,11 @@ impl Statusbar {
             cmd.args(self.args.clone().expect("args missing").as_slice());
         }
 
-        self.child = Some(cmd.stdin(Stdio::piped()).spawn()
-            .context(format!("failed to execute '{}'", self.executable))?);
-
-        Ok(())
+        cmd.stdin(Stdio::piped()).spawn()
+            .context(format!("failed to execute '{}'", self.executable))
     }
 
-    pub fn update(&mut self, ws: &XlibWindowSystem, state: &WmState) -> Result<()> {
-        if self.child.is_none() {
-            return Ok(());
-        }
-
+    pub fn update(&self, child: &mut Child, xws: &XlibWindowSystem, state: &WmState) -> Result<()> {
         let layout_names = state
             .current_ws()
             .managed
@@ -101,11 +89,10 @@ impl Statusbar {
                 })
                 .collect(),
             layout_names,
-            window_title: ws.get_window_title(state.current_ws().focused_window().unwrap_or(0)),
+            window_title: xws.get_window_title(state.current_ws().focused_window().unwrap_or(0)),
         });
 
-        let stdin = self.child.as_mut()
-            .ok_or_else(|| anyhow!("failed to get statusbar process"))?
+        let stdin = child
             .stdin
             .as_mut()
             .ok_or_else(|| anyhow!("failed to get statusbar stdin"))?;

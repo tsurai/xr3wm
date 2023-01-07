@@ -15,8 +15,9 @@ use std::ffi::CString;
 use std::path::Path;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+use std::process::Child;
 use x11::xlib::Window;
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 type CustomCmdFn = dyn Fn(&WmState) -> Result<Option<Cmd>, String>;
 
@@ -49,12 +50,12 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config) -> Result<()> {
+    pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config, bar_handle: Option<&mut Child>) -> Result<()> {
         match self {
             Cmd::Custom(func) => {
                 debug!("Cmd::Custom");
                 match func(state) {
-                    Ok(Some(cmd)) => cmd.call(xws, state, config)?,
+                    Ok(Some(cmd)) => cmd.call(xws, state, config, bar_handle)?,
                     Ok(None) => (),
                     Err(e) => error!("Cmd::Custom failed: {}", e),
                 }
@@ -100,7 +101,7 @@ impl Cmd {
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
-                reload(config, state)
+                reload(config, bar_handle, state)
                     .context("failed to reload xr3wm")?;
             }
             Cmd::Exit => {
@@ -191,8 +192,17 @@ impl Cmd {
     }
 }
 
-fn reload(config: &Config, state: &WmState) -> Result<()> {
+fn reload(config: &Config, mut bar_handle: Option<&mut Child>, state: &WmState) -> Result<()> {
     info!("recompiling...");
+
+    if let Some(ref mut handle) = bar_handle {
+        let std = handle.stdin
+            .as_mut()
+            .ok_or_else(|| anyhow!("failed to get statusbar stdin"))?;
+
+        std.write_all(b"recompiling xr3wm...\n").ok();
+        std.flush().ok();
+    }
 
     let log_path = Path::new("/tmp/xr3wm_build_err.log");
 
@@ -234,6 +244,12 @@ fn reload(config: &Config, state: &WmState) -> Result<()> {
         .map(|x| x.into_raw() as *const libc::c_char)
         .chain(iter::once(null()))
         .collect();
+
+    // kill statusbar to avoid leaving a zombie
+    if let Some(handle) = bar_handle {
+        handle.kill().ok();
+        handle.wait().ok();
+    }
 
     unsafe {
         execvpe(args[0] as *const libc::c_char, args.as_ptr(), envs.as_ptr());

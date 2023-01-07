@@ -55,7 +55,7 @@ fn run() -> Result<()> {
 
     info!("loading config");
 
-    let (mut config, ws_cfg_list) = Config::load()
+    let (config, ws_cfg_list) = Config::load()
         .context("failed to load config")?;
 
     info!("initializing Xlib");
@@ -68,11 +68,6 @@ fn run() -> Result<()> {
 
     state.rescreen(xws, &config);
 
-    if let Some(ref mut statusbar) = config.statusbar {
-        statusbar.start()
-            .context("failed to start statusbar")?;
-    }
-
     ewmh::set_current_desktop(xws, state.get_ws_index());
     ewmh::set_number_of_desktops(xws, state.ws_count());
     ewmh::set_desktop_names(xws, state.all_ws());
@@ -82,7 +77,13 @@ fn run() -> Result<()> {
     run_event_loop(config, xws, state)
 }
 
-fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState) -> Result<()> {
+fn run_event_loop(config: Config, xws: &XlibWindowSystem, mut state: WmState) -> Result<()> {
+    let mut bar_handle = config.statusbar
+        .as_ref()
+        .map(|bar| bar.start())
+        .transpose()
+        .context("failed to start statusbar")?;
+
     loop {
         match xws.get_event() {
             XMapRequest(window) => {
@@ -144,8 +145,8 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
                     atom == xws.get_atom("_NET_DESKTOP_NAMES") ||
                     atom == xws.get_atom("_NET_ACTIVE_WINDOW"))
                 {
-                    if let Some(ref mut statusbar) = config.statusbar {
-                        if let Err(e) = statusbar.update(xws, &state) {
+                    if let Some(ref mut handle) = bar_handle {
+                        if let Err(e) = config.statusbar.as_ref().unwrap().update(handle, xws, &state) {
                             error!("{}", e.context("failed to update statusbar"));
                         }
                     }
@@ -191,7 +192,7 @@ fn run_event_loop(mut config: Config, xws: &XlibWindowSystem, mut state: WmState
 
                 for (binding, cmd) in config.keybindings.iter() {
                     if binding.mods == mods && binding.key == key {
-                        cmd.call(xws, &mut state, &config)
+                        cmd.call(xws, &mut state, &config, bar_handle.as_mut())
                             .map_err(|e| error!("{}", utils::concat_error_chain(&e)))
                             .ok();
                     }
