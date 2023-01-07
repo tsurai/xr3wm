@@ -338,6 +338,7 @@ authors = [\"xr3wm\"]
 
 [dependencies.xr3wm]
 git = \"https://github.com/tsurai/xr3wm.git\"
+default-features = true
 
 [lib]
 name = \"config\"

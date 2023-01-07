@@ -6,8 +6,10 @@ use crate::workspace::MoveOp;
 use crate::xlib_window_system::XlibWindowSystem;
 use crate::layout::{Layout, LayoutMsg, Rect};
 use x11::xlib::Window;
-use serde::{Serialize, Deserialize};
 use anyhow::{anyhow, Context, Result};
+
+#[cfg(feature = "reload")]
+use serde::{Serialize, Deserialize};
 
 pub struct LayoutIter<'a> {
     stack: Option<&'a Stack>,
@@ -37,13 +39,14 @@ impl<'a> Iterator for LayoutIter<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub enum Node {
     Window(Window),
     Stack(Stack),
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Default)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Stack {
     pub layout: Option<Box<dyn Layout>>,
     pub focus: Option<usize>,

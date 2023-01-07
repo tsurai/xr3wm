@@ -7,9 +7,12 @@ use crate::ewmh;
 use std::cmp::min;
 use std::fmt;
 use x11::xlib::Window;
+
+#[cfg(feature = "reload")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Rect {
     pub x: u32,
     pub y: u32,
@@ -61,7 +64,7 @@ impl fmt::Debug for LayoutMsg {
     }
 }
 
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "reload", typetag::serde(tag = "type"))]
 pub trait Layout {
     fn name(&self) -> String;
     fn send_msg(&mut self, xws: &XlibWindowSystem, nodes: &[Node], msg: LayoutMsg);
@@ -75,7 +78,7 @@ pub trait Layout {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Choose {
     layouts: Vec<Box<dyn Layout>>,
     current: usize,
@@ -95,7 +98,7 @@ impl Choose {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Choose {
     fn name(&self) -> String {
         self.layouts[self.current].name()
@@ -138,7 +141,7 @@ impl Layout for Choose {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Tall {
     num_masters: usize,
     ratio: f32,
@@ -155,7 +158,7 @@ impl Tall {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Tall {
     fn name(&self) -> String {
         "Tall".to_string()
@@ -216,7 +219,7 @@ impl Layout for Tall {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Strut {
     layout: Box<dyn Layout>,
 }
@@ -229,7 +232,7 @@ impl Strut {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Strut {
     fn name(&self) -> String {
         self.layout.name()
@@ -257,7 +260,7 @@ impl Layout for Strut {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Full {
     focus: Option<Window>,
     is_fullscreen: bool,
@@ -280,7 +283,7 @@ impl Full {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Full {
     fn name(&self) -> String {
         "Full".to_string()
@@ -346,7 +349,7 @@ impl Layout for Full {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Gap {
     screen_gap: u32,
     window_gap: u32,
@@ -363,7 +366,7 @@ impl Gap {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Gap {
     fn name(&self) -> String {
         self.layout.name()
@@ -394,13 +397,13 @@ impl Layout for Gap {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub enum MirrorStyle {
     Horizontal,
     Vertical,
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Mirror {
     style: MirrorStyle,
     layout: Box<dyn Layout>,
@@ -415,7 +418,7 @@ impl Mirror {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Mirror {
     fn name(&self) -> String {
         format!("Mirror({})", self.layout.name())
@@ -441,7 +444,7 @@ impl Layout for Mirror {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Rotate {
     layout: Box<dyn Layout>,
 }
@@ -463,7 +466,7 @@ impl Rotate {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Rotate {
     fn name(&self) -> String {
         format!("Rotate({})", self.layout.name())
@@ -484,7 +487,7 @@ impl Layout for Rotate {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Horizontal;
 
 impl Horizontal {
@@ -493,7 +496,7 @@ impl Horizontal {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Horizontal {
     fn name(&self) -> String {
         "Horizontal".to_string()
@@ -519,7 +522,7 @@ impl Layout for Horizontal {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Vertical;
 
 impl Vertical {
@@ -528,7 +531,7 @@ impl Vertical {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "reload", typetag::serde)]
 impl Layout for Vertical {
     fn name(&self) -> String {
         "Vertical".to_string()

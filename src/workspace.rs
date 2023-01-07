@@ -6,6 +6,8 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::ewmh;
 use std::cmp;
 use x11::xlib::Window;
+
+#[cfg(feature = "reload")]
 use serde::{Serialize, Deserialize};
 
 #[allow(dead_code)]
@@ -29,7 +31,7 @@ pub enum MoveOp {
     Swap,
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Workspace {
     pub(crate) managed: Stack,
     pub(crate) unmanaged: Stack,

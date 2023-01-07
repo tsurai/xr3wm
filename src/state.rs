@@ -5,14 +5,15 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::layout::Rect;
 use crate::ewmh;
 use std::cmp;
-use std::fs::{File, remove_file};
 use std::path::Path;
 use std::default::Default;
-use serde::{Serialize, Deserialize};
 use x11::xlib::Window;
-use anyhow::{Context, Result};
+use anyhow::{Result, Context};
 
-#[derive(Serialize, Deserialize)]
+#[cfg(feature = "reload")]
+use serde::{Serialize, Deserialize};
+
+#[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct WmState {
     workspaces: Vec<Workspace>,
     struts: Vec<Window>,
@@ -24,7 +25,13 @@ impl WmState {
     pub fn new(ws_cfg_list: Vec<WorkspaceConfig>, xws: &XlibWindowSystem) -> Result<WmState> {
         let state_file_path = Path::new(&Config::get_dir()?).join(".state.tmp");
         if state_file_path.exists() {
-            match WmState::from_file(state_file_path) {
+
+            #[cfg(feature = "reload")]
+            let res = WmState::from_file(state_file_path);
+            #[cfg(not(feature = "reload"))]
+            let res: Result<WmState> = Err(anyhow::anyhow!("missing reload support. Recompile with the reload feature enabled"));
+
+            match res {
                 Ok(state) => {
                     state.all_ws().iter().for_each(|workspace| {
                         workspace.all().iter().for_each(|&window| {
@@ -59,7 +66,10 @@ impl WmState {
         })
     }
 
+    #[cfg(feature = "reload")]
     fn from_file<P: AsRef<Path>>(path: P) -> Result<WmState> {
+        use std::fs::{File, remove_file};
+
         let file = File::open(&path)
             .context("failed to open wm state serialization file")?;
 

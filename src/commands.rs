@@ -8,16 +8,9 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::state::WmState;
 use crate::workspace::MoveOp;
 use crate::utils::exec;
-use self::libc::execvpe;
-use std::{env, iter};
-use std::ptr::null;
-use std::ffi::CString;
-use std::path::Path;
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
 use std::process::Child;
 use x11::xlib::Window;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result};
 
 type CustomCmdFn = dyn Fn(&WmState) -> Result<Option<Cmd>, String>;
 
@@ -101,8 +94,13 @@ impl Cmd {
             }
             Cmd::Reload => {
                 debug!("Cmd::Reload");
+
+                #[cfg(feature = "reload")]
                 reload(config, bar_handle, state)
                     .context("failed to reload xr3wm")?;
+
+                #[cfg(not(feature = "reload"))]
+                warn!("missing reload support. Recompile with the reload feature enabled");
             }
             Cmd::Exit => {
                 debug!("Cmd::Exit");
@@ -192,7 +190,17 @@ impl Cmd {
     }
 }
 
+#[cfg(feature = "reload")]
 fn reload(config: &Config, mut bar_handle: Option<&mut Child>, state: &WmState) -> Result<()> {
+    use std::{env, iter};
+    use self::libc::execvpe;
+    use std::path::Path;
+    use std::ptr::null;
+    use std::ffi::CString;
+    use std::io::Write;
+    use std::fs::{self, File, OpenOptions};
+    use anyhow::{anyhow, bail};
+
     info!("recompiling...");
 
     if let Some(ref mut handle) = bar_handle {
