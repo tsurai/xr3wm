@@ -139,11 +139,12 @@ fn run_event_loop(config: Config, xws: &XlibWindowSystem, mut state: WmState) ->
                         state.try_remove_strut(window);
                     }
                     state.redraw(xws, &config);
-                } else if window == xws.get_root_window() &&
+                } else if (window == xws.get_root_window() &&
                     (atom == xws.get_atom("_NET_CURRENT_DESKTOP") ||
                     atom == xws.get_atom("_NET_NUMBER_OF_DESKTOPS") ||
                     atom == xws.get_atom("_NET_DESKTOP_NAMES") ||
-                    atom == xws.get_atom("_NET_ACTIVE_WINDOW"))
+                    atom == xws.get_atom("_NET_ACTIVE_WINDOW"))) ||
+                    atom == xws.get_atom("_NET_WM_NAME")
                 {
                     if let Some(ref mut handle) = bar_handle {
                         if let Err(e) = config.statusbar.as_ref().unwrap().update(handle, xws, &state) {
