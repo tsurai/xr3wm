@@ -48,8 +48,27 @@ pub fn process_client_message(state: &mut WmState, xws: &XlibWindowSystem, confi
                 .cloned()
                 .collect();
 
-            if set_wm_state(xws, window, &wm_states, mode) {
-                state.redraw(xws, config)
+            let mut redraw = false;
+            let ret = set_wm_state(xws, window, &wm_states, mode);
+
+            if let Some((add_states, rem_states)) = ret {
+                if add_states.contains(&xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION")) {
+                    state.set_urgency(true, window);
+                    redraw = true;
+                }
+
+                if rem_states.contains(&xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION")) {
+                    state.set_urgency(false, window);
+                    redraw = true;
+                }
+
+                if add_states.iter().chain(rem_states.iter()).any(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN")) {
+                    redraw = true;
+                }
+            }
+
+            if redraw {
+                state.redraw(xws, config);
             }
         },
         _ => {}
@@ -123,30 +142,37 @@ pub fn set_client_list(xws: &XlibWindowSystem, workspaces: &[Workspace]) {
     xws.change_property(root, "_NET_CLIENT_LIST", XA_WINDOW, PropModeReplace, &clients);
 }
 
-pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, states: &[Atom], mode: u64) -> bool {
-    let active_states = xws.get_property(window, "_NET_WM_STATE")
+pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, atoms: &[Atom], mode: u64) -> Option<(Vec<u64>, Vec<u64>)> {
+    let active_atoms = xws.get_property(window, "_NET_WM_STATE")
         .unwrap_or_default();
 
     match mode {
         NET_WM_STATE_REMOVE => {
-            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &active_states.into_iter().filter(|x| !states.iter().any(|y| y == x)).collect::<Vec<u64>>());
+            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &active_atoms.into_iter().filter(|x| !atoms.iter().any(|y| y == x)).collect::<Vec<u64>>());
+            Some((vec![], atoms.to_vec()))
         },
-        NET_WM_STATE_ADD => {
-            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeAppend, states);
-        },
-        NET_WM_STATE_TOGGLE => {
-            let (add_states, rem_states) = states.iter()
-                .partition::<Vec<Atom>,_>(|x| !active_states.iter().any(|y| y == *x));
-            let states: Vec<Atom> = active_states.into_iter()
-                .filter(|x| !rem_states.iter().any(|y| y == x))
-                .chain(add_states.into_iter())
-                .collect();
-            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &states);
-        },
-        _ => {}
-    }
+        NET_WM_STATE_ADD | NET_WM_STATE_TOGGLE => {
+            let (add_atoms, rem_atoms) = if mode == NET_WM_STATE_ADD {
+                (atoms.to_vec(), vec![])
+            } else {
+                atoms.iter()
+                    .partition::<Vec<Atom>,_>(|x| {
+                        !active_atoms.iter().any(|y| y == *x)
+                    })
+            };
 
-    states.contains(&xws.get_atom("_NET_WM_STATE_FULLSCREEN"))
+            let atoms: Vec<Atom> = active_atoms.iter()
+                .filter(|&x| !rem_atoms.iter().any(|y| y == x))
+                .chain(add_atoms.iter())
+                .map(|x| *x)
+                .collect();
+
+            xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &atoms);
+
+            Some((add_atoms, rem_atoms))
+        },
+        _ => None
+    }
 }
 
 pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {

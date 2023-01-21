@@ -129,6 +129,12 @@ impl WmState {
         self.workspaces.iter().any(|ws| ws.is_unmanaged(window))
     }
 
+    pub fn set_urgency(&mut self, is_urgent: bool, window: Window) {
+        if let Some(ws) = self.get_parent_mut(window) {
+            ws.set_urgency(is_urgent, window);
+        }
+    }
+
     pub fn add_window(&mut self, index: Option<usize>, xws: &XlibWindowSystem, config: &Config, window: Window) {
         if !self.contains(window) {
             let screens = self.screens.clone();

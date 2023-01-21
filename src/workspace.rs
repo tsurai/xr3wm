@@ -126,13 +126,13 @@ impl Workspace {
     }
 
     pub fn set_urgency(&mut self, urgent: bool, window: Window) {
+        debug!("unset urgency {:#x} {}", window, urgent);
+
         if !urgent {
             if self.is_urgent() {
-                debug!("unset urgent {:#x}", window);
                 self.remove_urgent_window(window);
             }
         } else {
-            debug!("set urgent {:#x}", window);
             if self.is_managed(window) {
                 self.managed.urgent.push(window);
             } else {
@@ -349,6 +349,7 @@ impl Workspace {
         }
 
         for &window in self.all_urgent().iter() {
+            trace!("urgent window: {}", window);
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 
