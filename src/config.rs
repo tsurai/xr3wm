@@ -50,7 +50,7 @@ pub struct WorkspaceInfo {
     pub urgent: bool,
 }
 
-pub struct LogInfo {
+pub struct PagerInfo {
     pub workspaces: Vec<WorkspaceInfo>,
     pub layout_names: Vec<String>,
     pub window_title: String,
@@ -331,7 +331,7 @@ pub extern fn configure_wm() -> Config {
         let mut f = File::create(path.join("Cargo.toml"))
             .context("failed to create Cargo.toml")?;
 
-        f.write_all(b"[project]
+        f.write_all(b"[package]
 name = \"config\"
 version = \"0.0.1\"
 authors = [\"xr3wm\"]

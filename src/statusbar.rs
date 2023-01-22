@@ -2,7 +2,7 @@
 
 use crate::state::WmState;
 use crate::xlib_window_system::XlibWindowSystem;
-use crate::config::{LogInfo, WorkspaceInfo};
+use crate::config::{PagerInfo, WorkspaceInfo};
 use std::io::Write;
 use std::process::{Command, Child, Stdio};
 use anyhow::{anyhow, bail, Context, Result};
@@ -10,13 +10,13 @@ use anyhow::{anyhow, bail, Context, Result};
 pub struct Statusbar {
     executable: String,
     args: Option<Vec<String>>,
-    fn_format: Box<dyn Fn(LogInfo) -> String>,
+    fn_format: Box<dyn Fn(PagerInfo) -> String>,
 }
 
 impl Statusbar {
     pub fn new(executable: String,
                args: Option<Vec<String>>,
-               fn_format: Box<dyn Fn(LogInfo) -> String>)
+               fn_format: Box<dyn Fn(PagerInfo) -> String>)
                -> Statusbar {
         Statusbar {
             executable,
@@ -28,7 +28,7 @@ impl Statusbar {
     pub fn xmobar() -> Statusbar {
         Statusbar::new("xmobar".to_string(),
                        None,
-                       Box::new(move |info: LogInfo| -> String {
+                       Box::new(move |info: PagerInfo| -> String {
             let workspaces = info.workspaces
                 .iter()
                 .map(|x| {
@@ -73,7 +73,7 @@ impl Statusbar {
             .map(|x| x.name())
             .collect();
 
-        let output = (self.fn_format)(LogInfo {
+        let output = (self.fn_format)(PagerInfo {
             workspaces: state.all_ws()
                 .iter()
                 .enumerate()

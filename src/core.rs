@@ -19,7 +19,7 @@ pub mod core {
         pub use crate::state::WmState;
     }
 
-    pub use crate::config::{Config, LogInfo};
+    pub use crate::config::{Config, PagerInfo};
     pub use crate::statusbar::Statusbar;
     pub use crate::workspace::WorkspaceConfig;
 }
