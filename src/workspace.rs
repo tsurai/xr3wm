@@ -132,12 +132,10 @@ impl Workspace {
             if self.is_urgent() {
                 self.remove_urgent_window(window);
             }
+        } else if self.is_managed(window) {
+            self.managed.urgent.push(window);
         } else {
-            if self.is_managed(window) {
-                self.managed.urgent.push(window);
-            } else {
-                self.unmanaged.urgent.push(window);
-            }
+            self.unmanaged.urgent.push(window);
         }
     }
 

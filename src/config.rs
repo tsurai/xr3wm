@@ -342,25 +342,26 @@ default-features = true
 
 [lib]
 name = \"config\"
-path = \"../config.rs\"
+path = \"src/config.rs\"
 crate-type = [\"dylib\"]")
             .context("failed to write Cargo.toml")
     }
 
     pub fn compile() -> Result<()> {
-        let build_dir = format!("{}/.build/", Self::get_dir()?);
-        let path = Path::new(&build_dir);
+        let cfg_dir = Self::get_dir()?;
+        let path = Path::new(&cfg_dir).join("src/");
         if !path.exists() {
-            fs::create_dir_all(path)
+            fs::create_dir_all(&path)
                 .context("failed to create config build directory")?
         }
 
-        if !path.join("Cargo.toml").exists() {
-            Self::create_cargo_toml_file(path)?
+        if !path.join("config.rs").exists() {
+            Self::create_default_cfg_file(&path)?;
         }
 
-        if !path.join("../config.rs").exists() {
-            Self::create_default_cfg_file(&path.join(".."))?
+        let path = path.join("..");
+        if !path.join("Cargo.toml").exists() {
+            Self::create_cargo_toml_file(&path)?
         }
 
         let output = Command::new("cargo")
@@ -383,7 +384,7 @@ crate-type = [\"dylib\"]")
             Config::compile()
                 .context("failed to compile config")?;
 
-            let cfg_path = format!("{}/.build/target/debug/libconfig.so", Self::get_dir()?);
+            let cfg_path = format!("{}/target/debug/libconfig.so", Self::get_dir()?);
 
             let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;

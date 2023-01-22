@@ -164,7 +164,7 @@ pub fn set_wm_state(xws: &XlibWindowSystem, window: Window, atoms: &[Atom], mode
             let atoms: Vec<Atom> = active_atoms.iter()
                 .filter(|&x| !rem_atoms.iter().any(|y| y == x))
                 .chain(add_atoms.iter())
-                .map(|x| *x)
+                .copied()
                 .collect();
 
             xws.change_property(window, "_NET_WM_STATE", XA_ATOM, PropModeReplace, &atoms);
