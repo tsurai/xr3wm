@@ -291,6 +291,10 @@ impl WmState {
                 workspace.redraw(xws, config, &screens);
             }
 
+            if workspace.is_empty() {
+                ewmh::set_active_window(xws, 0);
+            }
+
             ewmh::set_client_list(xws, &self.workspaces);
         }
     }

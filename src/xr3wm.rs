@@ -143,7 +143,6 @@ fn run_event_loop(config: Config, xws: &XlibWindowSystem, mut state: WmState) ->
                     (atom == xws.get_atom("_NET_CURRENT_DESKTOP") ||
                     atom == xws.get_atom("_NET_NUMBER_OF_DESKTOPS") ||
                     atom == xws.get_atom("_NET_DESKTOP_NAMES") ||
-                    atom == xws.get_atom("_NET_ACTIVE_WINDOW") ||
                     atom == xws.get_atom("_NET_ACTIVE_WINDOW"))) ||
                     atom == xws.get_atom("_NET_WM_STATE") ||
                     atom == xws.get_atom("_NET_WM_NAME")

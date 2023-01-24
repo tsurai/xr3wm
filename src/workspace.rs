@@ -63,6 +63,10 @@ impl Workspace {
         self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
     }
 
+    pub fn is_empty(&self) -> bool {
+        (self.unmanaged.len() + self.managed.len()) == 0
+    }
+
     pub fn send_layout_message(&mut self, xws: &XlibWindowSystem, msg: LayoutMsg) {
         self.managed.send_layout_msg(xws, msg);
     }
@@ -126,7 +130,7 @@ impl Workspace {
     }
 
     pub fn set_urgency(&mut self, urgent: bool, window: Window) {
-        debug!("unset urgency {:#x} {}", window, urgent);
+        trace!("unset urgency {:#x} {}", window, urgent);
 
         if !urgent {
             if self.is_urgent() {
