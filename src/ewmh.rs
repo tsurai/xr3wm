@@ -34,7 +34,7 @@ pub fn init_ewmh(xws: &mut XlibWindowSystem) {
 
 #[allow(dead_code)]
 pub fn process_client_message(state: &mut WmState, xws: &XlibWindowSystem, config: &Config, window: Window, msg_type: Atom, msg_data: &[u64]) {
-    match xws.get_atom_name(msg_type) {
+    match xws.get_atom_name(msg_type).as_str() {
         "_NET_ACTIVE_WINDOW" => {
             state.focus_window(xws, config, window, true);
         },

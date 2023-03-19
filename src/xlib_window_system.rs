@@ -6,18 +6,14 @@ extern crate libc;
 use crate::keycode::{MOD_2, MOD_LOCK};
 use crate::layout::Rect;
 use crate::ewmh;
-use std::cmp;
-use std::str;
-use std::env;
+use std::{cmp, env, ptr, str};
 use std::default::Default;
-use std::ptr::null_mut;
 use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
 use self::libc::{c_void, c_char, c_uchar, c_int, c_uint, c_long, c_ulong};
-use self::libc::malloc;
 use self::XlibEvent::*;
 use x11::xinerama::XineramaQueryScreens;
 use x11::xlib::*;
@@ -42,6 +38,7 @@ pub enum XlibEvent {
     XFocusOut(Window),
     XKeyPress(Window, u8, String),
     XButtonPress(Window),
+    WMClose,
     Ignored,
 }
 
@@ -72,7 +69,7 @@ pub struct XlibWindowSystem {
 impl XlibWindowSystem {
     pub fn new() -> XlibWindowSystem {
         unsafe {
-            let display = XOpenDisplay(null_mut());
+            let display = XOpenDisplay(ptr::null_mut());
             if display.is_null() {
                 error!("Can't open display {}",
                        env::var("DISPLAY").unwrap_or_else(|_| "undefined".to_string()));
@@ -84,7 +81,7 @@ impl XlibWindowSystem {
             XlibWindowSystem {
                 display,
                 root,
-                event: malloc(256),
+                event: libc::malloc(256),
                 atoms: HashMap::new(),
             }
         }
@@ -102,9 +99,11 @@ impl XlibWindowSystem {
         ewmh::init_ewmh(self);
     }
 
-    pub fn close(&self) {
+    pub fn close(&mut self) {
         unsafe {
             XCloseDisplay(self.display);
+            self.display = ptr::null_mut();
+            libc::free(self.event);
         }
     }
 
@@ -142,7 +141,7 @@ impl XlibWindowSystem {
             let mut ret_format: c_int = 0;
             let mut ret_nitems: c_ulong = 0;
             let mut ret_bytes_after: c_ulong = 0;
-            let mut ret_prop = MaybeUninit::<*mut c_ulong>::uninit();
+            let mut ret_ptr = MaybeUninit::<*mut c_ulong>::uninit();
 
             if XGetWindowProperty(self.display,
                                   window,
@@ -155,9 +154,12 @@ impl XlibWindowSystem {
                                   &mut ret_format,
                                   &mut ret_nitems,
                                   &mut ret_bytes_after,
-                                  ret_prop.as_mut_ptr() as *mut *mut c_uchar) == 0 {
+                                  ret_ptr.as_mut_ptr() as *mut *mut c_uchar) == 0 {
                 if ret_format != 0 {
-                    Some(from_raw_parts(ret_prop.assume_init() as *const c_ulong, ret_nitems as usize).to_vec())
+                    let ret_ptr = ret_ptr.assume_init();
+                    let vec = from_raw_parts(ret_ptr as *const c_ulong, ret_nitems as usize).to_vec();
+                    XFree(ret_ptr as *mut c_void);
+                    Some(vec)
                 } else {
                     None
                 }
@@ -177,12 +179,9 @@ impl XlibWindowSystem {
 
     fn create_atom(&self, atom: &str) -> u64 {
         unsafe {
-            XInternAtom(self.display,
-                        CString::new(atom.as_bytes())
-                            .unwrap()
-                            .as_bytes_with_nul()
-                            .as_ptr() as *mut i8,
-                        0)
+            let cstr = CString::new(atom.as_bytes())
+                .unwrap();
+            XInternAtom(self.display, cstr.as_ptr() as *mut i8, 0)
         }
     }
 
@@ -201,6 +200,12 @@ impl XlibWindowSystem {
             ret_atoms.set_len(atoms.len());
         }
 
+        for x in atoms {
+            unsafe {
+                drop(CString::from_raw(x));
+            }
+        }
+
         ret_atoms
     }
 
@@ -210,9 +215,12 @@ impl XlibWindowSystem {
             .unwrap_or_else(|| { trace!("cache miss for: {}", atom); self.create_atom(atom) })
     }
 
-    pub fn get_atom_name(&self, atom: u64) -> &str {
+    pub fn get_atom_name(&self, atom: u64) -> String {
         unsafe {
-            str::from_utf8(CStr::from_ptr(XGetAtomName(self.display, atom)).to_bytes()).unwrap()
+            let ptr = XGetAtomName(self.display, atom);
+            let ret = Self::ptr_to_string(ptr);
+            XFree(ptr as *mut c_void);
+            ret
         }
     }
 
@@ -221,16 +229,19 @@ impl XlibWindowSystem {
             let mut ret_root: c_ulong = 0;
             let mut ret_parent: c_ulong = 0;
             let mut ret_nchildren: c_uint = 0;
-            let mut ret_children = MaybeUninit::<*mut c_ulong>::uninit();
+            let mut ret_ptr = MaybeUninit::<*mut c_ulong>::uninit();
 
             XQueryTree(self.display,
                        self.root,
                        &mut ret_root,
                        &mut ret_parent,
-                       ret_children.as_mut_ptr(),
+                       ret_ptr.as_mut_ptr(),
                        &mut ret_nchildren);
 
-            from_raw_parts(ret_children.assume_init(), ret_nchildren as usize).to_vec()
+            let ret_ptr = ret_ptr.assume_init();
+            let vec = from_raw_parts(ret_ptr, ret_nchildren as usize).to_vec();
+            XFree(ret_ptr as *mut c_void);
+            vec
         }
     }
 
@@ -247,7 +258,7 @@ impl XlibWindowSystem {
 
     pub fn get_window_attributes(&self, window: Window) -> XWindowAttributes {
         unsafe {
-            let mut ret_attributes = MaybeUninit::<XWindowAttributes>::uninit();
+            let mut ret_attributes = MaybeUninit::<XWindowAttributes>::zeroed();
             XGetWindowAttributes(self.display, window, ret_attributes.as_mut_ptr());
 
             ret_attributes.assume_init()
@@ -336,7 +347,7 @@ impl XlibWindowSystem {
                 XConfigureWindow(self.display, window, mask, &mut ret_window_changes);
             } else {
                 let rect = self.get_geometry(window);
-                let mut attributes = MaybeUninit::uninit();
+                let mut attributes = MaybeUninit::zeroed();
 
                 XGetWindowAttributes(self.display, window, attributes.as_mut_ptr());
 
@@ -426,7 +437,7 @@ impl XlibWindowSystem {
                 type_: ClientMessage,
                 serial: 0,
                 send_event: 0,
-                display: std::ptr::null_mut(),
+                display: ptr::null_mut(),
                 window,
                 message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
                 format: 32,
@@ -444,10 +455,11 @@ impl XlibWindowSystem {
 
     pub fn skip_enter_events(&self) {
         unsafe {
-            let event: *mut c_void = malloc(256);
+            let event: *mut c_void = libc::malloc(256);
             XSync(self.display, 0);
             while XCheckMaskEvent(self.display, 16, event as *mut XEvent) != 0 {
             }
+            libc::free(event);
         }
     }
 
@@ -490,7 +502,7 @@ impl XlibWindowSystem {
                     type_: ClientMessage,
                     serial: 0,
                     send_event: 0,
-                    display: std::ptr::null_mut(),
+                    display: ptr::null_mut(),
                     window,
                     message_type: self.get_atom("WM_PROTOCOLS") as c_ulong,
                     format: 32,
@@ -627,7 +639,7 @@ impl XlibWindowSystem {
                 return vec![self.get_display_rect()];
             }
 
-            from_raw_parts(screen_ptr, num as usize)
+            let vec = from_raw_parts(screen_ptr, num as usize)
                 .iter()
                 .map(|screen_info| {
                     Rect {
@@ -637,7 +649,9 @@ impl XlibWindowSystem {
                         height: screen_info.height as u32,
                     }
                 })
-                .collect()
+                .collect();
+            XFree(screen_ptr as *mut c_void);
+            vec
         }
     }
 
@@ -679,7 +693,7 @@ impl XlibWindowSystem {
 
     pub fn get_size_hints(&self, window: Window) -> SizeHint {
         unsafe {
-            let mut size_hint = MaybeUninit::uninit();
+            let mut size_hint = MaybeUninit::zeroed();
             let mut tmp: c_long = 0;
             XGetWMNormalHints(self.display, window, size_hint.as_mut_ptr(), &mut tmp);
 
@@ -702,9 +716,12 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_wm_hints(&self, window: Window) -> Option<&XWMHints> {
+    pub fn get_wm_hints(&self, window: Window) -> Option<XWMHints> {
         unsafe {
-            XGetWMHints(self.display, window).as_ref()
+            let ptr = XGetWMHints(self.display, window);
+            let ret = ptr.as_ref().copied();
+            XFree(ptr as *mut c_void);
+            ret
         }
     }
 
@@ -722,9 +739,12 @@ impl XlibWindowSystem {
                 let hint = hint.assume_init();
                 if !hint.res_class.is_null() {
                     let hint_cstr = CStr::from_ptr(hint.res_class);
-                    return str::from_utf8(hint_cstr.to_bytes())
+                    let ret = str::from_utf8(hint_cstr.to_bytes())
                         .map(|x| x.to_owned())
                         .ok();
+                    XFree(hint.res_class as *mut c_void);
+                    XFree(hint.res_name as *mut c_void);
+                    return ret;
                 }
             }
             None
@@ -739,22 +759,27 @@ impl XlibWindowSystem {
         unsafe {
             let mut name = MaybeUninit::uninit();
 
-            if XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME")) != 0 {
-                let name = name.assume_init();
-                if !name.value.is_null() {
-                    return Self::ptr_to_string(name.value as *mut i8)
-                }
+            let ret = XGetTextProperty(self.display, window, name.as_mut_ptr(), self.get_atom("_NET_WM_NAME"));
+
+            let ptr = if ret != 0 {
+                name.assume_init().value as *const i8
             } else {
                 let mut name = MaybeUninit::uninit();
 
                 if XFetchName(self.display, window, name.as_mut_ptr()) != 0 {
-                    let name = name.assume_init();
-                    if !name.is_null() {
-                        return Self::ptr_to_string(name)
-                    }
+                    name.assume_init() as *const i8
+                } else {
+                    ptr::null()
                 }
+            };
+
+            if !ptr.is_null() {
+                let ret_str = Self::ptr_to_string(ptr);
+                XFree(ptr as *mut c_void);
+                ret_str
+            } else {
+                String::new()
             }
-            String::new()
         }
     }
 
@@ -805,6 +830,10 @@ impl XlibWindowSystem {
 
     #[allow(clippy::nonminimal_bool)]
     pub fn get_event(&self) -> XlibEvent {
+        if self.display.is_null() {
+            return WMClose;
+        }
+
         unsafe {
             XNextEvent(self.display, self.event as *mut XEvent);
         }

@@ -43,7 +43,7 @@ pub enum Cmd {
 }
 
 impl Cmd {
-    pub fn call(&self, xws: &XlibWindowSystem, state: &mut WmState, config: &Config, bar_handle: Option<&mut Child>) -> Result<()> {
+    pub fn call(&self, xws: &mut XlibWindowSystem, state: &mut WmState, config: &Config, bar_handle: Option<&mut Child>) -> Result<()> {
         match self {
             Cmd::Custom(func) => {
                 debug!("Cmd::Custom");
