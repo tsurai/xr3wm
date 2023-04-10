@@ -203,6 +203,12 @@ impl Default for Config {
                             Cmd::SendLayoutMsg(LayoutMsg::PrevLayout)
                         ),(
                             Keybinding {
+                                mods: MOD_SHIFT,
+                                key: "a".to_string()
+                            },
+                            Cmd::RemoveNested
+                        ),(
+                            Keybinding {
                                 mods: 0,
                                 key: "v".to_string(),
                             },

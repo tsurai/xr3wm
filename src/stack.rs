@@ -137,7 +137,7 @@ impl Stack {
             .collect()
     }
 
-    pub fn all_container_mut(&mut self) -> Vec<&mut Stack> {
+    pub fn all_stacks_mut(&mut self) -> Vec<&mut Stack> {
         self.nodes
             .iter_mut()
             .filter_map(|x| if let Node::Stack(s) = x { Some(s) } else { None })
@@ -159,11 +159,22 @@ impl Stack {
     }
 
     fn focused_node(&self) -> Option<&Node> {
-        self.focus.and_then(move |idx| self.nodes.get(idx))
+        self.focus.and_then(|idx| self.nodes.get(idx))
     }
 
     fn focused_node_mut(&mut self) -> Option<&mut Node> {
-        self.focus.and_then(move |idx| self.nodes.get_mut(idx))
+        self.focus.and_then(|idx| self.nodes.get_mut(idx))
+    }
+
+    pub fn focused_stack_mut(&mut self) -> Option<&mut Stack> {
+        if let Some(Node::Stack(s)) = self.focused_node_mut() {
+            return if matches!(s.focused_node(), Some(Node::Window(_))) {
+                Some(s)
+            } else {
+                s.focused_stack_mut()
+            }
+        }
+        None
     }
 
     pub fn focus_window(&mut self, window: Window) -> bool {
@@ -359,8 +370,11 @@ impl Stack {
     }
 
     pub fn send_layout_msg(&mut self, xws: &XlibWindowSystem, msg: LayoutMsg) {
-        if let Some(layout) = self.layout.as_mut() {
-            layout.send_msg(xws, &self.nodes, msg);
+        match self.focused_stack_mut() {
+            Some(c) => c.send_layout_msg(xws, msg),
+            None => if let Some(l) = self.layout.as_mut() {
+                l.send_msg(xws, &self.nodes, msg);
+            }
         }
     }
 

@@ -118,7 +118,7 @@ impl Workspace {
     pub fn nest_layout(&mut self, layout: Box<dyn Layout>) {
         if self.managed.len() > 1 {
             self.managed.add_container(layout);
-        } else  if let Some(s) = self.managed.all_container_mut().first_mut() {
+        } else  if let Some(s) = self.managed.all_stacks_mut().first_mut() {
             if s.len() < 1 {
                 s.layout = Some(layout);
             } else {
