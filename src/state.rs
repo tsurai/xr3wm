@@ -342,7 +342,6 @@ impl WmState {
                 if let Some(workspace) = self.workspaces.iter_mut().find(|ws| !ws.is_visible()) {
                     trace!("moving workspace {}", workspace.tag);
                     workspace.screen = screen;
-                    workspace.redraw(xws, config, &new_screens);
                     workspace.show(xws);
                 }
             }
@@ -350,6 +349,7 @@ impl WmState {
 
         self.screens = new_screens;
         debug!("rescreen: {:?}", self.screens);
+        self.redraw(xws, config);
 
         ewmh::set_desktop_viewport(xws, self.all_ws());
     }
