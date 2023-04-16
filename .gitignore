@@ -6,6 +6,7 @@
 *.swp
 tags
 todo
+.issues/
 
 # Executables
 *.exe

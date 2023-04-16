@@ -24,8 +24,8 @@ pub enum Cmd {
     MoveToScreen(usize),
     SendLayoutMsg(LayoutMsg),
     NestLayout(Box<dyn Fn() -> Box<dyn Layout>>),
+    Reload(Vec<(String,String)>),
     RemoveNested,
-    Reload,
     Exit,
     KillClient,
     FocusParentUp,
@@ -92,11 +92,11 @@ impl Cmd {
                 state.current_ws_mut().managed.dissolve_container();
                 state.current_ws().redraw(xws, config, state.get_screens());
             }
-            Cmd::Reload => {
+            Cmd::Reload(envs) => {
                 debug!("Cmd::Reload");
 
                 #[cfg(feature = "reload")]
-                reload(config, bar_handle, state)
+                reload(config, state, bar_handle, envs.as_slice())
                     .context("failed to reload xr3wm")?;
 
                 #[cfg(not(feature = "reload"))]
@@ -191,7 +191,7 @@ impl Cmd {
 }
 
 #[cfg(feature = "reload")]
-fn reload(config: &Config, mut bar_handle: Option<&mut Child>, state: &WmState) -> Result<()> {
+fn reload(config: &Config, state: &WmState, mut bar_handle: Option<&mut Child>, custom_envs: &[(String, String)]) -> Result<()> {
     use std::{env, iter};
     use self::libc::execvpe;
     use std::path::Path;
@@ -247,8 +247,11 @@ fn reload(config: &Config, mut bar_handle: Option<&mut Child>, state: &WmState) 
         .chain(iter::once(null()))
         .collect();
 
-    let envs: Vec<*const libc::c_char> = env::vars()
-        .filter_map(|(k,v)| CString::new(format!("{k}={v}")).ok())
+    let envs: Vec<*const libc::c_char> = custom_envs
+        .iter()
+        .map(|(k,v)| format!("{k}={v}"))
+        .chain(env::vars().map(|(k,v)| format!("{k}={v}")))
+        .filter_map(|x| CString::new(x).ok())
         .map(|x| x.into_raw() as *const libc::c_char)
         .chain(iter::once(null()))
         .collect();

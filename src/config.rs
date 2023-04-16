@@ -230,7 +230,7 @@ impl Default for Config {
                                 mods: MOD_SHIFT,
                                 key: "x".to_string(),
                             },
-                            Cmd::Reload
+                            Cmd::Reload(vec![])
                         )]
                         .drain(0..).collect(),
             manage_hooks: Vec::new(),
