@@ -828,11 +828,11 @@ impl XlibWindowSystem {
                 self.root,
                 root_w.as_mut_ptr() as *mut Window,
                 child_w.as_mut_ptr() as *mut Window,
-                root_x.as_mut_ptr() as *mut i32,
-                root_y.as_mut_ptr() as *mut i32,
-                win_x.as_mut_ptr() as *mut i32,
-                win_y.as_mut_ptr() as *mut i32,
-                mask.as_mut_ptr() as *mut u32);
+                root_x.as_mut_ptr(),
+                root_y.as_mut_ptr(),
+                win_x.as_mut_ptr(),
+                win_y.as_mut_ptr(),
+                mask.as_mut_ptr());
 
             if ret == 1 {
                 XWarpPointer(self.display, 0, 0, 0, 0, 0, 0, x - root_x.assume_init(), y - root_y.assume_init());

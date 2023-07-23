@@ -253,7 +253,7 @@ impl Default for Config {
             );
         }
 
-        for &(i, key) in vec![(1, "w"), (2, "e"), (3, "r")].iter() {
+        for &(i, key) in &[(1, "w"), (2, "e"), (3, "r")] {
             config.keybindings.insert(Keybinding {
                     mods: 0,
                     key: key.to_string()
