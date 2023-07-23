@@ -54,6 +54,7 @@ impl WmState {
                     Workspace {
                         tag: c.tag.clone(),
                         screen: c.screen,
+                        index: idx,
                         managed: Stack::new(Some(c.layout)),
                         focus: idx == 0,
                         ..Default::default()
@@ -264,6 +265,8 @@ impl WmState {
             ws.add_window(xws, window);
             ws.focus_window(xws, window);
             ws.redraw(xws, config, &self.screens);
+
+            ewmh::set_wm_desktop(xws, window, index);
         }
 
     }

@@ -1,14 +1,14 @@
 use crate::config::Config;
+use crate::ewmh;
 use crate::layout::{Layout, Tall};
 use crate::layout::{LayoutMsg, Rect};
 use crate::stack::Stack;
 use crate::xlib_window_system::XlibWindowSystem;
-use crate::ewmh;
 use std::cmp;
 use x11::xlib::Window;
 
 #[cfg(feature = "reload")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]
 pub struct WorkspaceInfo {
@@ -36,6 +36,7 @@ pub struct Workspace {
     pub(crate) managed: Stack,
     pub(crate) unmanaged: Stack,
     pub(crate) tag: String,
+    pub index: usize,
     pub screen: usize,
     pub visible: bool,
     pub focus: bool,
@@ -47,6 +48,7 @@ impl Default for Workspace {
             managed: Stack::new(Some(Tall::new(1, 0.5, 0.05))),
             unmanaged: Stack::new(None),
             tag: String::new(),
+            index: 0,
             screen: 0,
             visible: false,
             focus: false,
@@ -56,11 +58,20 @@ impl Default for Workspace {
 
 impl Workspace {
     pub fn all(&self) -> Vec<Window> {
-        self.unmanaged.all_windows().iter().chain(self.managed.all_windows().iter()).copied().collect()
+        self.unmanaged
+            .all_windows()
+            .iter()
+            .chain(self.managed.all_windows().iter())
+            .copied()
+            .collect()
     }
 
-    fn all_urgent(&self) -> Vec<Window> {
-        self.unmanaged.urgent.iter().chain(self.managed.urgent.iter()).copied().collect()
+    fn all_urgent(&self) -> Vec<&Window> {
+        self.unmanaged
+            .urgent
+            .iter()
+            .chain(self.managed.urgent.iter())
+            .collect()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -96,7 +107,8 @@ impl Workspace {
     }
 
     pub fn focused_window(&self) -> Option<Window> {
-        self.unmanaged.focused_window()
+        self.unmanaged
+            .focused_window()
             .or_else(|| self.managed.focused_window())
     }
 
@@ -118,7 +130,7 @@ impl Workspace {
     pub fn nest_layout(&mut self, layout: Box<dyn Layout>) {
         if self.managed.len() > 1 {
             self.managed.add_container(layout);
-        } else  if let Some(s) = self.managed.all_stacks_mut().first_mut() {
+        } else if let Some(s) = self.managed.all_stacks_mut().first_mut() {
             if s.len() < 1 {
                 s.layout = Some(layout);
             } else {
@@ -130,7 +142,7 @@ impl Workspace {
     }
 
     pub fn set_urgency(&mut self, urgent: bool, window: Window) {
-        trace!("unset urgency {:#x} {}", window, urgent);
+        trace!("urgency {:#x} {}", window, urgent);
 
         if !urgent {
             if self.is_urgent() {
@@ -180,9 +192,7 @@ impl Workspace {
     }
 
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, window: Window) -> bool {
-        if window == 0 ||
-           self.managed.focused_window() == Some(window)
-        {
+        if window == 0 || self.managed.focused_window() == Some(window) {
             return false;
         }
 
@@ -261,7 +271,8 @@ impl Workspace {
     pub fn focus(&mut self, xws: &XlibWindowSystem) {
         self.focus = true;
 
-        if let Some(window) = self.focused_window()
+        if let Some(window) = self
+            .focused_window()
             .or_else(|| self.all().first().copied())
         {
             xws.focus_window(window);
@@ -277,17 +288,30 @@ impl Workspace {
             xws.get_screen_infos()[self.screen]
         };
 
-        xws.move_pointer((rect.x + (rect.width / 2)) as i32 -1, (rect.y + (rect.height / 2)) as i32);
+        xws.move_pointer(
+            (rect.x + (rect.width / 2)) as i32 - 1,
+            (rect.y + (rect.height / 2)) as i32,
+        );
     }
 
     pub fn hide(&mut self, xws: &XlibWindowSystem) {
         self.visible = false;
 
-        for &w in self.managed.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
+        for &w in self
+            .managed
+            .all_windows()
+            .iter()
+            .filter(|&w| Some(*w) != self.focused_window())
+        {
             xws.hide_window(w);
         }
 
-        for &w in self.unmanaged.all_windows().iter().filter(|&w| Some(*w) != self.focused_window()) {
+        for &w in self
+            .unmanaged
+            .all_windows()
+            .iter()
+            .filter(|&w| Some(*w) != self.focused_window())
+        {
             xws.hide_window(w);
         }
 
@@ -301,10 +325,12 @@ impl Workspace {
 
         for &w in self.managed.all_windows().iter() {
             xws.show_window(w);
+            ewmh::set_wm_desktop(xws, w, self.index);
         }
 
         for &w in self.unmanaged.all_windows().iter() {
             xws.show_window(w);
+            ewmh::set_wm_desktop(xws, w, self.index);
         }
     }
 
@@ -318,21 +344,25 @@ impl Workspace {
 
             if is_fullscreen {
                 xws.raise_window(window);
-                xws.setup_window(screen.x,
+                xws.setup_window(
+                    screen.x,
                     screen.y,
                     screen.width,
                     screen.height,
                     0,
                     config.border_color,
-                    window);
+                    window,
+                );
             } else {
-                xws.setup_window(rect.x,
+                xws.setup_window(
+                    rect.x,
                     rect.y,
                     rect.width,
                     rect.height,
                     config.border_width,
                     config.border_color,
-                    window);
+                    window,
+                );
             }
         }
 
@@ -341,17 +371,18 @@ impl Workspace {
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
 
-            xws.setup_window(screen.x + (screen.width - rect.width) / 2,
-                            screen.y + (screen.height - rect.height) / 2,
-                            rect.width,
-                            rect.height,
-                            config.border_width,
-                            config.border_color,
-                            window);
+            xws.setup_window(
+                screen.x + (screen.width - rect.width) / 2,
+                screen.y + (screen.height - rect.height) / 2,
+                rect.width,
+                rect.height,
+                config.border_width,
+                config.border_color,
+                window,
+            );
         }
 
-        for &window in self.all_urgent().iter() {
-            trace!("urgent window: {}", window);
+        for &window in self.all_urgent() {
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 

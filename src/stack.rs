@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 
-use std::cmp;
-use std::iter::Iterator;
+use crate::layout::{Layout, LayoutMsg, Rect};
 use crate::workspace::MoveOp;
 use crate::xlib_window_system::XlibWindowSystem;
-use crate::layout::{Layout, LayoutMsg, Rect};
-use x11::xlib::Window;
 use anyhow::{anyhow, Context, Result};
+use std::cmp;
+use std::iter::Iterator;
+use x11::xlib::Window;
 
 #[cfg(feature = "reload")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub struct LayoutIter<'a> {
     stack: Option<&'a Stack>,
@@ -22,15 +22,12 @@ impl<'a> Iterator for LayoutIter<'a> {
         if let Some(stack) = self.stack {
             let layout = stack.layout.as_ref();
 
-            let next_stack = stack.focus
-                .and_then(|idx| match stack.nodes.get(idx) {
-                    Some(Node::Stack(s)) => Some(s),
-                    _ => None,
-                });
+            let next_stack = stack.focus.and_then(|idx| match stack.nodes.get(idx) {
+                Some(Node::Stack(s)) => Some(s),
+                _ => None,
+            });
 
-            *self = LayoutIter {
-                stack: next_stack,
-            };
+            *self = LayoutIter { stack: next_stack };
 
             layout
         } else {
@@ -65,13 +62,23 @@ impl Stack {
     }
 
     pub fn serialize(&self) -> String {
-        format!("{}:{}",
-            self.all_windows().iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(","),
-            self.focus.unwrap_or(0))
+        format!(
+            "{}:{}",
+            self.all_windows()
+                .iter()
+                .map(|&x| x.to_string())
+                .collect::<Vec<String>>()
+                .join(","),
+            self.focus.unwrap_or(0)
+        )
     }
 
-    pub fn deserialize<'a, I: Iterator<Item=&'a str>>(data_iter: &mut I, windows: &[Window]) -> Result<Self> {
-        let nodes = data_iter.next()
+    pub fn deserialize<'a, I: Iterator<Item = &'a str>>(
+        data_iter: &mut I,
+        windows: &[Window],
+    ) -> Result<Self> {
+        let nodes = data_iter
+            .next()
             .map(|x| {
                 x.split(',')
                     .filter_map(|w| w.parse::<u64>().ok())
@@ -82,13 +89,16 @@ impl Stack {
             })
             .unwrap_or_else(Vec::new);
 
-        let focus = data_iter.next()
+        let focus = data_iter
+            .next()
             .ok_or_else(|| anyhow!("missing stack focus data"))?
             .parse::<usize>()
-            .map(|x| if nodes.is_empty() {
-                None
-            } else {
-                Some(cmp::min(nodes.len() - 1, x))
+            .map(|x| {
+                if nodes.is_empty() {
+                    None
+                } else {
+                    Some(cmp::min(nodes.len() - 1, x))
+                }
             })
             .context("failed to parse stack focus value")?;
 
@@ -112,14 +122,26 @@ impl Stack {
         self.nodes
             .iter()
             .enumerate()
-            .filter_map(|(i,x)| if let Node::Window(w) = x { Some((i, *w)) } else { None })
+            .filter_map(|(i, x)| {
+                if let Node::Window(w) = x {
+                    Some((i, *w))
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
     fn windows(&self) -> Vec<Window> {
         self.nodes
             .iter()
-            .filter_map(|x| if let Node::Window(w) = x { Some(*w) } else { None })
+            .filter_map(|x| {
+                if let Node::Window(w) = x {
+                    Some(*w)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -133,21 +155,31 @@ impl Stack {
     pub fn all_stacks(&self) -> Vec<&Stack> {
         self.nodes
             .iter()
-            .filter_map(|x| if let Node::Stack(s) = x { Some(s) } else { None })
+            .filter_map(|x| {
+                if let Node::Stack(s) = x {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
     pub fn all_stacks_mut(&mut self) -> Vec<&mut Stack> {
         self.nodes
             .iter_mut()
-            .filter_map(|x| if let Node::Stack(s) = x { Some(s) } else { None })
+            .filter_map(|x| {
+                if let Node::Stack(s) = x {
+                    Some(s)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
     pub fn layout_iter(&self) -> LayoutIter {
-        LayoutIter {
-            stack: Some(self)
-        }
+        LayoutIter { stack: Some(self) }
     }
 
     pub fn focused_window(&self) -> Option<Window> {
@@ -178,12 +210,11 @@ impl Stack {
     }
 
     pub fn focus_window(&mut self, window: Window) -> bool {
-        let idx = (0..self.len())
-            .find(|i| match self.nodes.get_mut(*i) {
-                Some(Node::Window(w)) => *w == window,
-                Some(Node::Stack(s)) => s.focus_window(window),
-                _ => false,
-            });
+        let idx = (0..self.len()).find(|i| match self.nodes.get_mut(*i) {
+            Some(Node::Window(w)) => *w == window,
+            Some(Node::Stack(s)) => s.focus_window(window),
+            _ => false,
+        });
 
         if idx.is_some() {
             self.focus = idx;
@@ -194,20 +225,22 @@ impl Stack {
 
     pub fn move_parent_focus(&mut self, op: MoveOp) -> Option<Window> {
         match self.focused_node_mut() {
-            Some(Node::Stack(s)) => if matches!(s.focused_node(), Some(Node::Window(_))) {
-                let idx = self.focus.unwrap_or(0);
+            Some(Node::Stack(s)) => {
+                if matches!(s.focused_node(), Some(Node::Window(_))) {
+                    let idx = self.focus.unwrap_or(0);
 
-                self.focus = Some(match op {
-                    MoveOp::Down => (idx + 1) % self.len(),
-                    MoveOp::Up => idx.checked_sub(1).unwrap_or_else(|| self.len() - 1),
-                    MoveOp::Swap => 0,
-                });
-                self.focused_window()
-            } else {
-                s.move_parent_focus(op)
-            },
+                    self.focus = Some(match op {
+                        MoveOp::Down => (idx + 1) % self.len(),
+                        MoveOp::Up => idx.checked_sub(1).unwrap_or_else(|| self.len() - 1),
+                        MoveOp::Swap => 0,
+                    });
+                    self.focused_window()
+                } else {
+                    s.move_parent_focus(op)
+                }
+            }
             Some(Node::Window(_)) => None,
-            None => None
+            None => None,
         }
     }
 
@@ -223,7 +256,7 @@ impl Stack {
                     MoveOp::Swap => 0,
                 });
                 self.focused_window()
-            },
+            }
             None => None,
         }
     }
@@ -239,7 +272,9 @@ impl Stack {
     pub fn add_window(&mut self, window: Window) {
         match self.focused_node_mut() {
             Some(Node::Stack(s)) => s.add_window(window),
-            Some(Node::Window(_)) => self.nodes.insert(self.focus.expect("focus idx") + 1, Node::Window(window)),
+            Some(Node::Window(_)) => self
+                .nodes
+                .insert(self.focus.expect("focus idx") + 1, Node::Window(window)),
             None => self.nodes.push(Node::Window(window)),
         }
     }
@@ -257,13 +292,13 @@ impl Stack {
                     } else {
                         s.add_container(layout)
                     }
-                },
+                }
                 Some(Node::Window(w)) => {
                     let mut stack = Stack::new(Some(layout));
                     stack.add_window(*w);
                     stack.focus = Some(0);
                     self.nodes[self.focus.unwrap_or(0)] = Node::Stack(stack)
-                },
+                }
                 _ => (),
             }
         }
@@ -304,9 +339,12 @@ impl Stack {
     }
 
     pub fn move_parent_window(&mut self, op: MoveOp) -> Option<Window> {
-        self.focus
-            .and_then(|idx| match self.nodes.get_mut(idx) {
-                Some(Node::Stack(s)) => if matches!(s.focus.and_then(|idx| s.nodes.get(idx)), Some(Node::Window(_))) {
+        self.focus.and_then(|idx| match self.nodes.get_mut(idx) {
+            Some(Node::Stack(s)) => {
+                if matches!(
+                    s.focus.and_then(|idx| s.nodes.get(idx)),
+                    Some(Node::Window(_))
+                ) {
                     self.focus = Some(match op {
                         MoveOp::Down => (idx + 1) % self.nodes.len(),
                         MoveOp::Up => (idx + self.nodes.len() - 1) % self.nodes.len(),
@@ -315,23 +353,26 @@ impl Stack {
                     self.focused_window()
                 } else {
                     s.move_parent_focus(op)
-                },
-                Some(Node::Window(_)) => None,
-                None => None
-            })
+                }
+            }
+            Some(Node::Window(_)) => None,
+            None => None,
+        })
     }
 
     fn find_window(&mut self, window: Window) -> Option<usize> {
-        self.windows_idx().iter().find(|(_,w)| *w == window).map(|(i,_)| *i)
+        self.windows_idx()
+            .iter()
+            .find(|(_, w)| *w == window)
+            .map(|(i, _)| *i)
     }
 
     pub fn remove(&mut self, window: Window) -> bool {
-        let res = (0..self.nodes.len())
-            .find(|&i| match self.nodes.get_mut(i) {
-                Some(Node::Stack(s)) => s.remove(window) && s.nodes.is_empty(),
-                Some(Node::Window(w)) => *w == window,
-                _ => false
-            });
+        let res = (0..self.nodes.len()).find(|&i| match self.nodes.get_mut(i) {
+            Some(Node::Stack(s)) => s.remove(window) && s.nodes.is_empty(),
+            Some(Node::Window(w)) => *w == window,
+            _ => false,
+        });
 
         if let Some(idx) = res {
             self.nodes.remove(idx);
@@ -339,20 +380,23 @@ impl Stack {
             if self.nodes.is_empty() {
                 self.focus = None;
             } else {
-                self.focus = self.focus.map(|x| cmp::max(0, cmp::min(x, self.nodes.len() - 1)));
+                self.focus = self
+                    .focus
+                    .map(|x| cmp::max(0, cmp::min(x, self.nodes.len() - 1)));
             }
 
-            return true
+            return true;
         }
         false
     }
 
     pub fn remove_urgent(&mut self, window: Window) -> bool {
-        let res = self.urgent
+        let res = self
+            .urgent
             .iter()
             .enumerate()
-            .find(|(_,&x)| x == window)
-            .map(|(i,_)| i);
+            .find(|(_, &x)| x == window)
+            .map(|(i, _)| i);
 
         if let Some(idx) = res {
             self.urgent.swap_remove(idx);
@@ -360,10 +404,12 @@ impl Stack {
         } else {
             self.nodes
                 .iter_mut()
-                .filter_map(|x| if let Node::Stack(s) = x {
-                    Some(s.remove_urgent(window))
-                } else {
-                    None
+                .filter_map(|x| {
+                    if let Node::Stack(s) = x {
+                        Some(s.remove_urgent(window))
+                    } else {
+                        None
+                    }
                 })
                 .any(|x| x)
         }
@@ -384,7 +430,7 @@ impl Stack {
                 .apply(screen, xws, self)
                 .iter()
                 .enumerate()
-                .filter_map(|(idx,rect)| match self.nodes.get(idx) {
+                .filter_map(|(idx, rect)| match self.nodes.get(idx) {
                     Some(Node::Window(w)) => Some(vec![(*rect, *w)]),
                     Some(Node::Stack(s)) => Some(s.apply_layout(*rect, xws)),
                     _ => None,

@@ -322,6 +322,24 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn send_client_message<T: Into<ClientMessageData>>(&self, window: Window, atom: &str, data: T) {
+        let mut event = XClientMessageEvent {
+            type_: ClientMessage,
+            serial: 0,
+            send_event: 0,
+            display: ptr::null_mut(),
+            window,
+            message_type: self.get_atom(atom) as c_ulong,
+            format: 32,
+            data: data.into(),
+        };
+
+        let event_ptr: *mut XClientMessageEvent = &mut event;
+        unsafe {
+            XSendEvent(self.display, self.root, 0, NoEventMask, event_ptr as *mut XEvent);
+        }
+    }
+
     pub fn delete_property<A: IntoAtom>(&self, window: Window, atom: A) {
         unsafe {
             XDeleteProperty(self.display, window, atom.into(self));
@@ -387,6 +405,7 @@ impl XlibWindowSystem {
             XSelectInput(self.display, window, 0x0042_0010 | FocusChangeMask);
 
             self.change_property(window, "WM_STATE", "WM_STATE", PropModeReplace, &[0u64, 0]);
+            self.delete_property(window, "_NET_WM_DESKTOP");
         }
     }
 
@@ -426,6 +445,8 @@ impl XlibWindowSystem {
             }
 
             ewmh::set_active_window(self, window);
+            let state = self.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION");
+            self.send_client_message(window, "_NET_WM_STATE", [0, state, 0, 0, 0]);
         } else if takes_focus {
             trace!("send WM_TAKE_FOCUS to: {:#x}", window);
             let time = SystemTime::now().duration_since(UNIX_EPOCH)
@@ -448,8 +469,10 @@ impl XlibWindowSystem {
             unsafe {
                 XSendEvent(self.display, window, 0, NoEventMask, event_ptr as *mut XEvent);
             }
+            let state = self.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION");
 
             ewmh::set_active_window(self, window);
+            self.send_client_message(window, "_NET_WM_STATE", [0, state, 0, 0, 0]);
         }
     }
 
@@ -876,7 +899,7 @@ impl XlibWindowSystem {
                     Ignored
                 }
             }
-            ClientMessage => {
+           ClientMessage => {
                 let evt: &XClientMessageEvent = self.cast_event_to();
                 XClientMessage(evt.window, evt.message_type, evt.data)
             }
