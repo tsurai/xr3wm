@@ -165,8 +165,8 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
             }
             XConfigureRequest(window, changes, mask) => {
                 trace!("XConfigureRequest: {:#x}", window);
-                let unmanaged = state.is_unmanaged(window) || !state.contains(window);
-                xws.configure_window(window, changes, mask, unmanaged);
+                let is_unmanaged = state.is_unmanaged(window) || !state.contains(window);
+                xws.configure_window(window, changes, mask, is_unmanaged);
             }
             XEnterNotify(window, is_root, x, y) => {
                 trace!("XEnterNotify: {:#x} {} x: {} y: {}", window, is_root,x ,y);

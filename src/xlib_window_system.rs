@@ -370,7 +370,7 @@ impl XlibWindowSystem {
                 XGetWindowAttributes(self.display, window, attributes.as_mut_ptr());
 
                 let mut event = XConfigureEvent {
-                    type_: ConfigureRequest,
+                    type_: ConfigureNotify,
                     display: self.display,
                     serial: 0,
                     send_event: 1,
