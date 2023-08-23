@@ -77,7 +77,7 @@ impl Stack {
         data_iter: &mut I,
         windows: &[Window],
     ) -> Result<Self> {
-        let nodes = data_iter
+        let nodes: Vec<Node> = data_iter
             .next()
             .map(|x| {
                 x.split(',')
@@ -87,7 +87,7 @@ impl Stack {
                     .map(Node::Window)
                     .collect()
             })
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
 
         let focus = data_iter
             .next()

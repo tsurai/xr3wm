@@ -371,6 +371,7 @@ impl Workspace {
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
 
+            xws.raise_window(window);
             xws.setup_window(
                 screen.x + (screen.width - rect.width) / 2,
                 screen.y + (screen.height - rect.height) / 2,
