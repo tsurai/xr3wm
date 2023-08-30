@@ -336,11 +336,16 @@ impl Workspace {
 
     pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config, screens: &[Rect]) {
         trace!("Redraw workspace: {}", self.tag);
-
         let screen = screens[self.screen];
+        let curr_focus = self.focused_window();
 
         for (rect, window) in self.managed.apply_layout(screen, xws) {
             let is_fullscreen = ewmh::is_window_fullscreen(xws, window);
+            let border_color = if Some(window) == curr_focus {
+                config.border_focus_color
+            } else {
+                config.border_color
+            };
 
             if is_fullscreen {
                 xws.raise_window(window);
@@ -350,7 +355,7 @@ impl Workspace {
                     screen.width,
                     screen.height,
                     0,
-                    config.border_color,
+                    border_color,
                     window,
                 );
             } else {
@@ -360,7 +365,7 @@ impl Workspace {
                     rect.width,
                     rect.height,
                     config.border_width,
-                    config.border_color,
+                    border_color,
                     window,
                 );
             }
@@ -370,6 +375,11 @@ impl Workspace {
             let mut rect = xws.get_geometry(window);
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
+            let border_color = if Some(window) == curr_focus {
+                config.border_focus_color
+            } else {
+                config.border_color
+            };
 
             xws.raise_window(window);
             xws.setup_window(
@@ -378,7 +388,7 @@ impl Workspace {
                 rect.width,
                 rect.height,
                 config.border_width,
-                config.border_color,
+                border_color,
                 window,
             );
         }
@@ -392,5 +402,6 @@ impl Workspace {
                 xws.set_window_border_color(window, config.border_focus_color);
             }
         }
+        xws.skip_enter_events();
     }
 }
