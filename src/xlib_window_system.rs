@@ -265,6 +265,16 @@ impl XlibWindowSystem {
         }
     }
 
+    pub fn get_all_struts(&self) -> Vec<Window> {
+        self.get_windows()
+            .iter()
+            .filter(|&w| {
+                self.get_window_strut(*w).is_some()
+            })
+            .copied()
+            .collect()
+    }
+
     // TODO: cache result and split into computation and getter functions.
     // Struts rarely change and dont have to be computed on every redraw (see strut layout)
     pub fn compute_struts(&self, screen: Rect) -> Strut {

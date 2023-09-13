@@ -61,7 +61,7 @@ impl WmState {
                     }
                 })
                 .collect(),
-            struts: Vec::new(),
+            struts: xws.get_all_struts(),
             cur: 0,
             screens: Vec::new(),
         })
