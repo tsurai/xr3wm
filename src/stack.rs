@@ -5,7 +5,6 @@ use crate::workspace::MoveOp;
 use crate::xlib_window_system::XlibWindowSystem;
 use anyhow::{anyhow, Context, Result};
 use std::cmp;
-use std::iter::Iterator;
 use x11::xlib::Window;
 
 #[cfg(feature = "reload")]

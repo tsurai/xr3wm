@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use std::cmp::Eq;
-
 pub const MOD_SHIFT: u8 = 1;
 pub const MOD_LOCK: u8 = 1 << 1;
 pub const MOD_CONTROL: u8 = 1 << 2;

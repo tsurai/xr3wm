@@ -6,7 +6,6 @@ use crate::layout::Rect;
 use crate::ewmh;
 use std::cmp;
 use std::path::Path;
-use std::default::Default;
 use x11::xlib::Window;
 use anyhow::{Result, Context};
 

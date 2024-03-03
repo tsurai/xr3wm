@@ -7,7 +7,6 @@ use crate::keycode::{MOD_2, MOD_LOCK};
 use crate::layout::Rect;
 use crate::ewmh;
 use std::{cmp, env, ptr, str};
-use std::default::Default;
 use std::mem::MaybeUninit;
 use std::slice::from_raw_parts;
 use std::ffi::{CStr, CString};
