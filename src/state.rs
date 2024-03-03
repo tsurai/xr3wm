@@ -126,8 +126,8 @@ impl WmState {
         self.workspaces.iter().any(|ws| ws.contains(window))
     }
 
-    pub fn is_unmanaged(&self, window: Window) -> bool {
-        self.workspaces.iter().any(|ws| ws.is_unmanaged(window))
+    pub fn is_floating(&self, window: Window) -> bool {
+        self.workspaces.iter().any(|ws| ws.is_floating(window))
     }
 
     pub fn set_urgency(&mut self, is_urgent: bool, window: Window) {

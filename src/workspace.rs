@@ -34,7 +34,7 @@ pub enum MoveOp {
 #[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct Workspace {
     pub(crate) managed: Stack,
-    pub(crate) unmanaged: Stack,
+    pub(crate) floating: Stack,
     pub(crate) tag: String,
     pub index: usize,
     pub screen: usize,
@@ -46,7 +46,7 @@ impl Default for Workspace {
     fn default() -> Self {
         Self {
             managed: Stack::new(Some(Tall::new(1, 0.5, 0.05))),
-            unmanaged: Stack::new(None),
+            floating: Stack::new(None),
             tag: String::new(),
             index: 0,
             screen: 0,
@@ -58,7 +58,7 @@ impl Default for Workspace {
 
 impl Workspace {
     pub fn all(&self) -> Vec<Window> {
-        self.unmanaged
+        self.floating
             .all_windows()
             .iter()
             .chain(self.managed.all_windows().iter())
@@ -67,7 +67,7 @@ impl Workspace {
     }
 
     fn all_urgent(&self) -> Vec<&Window> {
-        self.unmanaged
+        self.floating
             .urgent
             .iter()
             .chain(self.managed.urgent.iter())
@@ -75,7 +75,7 @@ impl Workspace {
     }
 
     pub fn is_empty(&self) -> bool {
-        (self.unmanaged.len() + self.managed.len()) == 0
+        (self.floating.len() + self.managed.len()) == 0
     }
 
     pub fn send_layout_message(&mut self, xws: &XlibWindowSystem, msg: LayoutMsg) {
@@ -90,8 +90,8 @@ impl Workspace {
         self.screen
     }
 
-    pub fn is_unmanaged(&self, window: Window) -> bool {
-        self.unmanaged.contains(window)
+    pub fn is_floating(&self, window: Window) -> bool {
+        self.floating.contains(window)
     }
 
     pub fn is_managed(&self, window: Window) -> bool {
@@ -99,7 +99,7 @@ impl Workspace {
     }
 
     pub fn is_urgent(&self) -> bool {
-        self.managed.is_urgent() || self.unmanaged.is_urgent()
+        self.managed.is_urgent() || self.floating.is_urgent()
     }
 
     pub fn is_visible(&self) -> bool {
@@ -107,7 +107,7 @@ impl Workspace {
     }
 
     pub fn focused_window(&self) -> Option<Window> {
-        self.unmanaged
+        self.floating
             .focused_window()
             .or_else(|| self.managed.focused_window())
     }
@@ -117,12 +117,12 @@ impl Workspace {
             debug!("Add Managed: {:#x}", window);
             self.managed.add_window(window);
 
-            if self.unmanaged.len() > 0 {
+            if self.floating.len() > 0 {
                 debug!("Restacking");
                 xws.restack_windows(self.all());
             }
         } else {
-            self.unmanaged.add_window(window);
+            self.floating.add_window(window);
             debug!("Add Unmanaged: {:#x}", window);
         }
     }
@@ -151,13 +151,13 @@ impl Workspace {
         } else if self.is_managed(window) {
             self.managed.urgent.push(window);
         } else {
-            self.unmanaged.urgent.push(window);
+            self.floating.urgent.push(window);
         }
     }
 
     fn remove_urgent_window(&mut self, window: Window) {
         if !self.managed.remove_urgent(window) {
-            self.unmanaged.remove_urgent(window);
+            self.floating.remove_urgent(window);
         }
     }
 
@@ -166,14 +166,14 @@ impl Workspace {
         xws.unmap_window(window);
     }
 
-    fn remove_unmanaged(&mut self, xws: &XlibWindowSystem, window: Window) {
+    fn remove_floating(&mut self, xws: &XlibWindowSystem, window: Window) {
         xws.unmap_window(window);
 
-        self.unmanaged.remove(window);
-        self.unmanaged.focus = if self.unmanaged.nodes.is_empty() {
+        self.floating.remove(window);
+        self.floating.focus = if self.floating.nodes.is_empty() {
             None
         } else {
-            Some(self.unmanaged.nodes.len() - 1)
+            Some(self.floating.nodes.len() - 1)
         };
     }
 
@@ -181,9 +181,9 @@ impl Workspace {
         if self.managed.contains(window) {
             trace!("Remove Managed: {:#x}", window);
             self.remove_managed(xws, window);
-        } else if self.unmanaged.contains(window) {
+        } else if self.floating.contains(window) {
             trace!("Remove Unmanaged: {:#x}", window);
-            self.remove_unmanaged(xws, window);
+            self.remove_floating(xws, window);
         } else {
             return false;
         }
@@ -200,8 +200,8 @@ impl Workspace {
             self.remove_urgent_window(window);
         }
 
-        if self.unmanaged.contains(window) {
-            self.unmanaged.focus_window(window);
+        if self.floating.contains(window) {
+            self.floating.focus_window(window);
         } else {
             self.managed.focus_window(window);
         }
@@ -221,7 +221,7 @@ impl Workspace {
         }
     }
 
-    // TODO: impl managed and unmanaged focus mode incl switching
+    // TODO: impl managed and floating focus mode incl switching
     pub fn move_focus(&mut self, op: MoveOp) -> Option<Window> {
         let prev_focus = self.focused_window();
         let new_focus = self.managed.move_focus(op);
@@ -307,7 +307,7 @@ impl Workspace {
         }
 
         for &w in self
-            .unmanaged
+            .floating
             .all_windows()
             .iter()
             .filter(|&w| Some(*w) != self.focused_window())
@@ -328,7 +328,7 @@ impl Workspace {
             ewmh::set_wm_desktop(xws, w, self.index);
         }
 
-        for &w in self.unmanaged.all_windows().iter() {
+        for &w in self.floating.all_windows().iter() {
             xws.show_window(w);
             ewmh::set_wm_desktop(xws, w, self.index);
         }
@@ -371,7 +371,7 @@ impl Workspace {
             }
         }
 
-        for &window in self.unmanaged.all_windows().iter() {
+        for &window in self.floating.all_windows().iter() {
             let mut rect = xws.get_geometry(window);
             rect.width = cmp::min(screen.width, rect.width + (2 * config.border_width));
             rect.height = cmp::min(screen.height, rect.height + (2 * config.border_width));
