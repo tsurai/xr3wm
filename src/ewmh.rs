@@ -92,9 +92,22 @@ pub fn process_client_message(
             let ret = set_wm_state(xws, window, &wm_states, mode);
 
             if let Some((add_states, rem_states)) = ret {
-                if add_states.contains(&xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION")) {
-                    state.set_urgency(true, window);
-                    redraw = true;
+
+                let fullscreen = xws.get_atom("_NET_WM_STATE_FULLSCREEN");
+                let attention = xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION");
+                let sticky = xws.get_atom("_NET_WM_STATE_STICKY");
+
+                for s in add_states {
+                    if s == attention {
+                        state.set_urgency(true, window);
+                        redraw = true;
+                    } else if s == sticky {
+                        state.remove_window(xws, config, window);
+                        state.add_unmanaged(window);
+                        redraw = true;
+                    } else if s == fullscreen {
+                        redraw = true;
+                    }
                 }
 
                 if rem_states.contains(&xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION")) {
@@ -102,9 +115,8 @@ pub fn process_client_message(
                     redraw = true;
                 }
 
-                if add_states
+                if rem_states
                     .iter()
-                    .chain(rem_states.iter())
                     .any(|&x| x == xws.get_atom("_NET_WM_STATE_FULLSCREEN"))
                 {
                     redraw = true;
@@ -279,6 +291,15 @@ pub fn set_wm_state(
         }
         _ => None,
     }
+}
+
+pub fn is_window_sticky(xws: &XlibWindowSystem, window: Window) -> bool {
+     xws.get_property(window, "_NET_WM_STATE")
+        .map(|prop| {
+            prop.iter()
+                .any(|&x| x == xws.get_atom("_NET_WM_STATE_STICKY"))
+        })
+        .unwrap_or(false)
 }
 
 pub fn is_window_fullscreen(xws: &XlibWindowSystem, window: Window) -> bool {

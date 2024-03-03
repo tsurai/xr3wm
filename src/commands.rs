@@ -80,7 +80,7 @@ impl Cmd {
             Cmd::SendLayoutMsg(ref msg) => {
                 debug!("Cmd::SendLayoutMsg::{:?}", msg);
                 state.current_ws_mut().send_layout_message(xws, msg.clone());
-                state.current_ws().redraw(xws, config, state.get_screens());
+                state.redraw_current(xws, config);
             }
             Cmd::NestLayout(layout_fn) => {
                 let layout = layout_fn();
@@ -90,7 +90,7 @@ impl Cmd {
             Cmd::RemoveNested => {
                 debug!("Cmd::RemoveNested");
                 state.current_ws_mut().managed.dissolve_container();
-                state.current_ws().redraw(xws, config, state.get_screens());
+                state.redraw_current(xws, config);
             }
             Cmd::Reload(envs) => {
                 debug!("Cmd::Reload");
@@ -180,7 +180,7 @@ impl Cmd {
                     };
 
                     if new_focus {
-                        state.current_ws().redraw(xws, config, state.get_screens());
+                        state.redraw_current(xws, config);
                         xws.skip_enter_events();
                     }
                 }

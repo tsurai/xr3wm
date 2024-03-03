@@ -167,7 +167,9 @@ impl Workspace {
     }
 
     fn remove_floating(&mut self, xws: &XlibWindowSystem, window: Window) {
-        xws.unmap_window(window);
+        if !ewmh::is_window_sticky(xws, window) {
+            xws.unmap_window(window);
+        }
 
         self.floating.remove(window);
         self.floating.focus = if self.floating.nodes.is_empty() {
@@ -383,8 +385,10 @@ impl Workspace {
 
             xws.raise_window(window);
             xws.setup_window(
-                screen.x + (screen.width - rect.width) / 2,
-                screen.y + (screen.height - rect.height) / 2,
+                //screen.x + (screen.width - rect.width) / 2,
+                //screen.y + (screen.height - rect.height) / 2,
+                rect.x,
+                rect.y,
                 rect.width,
                 rect.height,
                 config.border_width,
@@ -397,11 +401,6 @@ impl Workspace {
             xws.set_window_border_color(window, config.border_urgent_color);
         }
 
-        if self.focus {
-            if let Some(window) = self.focused_window() {
-                xws.set_window_border_color(window, config.border_focus_color);
-            }
-        }
         xws.skip_enter_events();
     }
 }

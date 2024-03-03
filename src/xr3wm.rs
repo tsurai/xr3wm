@@ -86,8 +86,8 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
 
     loop {
         match xws.get_event() {
-            XMapRequest(window) => {
-                trace!("XMapRequest: {:#x}", window);
+            XMapRequest(window, is_sticky) => {
+                trace!("XMapRequest: {:#x} {}", window, is_sticky);
                 if !state.contains(window) {
                     let mut is_hooked = false;
                     if let Some(class) = xws.get_class_name(window) {
@@ -106,13 +106,6 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                     state.focus_window(xws, &config, window, false);
                 }
             }
-            XMapNotify(window) => {
-                trace!("XMapNotify: {:#x}", window);
-                if xws.get_window_strut(window).is_some() {
-                    state.add_strut(window);
-                    state.redraw(xws, &config);
-                }
-            }
             XDestroy(window) => {
                 trace!("XDestroy: {:#x}", window);
                 if state.contains(window) {
@@ -123,7 +116,7 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                 trace!("XUnmapNotify: {:#x} {}", window, send);
                 if send && state.contains(window) {
                     state.remove_window(xws, &config, window);
-                } else if state.try_remove_strut(window) {
+                } else if state.try_remove_unmanaged(window) {
                     state.redraw(xws, &config);
                 }
             }
@@ -134,9 +127,9 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                     }
                 } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL") {
                     if is_new_value {
-                        state.add_strut(window);
+                        state.add_unmanaged(window);
                     } else {
-                        state.try_remove_strut(window);
+                        state.try_remove_unmanaged(window);
                     }
                     state.redraw(xws, &config);
                 } else if window == xws.get_root_window() &&
@@ -182,6 +175,7 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                     let screens = state.get_screens();
                     if let Some(workspace) = state.get_ws(idx) {
                         workspace.redraw(xws, &config, screens);
+                        state.raise_sticky(xws);
                     }
                 }
             }

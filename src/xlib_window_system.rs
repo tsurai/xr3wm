@@ -24,8 +24,7 @@ extern "C" fn error_handler(display: *mut Display, event: *mut XErrorEvent) -> c
 }
 
 pub enum XlibEvent {
-    XMapRequest(Window),
-    XMapNotify(Window),
+    XMapRequest(Window, bool),
     XClientMessage(Window, Atom, ClientMessageData),
     XConfigureNotify(Window),
     XConfigureRequest(Window, WindowChanges, u32),
@@ -264,7 +263,7 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_all_struts(&self) -> Vec<Window> {
+    pub fn get_all_unmanaged(&self) -> Vec<Window> {
         self.get_windows()
             .iter()
             .filter(|&w| {
@@ -872,14 +871,24 @@ impl XlibWindowSystem {
 
         let evt_type: c_int = *self.cast_event_to();
         match evt_type {
+            /*
+             * MapRequest is triggered whenever a client initiates a map window request on an unmapped window
+             * whose override_redirect is set to false
+             */
             MapRequest => {
                 let evt: &XMapRequestEvent = self.cast_event_to();
+                trace!("MapRequest {:?}", evt);
 
                 // Some docks rely entirely on the EWMH window type and do not set redirect
                 // override to prevent the WM from reparenting it
                 let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK");
                 let is_dock = self.get_property(evt.window, "_NET_WM_WINDOW_TYPE")
                     .map(|atoms| atoms.iter().any(|&a| a == dock_type))
+                    .unwrap_or(false);
+
+                let sticky_type = self.get_atom("_NET_WM_STATE_STICKY");
+                let is_sticky = self.get_property(evt.window, "_NET_WM_STATE")
+                    .map(|atoms| atoms.iter().any(|&a| a == sticky_type))
                     .unwrap_or(false);
 
                 if is_dock {
@@ -892,23 +901,27 @@ impl XlibWindowSystem {
                 } else {
                     self.request_window_events(evt.window);
 
-                    XMapRequest(evt.window)
+                    XMapRequest(evt.window, is_sticky)
                 }
             }
+            /*
+             * MapNotify is triggered whenever a client is mapped regardless of the value of override_redirect.
+             * Compard to MapRequest this also catches windows that are not suppose to be managed
+             * by the WM.
+             */
             MapNotify => {
                 let evt: &XMapEvent = self.cast_event_to();
+                trace!("MapNotify: {:?}", evt);
 
                 // only windows with override redirect dont have WM_STATE
                 if self.get_property(evt.window, "WM_STATE").is_none() {
                     unsafe {
                         XSelectInput(self.display, evt.window, PropertyChangeMask);
                     }
-                    XMapNotify(evt.window)
-                } else {
-                    Ignored
                 }
+                Ignored
             }
-           ClientMessage => {
+            ClientMessage => {
                 let evt: &XClientMessageEvent = self.cast_event_to();
                 XClientMessage(evt.window, evt.message_type, evt.data)
             }

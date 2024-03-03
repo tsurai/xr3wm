@@ -15,7 +15,7 @@ use serde::{Serialize, Deserialize};
 #[cfg_attr(feature = "reload", derive(Serialize, Deserialize))]
 pub struct WmState {
     workspaces: Vec<Workspace>,
-    struts: Vec<Window>,
+    unmanaged: Vec<Window>,
     cur: usize,
     screens: Vec<Rect>
 }
@@ -60,7 +60,7 @@ impl WmState {
                     }
                 })
                 .collect(),
-            struts: xws.get_all_struts(),
+            unmanaged: xws.get_all_unmanaged(),
             cur: 0,
             screens: Vec::new(),
         })
@@ -156,8 +156,10 @@ impl WmState {
             if !workspace.is_visible() {
                 workspace.set_urgency(true, window);
             } else {
+                //workspace.focus_window(xws, window);
                 workspace.redraw(xws, config, &screens);
                 xws.show_window(window);
+                self.raise_sticky(xws);
             }
 
             ewmh::set_client_list(xws, &self.workspaces);
@@ -209,6 +211,7 @@ impl WmState {
 
         self.cur = index;
 
+        self.raise_sticky(xws);
         ewmh::set_current_desktop(xws, index);
         ewmh::set_desktop_viewport(xws, self.all_ws());
     }
@@ -264,6 +267,7 @@ impl WmState {
             ws.add_window(xws, window);
             ws.focus_window(xws, window);
             ws.redraw(xws, config, &self.screens);
+            self.raise_sticky(xws);
 
             ewmh::set_wm_desktop(xws, window, index);
         }
@@ -297,6 +301,7 @@ impl WmState {
                 ewmh::set_active_window(xws, 0);
             }
 
+            self.raise_sticky(xws);
             ewmh::set_client_list(xws, &self.workspaces);
         }
     }
@@ -372,27 +377,37 @@ impl WmState {
         ewmh::set_desktop_viewport(xws, self.all_ws());
     }
 
-    pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
-        self.all_visible_ws()
-            .iter()
-            .for_each(|ws| {
-                ws.redraw(xws, config, &self.screens);
-            });
-
-    }
-
-    pub fn add_strut(&mut self, window: Window) {
-        if !self.struts.contains(&window) {
-            self.struts.push(window);
+    pub fn raise_sticky(&self, xws: &XlibWindowSystem) {
+        for w in &self.unmanaged {
+            xws.raise_window(*w);
         }
     }
 
-    pub fn try_remove_strut(&mut self, window: Window) -> bool {
-        if let Some((idx,_)) = self.struts.iter()
+    pub fn redraw(&self, xws: &XlibWindowSystem, config: &Config) {
+        for ws in self.all_visible_ws() {
+            ws.redraw(xws, config, &self.screens);
+        }
+        self.raise_sticky(xws);
+    }
+
+    pub fn redraw_current(&self, xws: &XlibWindowSystem, config: &Config) {
+        self.current_ws().redraw(xws, config, self.get_screens());
+        self.raise_sticky(xws);
+    }
+
+    pub fn add_unmanaged(&mut self, window: Window) {
+        println!("add sticky: {}", window);
+        if !self.unmanaged.contains(&window) {
+            self.unmanaged.push(window);
+        }
+    }
+
+    pub fn try_remove_unmanaged(&mut self, window: Window) -> bool {
+        if let Some((idx,_)) = self.unmanaged.iter()
             .enumerate()
             .find(|(_,&x)| x == window)
         {
-            self.struts.swap_remove(idx);
+            self.unmanaged.swap_remove(idx);
             true
         } else {
             false
