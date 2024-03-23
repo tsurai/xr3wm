@@ -27,6 +27,7 @@ pub fn init_ewmh(xws: &mut XlibWindowSystem) {
         "_NET_WM_STATE",
         "_NET_WM_STATE_FULLSCREEN",
         "_NET_WM_STATE_DEMANDS_ATTENTION",
+        "_NET_WM_STATE_STICKY",
         "_NET_WM_STRUT_PARTIAL",
         "_NET_WM_WINDOW_TYPE",
         "_NET_WM_WINDOW_TYPE_DOCK",
