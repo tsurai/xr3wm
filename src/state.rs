@@ -270,6 +270,9 @@ impl WmState {
             self.raise_sticky(xws);
 
             ewmh::set_wm_desktop(xws, window, index);
+            if self.current_ws().is_empty() {
+                ewmh::set_active_window(xws, 0);
+            }
         }
 
     }
