@@ -263,16 +263,6 @@ impl XlibWindowSystem {
         }
     }
 
-    pub fn get_all_unmanaged(&self) -> Vec<Window> {
-        self.get_windows()
-            .iter()
-            .filter(|&w| {
-                self.get_window_strut(*w).is_some()
-            })
-            .copied()
-            .collect()
-    }
-
     // TODO: cache result and split into computation and getter functions.
     // Struts rarely change and dont have to be computed on every redraw (see strut layout)
     pub fn compute_struts(&self, screen: Rect) -> Strut {
@@ -358,9 +348,9 @@ impl XlibWindowSystem {
                             window: Window,
                             window_changes: WindowChanges,
                             mask: u32,
-                            unmanaged: bool) {
+                            floating: bool) {
         unsafe {
-            if unmanaged {
+            if floating {
                 let mut ret_window_changes = XWindowChanges {
                     x: window_changes.x as i32,
                     y: window_changes.y as i32,
@@ -896,7 +886,6 @@ impl XlibWindowSystem {
                     unsafe {
                         XMapWindow(self.display, evt.window);
                     }
-
                     Ignored
                 } else {
                     self.request_window_events(evt.window);

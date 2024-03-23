@@ -60,7 +60,7 @@ impl WmState {
                     }
                 })
                 .collect(),
-            unmanaged: xws.get_all_unmanaged(),
+            unmanaged: Vec::new(),
             cur: 0,
             screens: Vec::new(),
         })

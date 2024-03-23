@@ -120,17 +120,12 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                     state.redraw(xws, &config);
                 }
             }
-            XPropertyNotify(window, atom, is_new_value) => {
+            XPropertyNotify(window, atom, _is_new_value) => {
                 if atom == xws.get_atom("WM_HINTS") {
                     if let Some(ws) = state.get_parent_mut(window) {
                         ws.set_urgency(xws.is_urgent(window), window);
                     }
                 } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL") {
-                    if is_new_value {
-                        state.add_unmanaged(window);
-                    } else {
-                        state.try_remove_unmanaged(window);
-                    }
                     state.redraw(xws, &config);
                 } else if window == xws.get_root_window() &&
                     (atom == xws.get_atom("_NET_CURRENT_DESKTOP") ||

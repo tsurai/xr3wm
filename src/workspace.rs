@@ -385,10 +385,8 @@ impl Workspace {
 
             xws.raise_window(window);
             xws.setup_window(
-                //screen.x + (screen.width - rect.width) / 2,
-                //screen.y + (screen.height - rect.height) / 2,
-                rect.x,
-                rect.y,
+                screen.x + (screen.width - rect.width) / 2,
+                screen.y + (screen.height - rect.height) / 2,
                 rect.width,
                 rect.height,
                 config.border_width,
