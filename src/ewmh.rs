@@ -81,7 +81,6 @@ pub fn process_client_message(
             state.switch_to_ws(xws, config, msg_data[0] as usize, true);
         }
         "_NET_WM_STATE" => {
-            trace!("process WM_STATE client message");
             let mode = msg_data[0];
             let wm_states: Vec<u64> = msg_data[1..3]
                 .iter()
@@ -93,7 +92,6 @@ pub fn process_client_message(
             let ret = set_wm_state(xws, window, &wm_states, mode);
 
             if let Some((add_states, rem_states)) = ret {
-
                 let fullscreen = xws.get_atom("_NET_WM_STATE_FULLSCREEN");
                 let attention = xws.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION");
                 let sticky = xws.get_atom("_NET_WM_STATE_STICKY");

@@ -127,20 +127,17 @@ fn run_event_loop(config: Config, xws: &mut XlibWindowSystem, mut state: WmState
                     }
                 } else if atom == xws.get_atom("_NET_WM_STRUT_PARTIAL") {
                     state.redraw(xws, &config);
-                } else if window == xws.get_root_window() &&
-                    (atom == xws.get_atom("_NET_CURRENT_DESKTOP") ||
-                    atom == xws.get_atom("_NET_NUMBER_OF_DESKTOPS") ||
-                    atom == xws.get_atom("_NET_DESKTOP_NAMES") ||
-                    atom == xws.get_atom("_NET_ACTIVE_WINDOW") ||
-                    atom == xws.get_atom("_NET_WM_STATE") ||
-                    atom == xws.get_atom("_NET_WM_NAME"))
-                {
-                    if let Some(ref mut handle) = bar_handle {
-                        if let Err(e) = config.statusbar.as_ref().unwrap().update(handle, xws, &state) {
-                            error!("{}", e.context("failed to update statusbar"));
-                        }
+                } else if window == xws.get_root_window()
+                    && (atom == xws.get_atom("_NET_CURRENT_DESKTOP")
+                        || atom == xws.get_atom("_NET_NUMBER_OF_DESKTOPS")
+                        || atom == xws.get_atom("_NET_DESKTOP_NAMES")
+                        || atom == xws.get_atom("_NET_ACTIVE_WINDOW")
+                        || atom == xws.get_atom("_NET_WM_STATE")
+                        || atom == xws.get_atom("_NET_WM_NAME"))
+                    && let Some(ref mut handle) = bar_handle
+                    && let Err(e) = config.statusbar.as_ref().unwrap().update(handle, xws, &state) {
+                        error!("{}", e.context("failed to update statusbar"));
                     }
-                }
             }
             XClientMessage(window, msg_type, data) => {
                 let data: Vec<u64> = data.as_longs().iter().map(|x| *x as u64).collect();

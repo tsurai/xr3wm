@@ -436,7 +436,6 @@ impl XlibWindowSystem {
         let takes_focus = self.has_protocol(window, "WM_TAKE_FOCUS");
 
         if input_hint {
-            trace!("set input focus via hint");
             unsafe {
                 XSetInputFocus(self.display, window, 1, 0);
                 self.skip_enter_events();
@@ -446,7 +445,6 @@ impl XlibWindowSystem {
             let state = self.get_atom("_NET_WM_STATE_DEMANDS_ATTENTION");
             self.send_client_message(window, "_NET_WM_STATE", [0, state, 0, 0, 0]);
         } else if takes_focus {
-            trace!("send WM_TAKE_FOCUS to: {:#x}", window);
             let time = SystemTime::now().duration_since(UNIX_EPOCH)
                 .map(|x| x.as_secs())
                 .unwrap_or(0);
@@ -875,12 +873,12 @@ impl XlibWindowSystem {
                 // override to prevent the WM from reparenting it
                 let dock_type = self.get_atom("_NET_WM_WINDOW_TYPE_DOCK");
                 let is_dock = self.get_property(evt.window, "_NET_WM_WINDOW_TYPE")
-                    .map(|atoms| atoms.iter().any(|&a| a == dock_type))
+                    .map(|atoms| atoms.contains(&dock_type))
                     .unwrap_or(false);
 
                 let sticky_type = self.get_atom("_NET_WM_STATE_STICKY");
                 let is_sticky = self.get_property(evt.window, "_NET_WM_STATE")
-                    .map(|atoms| atoms.iter().any(|&a| a == sticky_type))
+                    .map(|atoms| atoms.contains(&sticky_type))
                     .unwrap_or(false);
 
                 if is_dock {

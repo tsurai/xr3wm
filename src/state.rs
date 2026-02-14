@@ -167,8 +167,8 @@ impl WmState {
     }
 
     pub fn focus_window(&mut self, xws: &XlibWindowSystem, config: &Config, window: Window, force_switch: bool) {
-        if xws.get_wm_hints(window).map(|x| x.input != 0).unwrap_or(true) {
-            if let Some(index) = self.find_window(window) {
+        if xws.get_wm_hints(window).map(|x| x.input != 0).unwrap_or(true)
+            && let Some(index) = self.find_window(window) {
                 if self.cur != index {
                     let workspace = self.get_ws_mut(index)
                         .expect("valid workspace");
@@ -181,7 +181,6 @@ impl WmState {
                 } else {
                     self.current_ws_mut().focus_window(xws, window);
                 }
-            }
         }
     }
 
@@ -242,7 +241,7 @@ impl WmState {
             .enumerate()
             .filter(|&(i, workspace)| workspace.screen == screen && workspace.visible && i != self.cur)
             .map(|(i, _)| i)
-            .last();
+            .next_back();
 
         if let Some(index) = idx_workspace {
             self.workspaces[self.cur].unfocus(xws, config);

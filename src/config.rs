@@ -16,8 +16,52 @@ use std::path::{Path, PathBuf};
 use std::fs::{self, File};
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
+
 use libloading::os::unix::{Library, Symbol};
 use anyhow::{bail, Context, Result};
+
+const CFG_DEFAULT: &[u8] = br#"#![allow(unused_imports)]
+extern crate xr3wm;
+
+use std::default::Default;
+use xr3wm::core::*;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn configure_workspaces() -> Vec<WorkspaceConfig> {
+    use layout::*;
+
+    (1usize..10)
+        .map(|idx| {
+            WorkspaceConfig {
+                tag: idx.to_string(),
+                screen: 0,
+                layout: Strut::new(Choose::new(vec![Tall::new(1, 0.5, 0.05), Rotate::new(Tall::new(1, 0.5, 0.05)), Full::new(false)])),
+            }
+        })
+        .collect()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn configure_wm() -> Config {
+    let mut cfg: Config = Default::default();
+
+    cfg
+}"#;
+
+const CFG_CARGO_TOML: &[u8] = br#"[package]
+name = "config"
+version = "0.0.1"
+authors = ["xr3wm"]
+edition = "2024"
+
+[dependencies.xr3wm]
+git = "https://github.com/tsurai/xr3wm.git"
+default-features = true
+
+[lib]
+name = "config"
+path = "src/config.rs"
+crate-type = ["dylib"]"#;
 
 pub struct WorkspaceConfigList(Vec<WorkspaceConfig>);
 
@@ -300,58 +344,12 @@ impl Config {
             })
     }
 
-    fn create_default_cfg_file(path: &Path) -> Result<()> {
-        let mut f = File::create(path.join("config.rs"))
-            .context("failed to create config.rs")?;
-
-        f.write_all(b"#![allow(unused_imports)]
-extern crate xr3wm;
-
-use std::default::Default;
-use xr3wm::core::*;
-
-#[no_mangle]
-pub extern fn configure_workspaces() -> Vec<WorkspaceConfig> {
-    use layout::*;
-
-    (1usize..10)
-        .map(|idx| {
-            WorkspaceConfig {
-                tag: idx.to_string(),
-                screen: 0,
-                layout: Strut::new(Choose::new(vec![Tall::new(1, 0.5, 0.05), Rotate::new(Tall::new(1, 0.5, 0.05)), Full::new(false)])),
-            }
-        })
-        .collect()
-}
-
-#[no_mangle]
-pub extern fn configure_wm() -> Config {
-    let mut cfg: Config = Default::default();
-
-    cfg
-}")
-        .context("failed to write default config file")
-    }
-
-    fn create_cargo_toml_file(path: &Path) -> Result<()> {
+    fn write_cfg_file(path: &Path, file: &str) -> Result<()> {
         let mut f = File::create(path.join("Cargo.toml"))
-            .context("failed to create Cargo.toml")?;
+            .context("failed to create {file}")?;
 
-        f.write_all(b"[package]
-name = \"config\"
-version = \"0.0.1\"
-authors = [\"xr3wm\"]
-
-[dependencies.xr3wm]
-git = \"https://github.com/tsurai/xr3wm.git\"
-default-features = true
-
-[lib]
-name = \"config\"
-path = \"src/config.rs\"
-crate-type = [\"dylib\"]")
-            .context("failed to write Cargo.toml")
+        f.write_all(CFG_CARGO_TOML)
+            .context("failed to write {file}")
     }
 
     pub fn compile() -> Result<()> {
@@ -363,12 +361,12 @@ crate-type = [\"dylib\"]")
         }
 
         if !path.join("config.rs").exists() {
-            Self::create_default_cfg_file(&path)?;
+            Self::write_cfg_file(&path, "config.rs")?;
         }
 
         let path = path.join("..");
         if !path.join("Cargo.toml").exists() {
-            Self::create_cargo_toml_file(&path)?
+            Self::write_cfg_file(&path, "Cargo.toml")?;
         }
 
         let output = Command::new("cargo")

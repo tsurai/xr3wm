@@ -258,7 +258,7 @@ impl Workspace {
     }
 
     pub fn contains(&self, window: Window) -> bool {
-        self.all().iter().any(|&w| w == window)
+        self.all().contains(&window)
     }
 
     pub fn unfocus(&mut self, xws: &XlibWindowSystem, config: &Config) {

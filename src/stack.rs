@@ -261,7 +261,7 @@ impl Stack {
     }
 
     pub fn contains(&self, window: Window) -> bool {
-        self.all_windows().iter().any(|&x| x == window)
+        self.all_windows().contains(&window)
     }
 
     pub fn is_urgent(&self) -> bool {
