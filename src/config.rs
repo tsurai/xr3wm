@@ -7,6 +7,7 @@ use crate::xlib_window_system::XlibWindowSystem;
 use crate::commands::{Cmd, ManageHook};
 use crate::statusbar::Statusbar;
 use crate::layout::*;
+
 use std::env;
 use std::iter::FromIterator;
 use std::default::Default;
@@ -395,10 +396,10 @@ crate-type = [\"dylib\"]")
             let lib: Library = Library::open(Some(cfg_path), libc::RTLD_NOW | libc::RTLD_NODELETE)
                 .context("failed to load libconfig")?;
 
-            let fn_configure_wm: Symbol<extern fn() -> Config> = lib.get(b"configure_wm")
+            let fn_configure_wm: Symbol<extern "C" fn() -> Config> = lib.get(b"configure_wm")
                 .context("failed to get symbol")?;
 
-            let fn_configure_ws: Symbol<extern fn() -> Vec<WorkspaceConfig>> = lib.get(b"configure_workspaces")
+            let fn_configure_ws: Symbol<extern "C" fn() -> Vec<WorkspaceConfig>> = lib.get(b"configure_workspaces")
                 .context("failed to get symbol")?;
 
             let cfg_wm = fn_configure_wm();

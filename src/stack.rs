@@ -177,7 +177,7 @@ impl Stack {
             .collect()
     }
 
-    pub fn layout_iter(&self) -> LayoutIter {
+    pub fn layout_iter(&self) -> LayoutIter<'_> {
         LayoutIter { stack: Some(self) }
     }
 
@@ -394,7 +394,7 @@ impl Stack {
             .urgent
             .iter()
             .enumerate()
-            .find(|(_, &x)| x == window)
+            .find(|&(_, &x)| x == window)
             .map(|(i, _)| i);
 
         if let Some(idx) = res {

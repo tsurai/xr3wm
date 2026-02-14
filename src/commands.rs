@@ -53,11 +53,11 @@ impl Cmd {
                     Err(e) => error!("Cmd::Custom failed: {}", e),
                 }
             }
-            Cmd::Exec(ref cmd, ref args) => {
+            Cmd::Exec(cmd, args) => {
                 debug!("Cmd::Exec: {} {:?}", cmd, args);
                 exec(cmd.clone(), args.clone());
             }
-            Cmd::SpawnTerminal(ref args) => {
+            Cmd::SpawnTerminal(args) => {
                 debug!("Cmd::SpawnTerminal: {} {:?}", config.terminal, args);
                 exec(config.terminal.clone(), args.clone());
             }
@@ -77,7 +77,7 @@ impl Cmd {
                 debug!("Cmd::MoveToScreen: {}", screen);
                 state.move_window_to_screen(xws, config, screen - 1);
             }
-            Cmd::SendLayoutMsg(ref msg) => {
+            Cmd::SendLayoutMsg(msg) => {
                 debug!("Cmd::SendLayoutMsg::{:?}", msg);
                 state.current_ws_mut().send_layout_message(xws, msg.clone());
                 state.redraw_current(xws, config);

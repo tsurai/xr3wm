@@ -805,9 +805,11 @@ impl XlibWindowSystem {
     }
 
     unsafe fn ptr_to_string(ptr: *const i8) -> String {
-        match str::from_utf8(CStr::from_ptr(ptr).to_bytes()) {
-            Ok(s) => s.to_string(),
-            Err(_) => String::new(),
+        unsafe {
+            match str::from_utf8(CStr::from_ptr(ptr).to_bytes()) {
+                Ok(s) => s.to_string(),
+                Err(_) => String::new(),
+            }
         }
     }
 

@@ -408,7 +408,7 @@ impl WmState {
     pub fn try_remove_unmanaged(&mut self, window: Window) -> bool {
         if let Some((idx,_)) = self.unmanaged.iter()
             .enumerate()
-            .find(|(_,&x)| x == window)
+            .find(|&(_,&x)| x == window)
         {
             self.unmanaged.swap_remove(idx);
             true
